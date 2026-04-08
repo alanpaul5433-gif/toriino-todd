@@ -1,0 +1,21 @@
+{
+  "name": "toriino-backend",
+  "version": "1.0.0",
+  "description": "Toriino Todd AWS Backend - Lambda Functions & Infrastructure",
+  "scripts": {
+    "deploy:infra": "node infrastructure/deploy.js",
+    "deploy:lambdas": "node infrastructure/deploy-lambdas.js",
+    "deploy:api": "node infrastructure/deploy-api.js",
+    "deploy:all": "npm run deploy:infra && npm run deploy:lambdas && npm run deploy:api"
+  },
+  "dependencies": {
+    "@aws-sdk/client-api-gateway": "^3.700.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.700.0",
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/client-iam": "^3.700.0",
+    "@aws-sdk/client-lambda": "^3.700.0",
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0"
+  }
+}

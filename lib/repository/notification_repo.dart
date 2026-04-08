@@ -1,0 +1,33 @@
+import 'package:getxmvvm/data/appURL/app_url.dart';
+import 'package:getxmvvm/data/network/auth_interceptor.dart';
+import 'package:getxmvvm/data/network/network_api_services.dart';
+
+class NotificationRepo {
+  final _apiServices = NetworkApiServices();
+
+  Future<dynamic> getNotifications() async {
+    final headers = await AuthInterceptor.getAuthHeaders();
+    return await _apiServices.getGetApiResponse(
+      AppUrl.notifications,
+      headers: headers,
+    );
+  }
+
+  Future<dynamic> markAsRead(String sortKey) async {
+    final headers = await AuthInterceptor.getAuthHeaders();
+    return await _apiServices.getPatchApiResponse(
+      AppUrl.markNotificationRead(sortKey),
+      {},
+      headers: headers,
+    );
+  }
+
+  Future<dynamic> registerFcmToken(String fcmToken) async {
+    final headers = await AuthInterceptor.getAuthHeaders();
+    return await _apiServices.getPostApiResponse(
+      AppUrl.registerFcmToken,
+      {'fcmToken': fcmToken},
+      headers,
+    );
+  }
+}
