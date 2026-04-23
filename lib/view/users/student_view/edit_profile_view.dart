@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StudentEditProfileView extends StatefulWidget {
@@ -195,10 +195,12 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: educationLevel,
                   items:
                       educationLevels.map((String level) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: level,
                           child: Text(level),
                         );
@@ -248,10 +250,12 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                       ],
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: selectedLanguage,
                   items:
                       languages.map((String language) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: language,
                           child: Text(language),
                         );

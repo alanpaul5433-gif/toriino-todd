@@ -51,18 +51,23 @@ class AwesomeTheme {
 class LightTheme extends AwesomeTheme {}
 
 class DarkTheme extends AwesomeTheme {
+  // ignore: overridden_fields
   @override
-  Color backgroundColor =  Colors.red;
+  Color backgroundColor = Colors.red;
+  // ignore: overridden_fields
   @override
   Color buttonColor = const Color(0xFFFFFFFF);
+  // ignore: overridden_fields
   @override
-  TextStyle yearAndMonthHeaderTextStyle =  TextStyle(
-    color:Colors.red,
+  TextStyle yearAndMonthHeaderTextStyle = const TextStyle(
+    color: Colors.red,
     fontWeight: FontWeight.bold,
     fontSize: 18,
   );
+  // ignore: overridden_fields
   @override
   TextStyle weekDaysTextStyle = const TextStyle(color: Color(0xFFB5BEC6));
+  // ignore: overridden_fields
   @override
   TextStyle unselectedDayTextStyle = const TextStyle(color: Color(0xFFFFFFFF));
 }

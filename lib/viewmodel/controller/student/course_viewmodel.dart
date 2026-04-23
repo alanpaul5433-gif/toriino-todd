@@ -1,9 +1,9 @@
-import 'package:get/get.dart';
-import 'package:getxmvvm/data/response/api_response.dart';
-import 'package:getxmvvm/model/course/course_model.dart';
-import 'package:getxmvvm/model/course/lesson_model.dart';
-import 'package:getxmvvm/repository/mock/mock_repo.dart';
-import 'package:getxmvvm/utils/utils.dart';
+﻿import 'package:get/get.dart';
+import 'package:toriino_todd/data/response/api_response.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/model/course/lesson_model.dart';
+import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class CourseViewmodel extends GetxController {
   final rxCourses = Rx<ApiResponse<CourseListResponse>>(ApiResponse.loading());

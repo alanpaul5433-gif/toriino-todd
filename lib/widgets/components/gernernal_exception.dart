@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
 
 class GernernalException extends StatefulWidget {
   final VoidCallback onPressed;

@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/resources/getx_localization/language.dart';
-import 'package:getxmvvm/resources/routes/routes.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/resources/getx_localization/language.dart';
+import 'package:toriino_todd/resources/routes/routes.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {

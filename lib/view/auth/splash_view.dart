@@ -1,8 +1,8 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/view/auth/login_view.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/view/auth/login_view.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});

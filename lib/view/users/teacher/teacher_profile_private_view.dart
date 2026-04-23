@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/student_view/notification_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_profile_edit_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_upload_view.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_profile_edit_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_upload_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherProfilePrivateView extends StatelessWidget {

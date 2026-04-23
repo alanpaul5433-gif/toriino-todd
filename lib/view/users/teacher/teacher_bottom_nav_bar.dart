@@ -1,20 +1,20 @@
-// main_wrapper.dart
+﻿// main_wrapper.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_advanced_drawer/flutter_advanced_drawer.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/auth/splash_view.dart';
-import 'package:getxmvvm/view/users/common_view/Privacy_policy_view.dart';
-import 'package:getxmvvm/view/users/student_view/setting_view.dart';
-import 'package:getxmvvm/view/users/student_view/support_view.dart';
-import 'package:getxmvvm/view/users/teacher/ai_tutar_teacher.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_cousre_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_earinig_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_home_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_profile_private_view.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/auth/splash_view.dart';
+import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
+import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/support_view.dart';
+import 'package:toriino_todd/view/users/teacher/ai_tutar_teacher.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_earinig_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_profile_private_view.dart';
 
 class TeacherBottomNavBar extends StatefulWidget {
   const TeacherBottomNavBar({super.key});
@@ -142,8 +142,11 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
           ),
         ),
       ),
-      child: WillPopScope(
-        onWillPop: _onWillPop,
+      child: PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (!didPop) _onWillPop();
+      },
         child: Scaffold(
           body: Obx(() => _pages[_customDrawerController.currentIndex.value]),
           bottomNavigationBar: _buildBottomNavBar(),
@@ -157,7 +160,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
     );
   }
 
-  Future<bool> _onWillPop() async {
+  void _onWillPop() {
     final now = DateTime.now();
     if (_lastBackPressTime == null ||
         now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
@@ -171,9 +174,9 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
           duration: const Duration(seconds: 2),
         ),
       );
-      return false;
+    } else {
+      Navigator.of(context).pop();
     }
-    return true;
   }
 
   Widget _buildBottomNavBar() {

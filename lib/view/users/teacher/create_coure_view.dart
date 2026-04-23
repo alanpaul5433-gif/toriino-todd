@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/teacher/add_lesson_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_home_view.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/teacher/add_lesson_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CreateCoureView extends StatefulWidget {
@@ -212,10 +212,12 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     ),
                   ),
                 ),
+                // ignore: deprecated_member_use
                 value: courseCategory,
                 items:
                     courseCategories.map((String language) {
                       return DropdownMenuItem<String>(
+                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,
@@ -272,10 +274,12 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     ),
                   ),
                 ),
+                // ignore: deprecated_member_use
                 value: courselevel,
                 items:
                     courseLevels.map((String language) {
                       return DropdownMenuItem<String>(
+                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,
@@ -332,10 +336,12 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     ),
                   ),
                 ),
+                // ignore: deprecated_member_use
                 value: selectedlanguages,
                 items:
                     languages.map((String language) {
                       return DropdownMenuItem<String>(
+                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,

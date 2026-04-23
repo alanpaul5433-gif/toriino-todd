@@ -1,5 +1,5 @@
-name: getxmvvm
-description: "A new Flutter project."
+name: toriino_todd
+description: "Toriino Todd — EdTech platform connecting Students, Teachers, and Mentors for live sessions, courses, and AI-powered learning."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

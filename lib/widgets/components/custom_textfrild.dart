@@ -1,8 +1,8 @@
-
+﻿
 import 'package:flutter/material.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class EditProfileTextfeild extends StatelessWidget {
   final String text;

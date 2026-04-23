@@ -1,9 +1,9 @@
-import 'package:awesome_calendart/awesome_calendart.dart';
+﻿import 'package:awesome_calendart/awesome_calendart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/mentor_view/edit_mentor_avaiblity_view.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/mentor_view/edit_mentor_avaiblity_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorAvailability extends StatefulWidget {
@@ -33,7 +33,7 @@ class _MentorAvailabilityState extends State<MentorAvailability> {
               surface: AppColor.primaryColor,
               onSurface: AppColor.white,
             ),
-            dialogBackgroundColor: AppColor.primaryColor,
+            // ignore: deprecated_member_use AppColor.primaryColor,
           ),
           child: child!,
         );
@@ -59,7 +59,7 @@ class _MentorAvailabilityState extends State<MentorAvailability> {
               surface: AppColor.primaryColor,
               onSurface: AppColor.white,
             ),
-            dialogBackgroundColor: AppColor.primaryColor,
+            // ignore: deprecated_member_use AppColor.primaryColor,
           ),
           child: child!,
         );
@@ -443,9 +443,9 @@ class _MentorAvailabilityState extends State<MentorAvailability> {
 // import 'package:awesome_calendart/awesome_calendart.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/svg.dart';
-// import 'package:getxmvvm/resources/colors/app_colors.dart';
-// import 'package:getxmvvm/utils/responsive.dart';
-// import 'package:getxmvvm/view/student_view/mytheme.dart' hide DarkTheme;
+// import 'package:toriino_todd/resources/colors/app_colors.dart';
+// import 'package:toriino_todd/utils/responsive.dart';
+// import 'package:toriino_todd/view/student_view/mytheme.dart' hide DarkTheme;
 // import 'package:google_fonts/google_fonts.dart';
 
 // class MentorAvailability extends StatefulWidget {

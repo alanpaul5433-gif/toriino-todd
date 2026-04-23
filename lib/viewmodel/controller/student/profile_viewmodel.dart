@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/data/response/api_response.dart';
-import 'package:getxmvvm/model/user/user_profile_model.dart';
-import 'package:getxmvvm/repository/mock/mock_repo.dart';
-import 'package:getxmvvm/utils/utils.dart';
+import 'package:toriino_todd/data/response/api_response.dart';
+import 'package:toriino_todd/model/user/user_profile_model.dart';
+import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class ProfileViewmodel extends GetxController {
   final rxProfile = Rx<ApiResponse<UserProfileModel>>(ApiResponse.loading());

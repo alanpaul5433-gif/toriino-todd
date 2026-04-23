@@ -1,11 +1,11 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/model/login/User_model.dart';
-import 'package:getxmvvm/repository/auth_repo.dart';
-import 'package:getxmvvm/resources/routes/routes_name.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
+import 'package:toriino_todd/model/login/User_model.dart';
+import 'package:toriino_todd/repository/auth_repo.dart';
+import 'package:toriino_todd/resources/routes/routes_name.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 
 class LoginViewmodel extends GetxController {
   UsersPrefrence usersPrefrence = UsersPrefrence();

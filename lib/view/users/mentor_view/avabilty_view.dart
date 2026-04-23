@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/mentor_view/Mentor_Subcirption_view.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AvailabilityScreen extends StatefulWidget {
@@ -404,7 +404,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                                 surface: AppColor.primaryColor,
                                 onSurface: AppColor.white,
                               ),
-                              dialogBackgroundColor: AppColor.primaryColor,
+                              // ignore: deprecated_member_use AppColor.primaryColor,
                             ),
                             child: child!,
                           );
@@ -542,8 +542,8 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
 // import 'package:flutter/material.dart';
 // import 'package:flutter/services.dart';
 // import 'package:flutter_svg/svg.dart';
-// import 'package:getxmvvm/resources/colors/app_colors.dart';
-// import 'package:getxmvvm/utils/responsive.dart';
+// import 'package:toriino_todd/resources/colors/app_colors.dart';
+// import 'package:toriino_todd/utils/responsive.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
 // class AvailabilityScreen extends StatefulWidget {
@@ -893,8 +893,8 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
 
 // // import 'package:flutter/material.dart';
 // // import 'package:flutter_svg/svg.dart';
-// // import 'package:getxmvvm/resources/colors/app_colors.dart';
-// // import 'package:getxmvvm/utils/responsive.dart';
+// // import 'package:toriino_todd/resources/colors/app_colors.dart';
+// // import 'package:toriino_todd/utils/responsive.dart';
 
 // // class AvabiltyView extends StatelessWidget {
 // //   const AvabiltyView({super.key});

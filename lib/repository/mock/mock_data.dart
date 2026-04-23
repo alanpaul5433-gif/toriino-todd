@@ -1,5 +1,5 @@
-/// Mock data for all roles — Student, Teacher, Mentor.
-/// When AWS is ready, remove this file and point repos to real API.
+// Mock data for all roles — Student, Teacher, Mentor.
+// When AWS is ready, remove this file and point repos to real API.
 
 class MockData {
   // ── Student Profile ───────────────────────────────────

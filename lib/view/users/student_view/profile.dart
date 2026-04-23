@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/student_view/interest_view.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/student_view/interest_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StudentProfileSetup extends StatefulWidget {
@@ -177,10 +177,12 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
                       ),
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: educationLevel,
                   items:
                       educationLevels.map((String level) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: level,
                           child: Text(level),
                         );
@@ -234,10 +236,12 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
                       ),
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: selectedLanguage,
                   items:
                       languages.map((String language) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: language,
                           child: Text(language),
                         );
@@ -304,7 +308,7 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/svg.dart';
-// import 'package:getxmvvm/resources/AppColor/app_AppColor.dart';
+// import 'package:toriino_todd/resources/AppColor/app_AppColor.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
 // class StudentProfile extends StatefulWidget {

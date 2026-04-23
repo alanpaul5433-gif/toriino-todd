@@ -1,8 +1,8 @@
-import 'package:get/get.dart';
-import 'package:getxmvvm/data/response/api_response.dart';
-import 'package:getxmvvm/model/mentor/availability_model.dart';
-import 'package:getxmvvm/repository/mock/mock_repo.dart';
-import 'package:getxmvvm/utils/utils.dart';
+﻿import 'package:get/get.dart';
+import 'package:toriino_todd/data/response/api_response.dart';
+import 'package:toriino_todd/model/mentor/availability_model.dart';
+import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class MentorAvailabilityViewmodel extends GetxController {
   final rxSlots = Rx<ApiResponse<List<AvailabilityModel>>>(ApiResponse.loading());

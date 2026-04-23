@@ -1,4 +1,4 @@
-import 'package:getxmvvm/model/login/User_model.dart';
+﻿import 'package:toriino_todd/model/login/User_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UsersPrefrence {

@@ -1,5 +1,5 @@
-/// Mock AI Tutor that simulates Gemini/ChatGPT responses.
-/// Returns canned educational responses with realistic delay.
+// Mock AI Tutor that simulates Gemini/ChatGPT responses.
+// Returns canned educational responses with realistic delay.
 
 class MockAiTutor {
   static final Map<String, String> _responses = {

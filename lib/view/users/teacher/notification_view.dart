@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
 
 class NotificationPermission extends StatefulWidget {
   const NotificationPermission({super.key});
@@ -76,10 +76,9 @@ class NotificationTile extends StatefulWidget {
 class _NotificationTileState extends State<NotificationTile> {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
@@ -93,7 +92,6 @@ class _NotificationTileState extends State<NotificationTile> {
             CustomSwitch(),
           ],
         ),
-      ),
     );
   }
 }
@@ -111,15 +109,15 @@ class _CustomSwitchState extends State<CustomSwitch> {
   Widget build(BuildContext context) {
     return SwitchTheme(
       data: SwitchThemeData(
-        trackOutlineColor: MaterialStateProperty.all(Colors.transparent),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
 
-        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColor.baseColor;
           }
           return Colors.white;
         }),
-        trackColor: MaterialStateProperty.all(Color(0xffEAEAEA)),
+        trackColor: WidgetStateProperty.all(Color(0xffEAEAEA)),
       ),
       child: Switch(
         activeThumbColor: AppColor.red,

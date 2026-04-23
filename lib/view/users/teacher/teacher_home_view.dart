@@ -1,18 +1,18 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/view/users/student_view/notification_view.dart';
-import 'package:getxmvvm/view/users/student_view/student_public_profile_view.dart';
-import 'package:getxmvvm/view/users/teacher/create_coure_view.dart';
-import 'package:getxmvvm/view/users/teacher/edit_coure_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_subcribption.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
-import 'package:getxmvvm/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
-import 'package:getxmvvm/data/response/status.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/view/users/student_view/student_public_profile_view.dart';
+import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
+import 'package:toriino_todd/view/users/teacher/edit_coure_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_subcribption.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
+import 'package:toriino_todd/data/response/status.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherHomeView extends StatelessWidget {

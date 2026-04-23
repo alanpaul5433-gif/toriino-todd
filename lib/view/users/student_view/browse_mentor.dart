@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/users/mentor_view/mentor_public_profile.dart';
-import 'package:getxmvvm/view/users/student_view/availability_view.dart';
-import 'package:getxmvvm/view/users/student_view/notification_view.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
-import 'package:getxmvvm/viewmodel/controller/student/mentor_list_viewmodel.dart';
-import 'package:getxmvvm/data/response/status.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_public_profile.dart';
+import 'package:toriino_todd/view/users/student_view/availability_view.dart';
+import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/viewmodel/controller/student/mentor_list_viewmodel.dart';
+import 'package:toriino_todd/data/response/status.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class BrowseMentor extends StatelessWidget {

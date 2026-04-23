@@ -1,13 +1,13 @@
-import 'package:flutter/gestures.dart';
+﻿import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/view/auth/role_selector_view.dart';
-import 'package:getxmvvm/view/auth/sign_up_view.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
-import 'package:getxmvvm/widgets/social_button.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/auth/role_selector_view.dart';
+import 'package:toriino_todd/view/auth/sign_up_view.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
+// social_button removed — social login not implemented yet
 import 'package:google_fonts/google_fonts.dart';
 
 class Loginview extends StatefulWidget {
@@ -233,39 +233,6 @@ class _LoginviewState extends State<Loginview> {
                 ),
                 SizedBox(height: Responsive.h(8)),
                 Row(
-                  children: [
-                    Expanded(child: Divider(color: AppColor.white)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: Responsive.w(3),
-                      ),
-                      child: Text(
-                        "OR",
-                        style: GoogleFonts.dmSans(
-                          color: AppColor.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: Responsive.sp(10),
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: AppColor.white)),
-                  ],
-                ),
-                SizedBox(height: Responsive.h(8)),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    SocialButton(
-                      iconPath: 'assets/icons/google.svg',
-                      ontap: () {},
-                    ),
-                    // _buildSocialButton("assets/icons/google.svg"),
-                    _buildSocialButton("assets/icons/facebook.svg"),
-                    _buildSocialButton("assets/icons/apple.svg"),
-                  ],
-                ),
-                SizedBox(height: Responsive.h(8)),
-                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -313,20 +280,6 @@ class _LoginviewState extends State<Loginview> {
     );
   }
 
-  Widget _buildSocialButton(String iconPath) {
-    return Container(
-      height: Responsive.h(6), // 6% of screen height
-      width: Responsive.w(25), // 20% of screen width
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Responsive.w(5.5)),
-        color: AppColor.white.withValues(alpha: 0.08),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(Responsive.w(3)),
-        child: SvgPicture.asset(iconPath),
-      ),
-    );
-  }
 }
 
 void _showForgotPasswordBottomSheet(

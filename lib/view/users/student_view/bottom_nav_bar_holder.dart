@@ -1,21 +1,21 @@
-// main_wrapper.dart
+﻿// main_wrapper.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_advanced_drawer/flutter_advanced_drawer.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/view/auth/splash_view.dart';
-import 'package:getxmvvm/view/users/common_view/Privacy_policy_view.dart';
-import 'package:getxmvvm/view/users/student_view/ai_tutor_view.dart';
-import 'package:getxmvvm/view/users/student_view/home_view.dart';
-import 'package:getxmvvm/view/users/student_view/browse_mentor.dart';
-import 'package:getxmvvm/view/users/student_view/course_view.dart';
-import 'package:getxmvvm/view/users/student_view/setting_view.dart';
-import 'package:getxmvvm/view/users/student_view/sessions.dart';
-import 'package:getxmvvm/view/users/student_view/student_private_profile_view.dart';
-import 'package:getxmvvm/view/users/student_view/support_view.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/auth/splash_view.dart';
+import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
+import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
+import 'package:toriino_todd/view/users/student_view/home_view.dart';
+import 'package:toriino_todd/view/users/student_view/browse_mentor.dart';
+import 'package:toriino_todd/view/users/student_view/course_view.dart';
+import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/sessions.dart';
+import 'package:toriino_todd/view/users/student_view/student_private_profile_view.dart';
+import 'package:toriino_todd/view/users/student_view/support_view.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -147,8 +147,11 @@ class _MainWrapperState extends State<MainWrapper> {
           ),
         ),
       ),
-      child: WillPopScope(
-        onWillPop: _onWillPop,
+      child: PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (!didPop) _onWillPop();
+      },
         child: Scaffold(
           body: Obx(() => _pages[_customDrawerController.currentIndex.value]),
           bottomNavigationBar: _buildBottomNavBar(),
@@ -157,7 +160,7 @@ class _MainWrapperState extends State<MainWrapper> {
     );
   }
 
-  Future<bool> _onWillPop() async {
+  void _onWillPop() {
     final now = DateTime.now();
     if (_lastBackPressTime == null ||
         now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
@@ -171,9 +174,9 @@ class _MainWrapperState extends State<MainWrapper> {
           duration: const Duration(seconds: 2),
         ),
       );
-      return false;
+    } else {
+      Navigator.of(context).pop();
     }
-    return true;
   }
 
   Widget _buildBottomNavBar() {

@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/repository/mock/mock_ai_tutor.dart';
+import 'package:toriino_todd/repository/mock/mock_ai_tutor.dart';
 
 class ChatMessage {
   final String text;

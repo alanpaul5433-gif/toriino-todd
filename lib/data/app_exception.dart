@@ -1,6 +1,6 @@
 class AppException implements Exception {
-  final massage;
-  final prefix;
+  final String? massage;
+  final String? prefix;
   AppException([this.massage, this.prefix]);
 
   @override

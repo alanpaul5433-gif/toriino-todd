@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/view/users/teacher/add_lessons_view.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_bottom_nav_bar.dart';
-import 'package:getxmvvm/view/users/teacher/teacher_home_view.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/teacher/add_lessons_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AddLessonView extends StatefulWidget {

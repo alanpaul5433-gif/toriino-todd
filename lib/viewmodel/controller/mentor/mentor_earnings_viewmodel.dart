@@ -1,7 +1,7 @@
-import 'package:get/get.dart';
-import 'package:getxmvvm/data/response/api_response.dart';
-import 'package:getxmvvm/model/earnings/earnings_model.dart';
-import 'package:getxmvvm/repository/mock/mock_repo.dart';
+﻿import 'package:get/get.dart';
+import 'package:toriino_todd/data/response/api_response.dart';
+import 'package:toriino_todd/model/earnings/earnings_model.dart';
+import 'package:toriino_todd/repository/mock/mock_repo.dart';
 
 class MentorEarningsViewmodel extends GetxController {
   final rxSummary = Rx<ApiResponse<EarningsSummaryResponse>>(ApiResponse.loading());

@@ -1,32 +1,30 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/view/users/mentor_view/mentor_public_profile.dart';
-import 'package:getxmvvm/view/users/student_view/availability_view.dart';
-import 'package:getxmvvm/view/users/student_view/browse_mentor.dart';
-import 'package:getxmvvm/view/users/student_view/browsetecaher.dart';
-import 'package:getxmvvm/view/users/student_view/course_view.dart';
-import 'package:getxmvvm/view/users/student_view/my_taken_cousre_view.dart';
-import 'package:getxmvvm/view/users/student_view/mycourse_view.dart';
-import 'package:getxmvvm/view/users/student_view/notification_view.dart';
-import 'package:getxmvvm/view/users/student_view/sessions.dart';
-import 'package:getxmvvm/view/users/student_view/student_private_profile_view.dart';
-import 'package:getxmvvm/view/users/student_view/teacher_profile.dart';
-import 'package:getxmvvm/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
-import 'package:getxmvvm/viewmodel/controller/student/home_viewmodel.dart';
-import 'package:getxmvvm/data/response/status.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
-import 'package:getxmvvm/widgets/components/custom_recent_quiz.dart';
-import 'package:getxmvvm/widgets/custom_button.dart';
-import 'package:getxmvvm/widgets/custom_ongoing_widget_card.dart';
-import 'package:getxmvvm/widgets/custom_recommended_mentors.dart';
-import 'package:getxmvvm/widgets/custom_recommended_teacher.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_public_profile.dart';
+import 'package:toriino_todd/view/users/student_view/availability_view.dart';
+import 'package:toriino_todd/view/users/student_view/browsetecaher.dart';
+import 'package:toriino_todd/view/users/student_view/course_view.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
+import 'package:toriino_todd/view/users/student_view/mycourse_view.dart';
+import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/view/users/student_view/student_private_profile_view.dart';
+import 'package:toriino_todd/view/users/student_view/teacher_profile.dart';
+import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
+import 'package:toriino_todd/viewmodel/controller/student/home_viewmodel.dart';
+import 'package:toriino_todd/data/response/status.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/widgets/components/custom_recent_quiz.dart';
+import 'package:toriino_todd/widgets/custom_button.dart';
+import 'package:toriino_todd/widgets/custom_ongoing_widget_card.dart';
+import 'package:toriino_todd/widgets/custom_recommended_mentors.dart';
+import 'package:toriino_todd/widgets/custom_recommended_teacher.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class HomeView extends StatefulWidget {
@@ -196,7 +194,7 @@ class _HomeViewState extends State<HomeView> {
                                 children: [
                                   Text("Courses in\nProgress", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.sp(10))),
                                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                                    Text("${coursesCount.toString().padLeft(2, '0')}", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
+                                    Text(coursesCount.toString().padLeft(2, '0'), style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
                                   ]),
                                 ],
                               ),

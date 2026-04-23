@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/view/users/mentor_view/upload_video.dart';
-import 'package:getxmvvm/widgets/components/button_large.dart';
-import 'package:getxmvvm/widgets/components/edit.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/mentor_view/upload_video.dart';
+import 'package:toriino_todd/widgets/components/button_large.dart';
+import 'package:toriino_todd/widgets/components/edit.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorPrivateProfile extends StatefulWidget {
@@ -235,6 +235,7 @@ class _MentorPrivateProfileState extends State<MentorPrivateProfile> {
                   items:
                       selectedIndustries.map((String language) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: language,
                           child: Text(language),
                         );
@@ -295,10 +296,12 @@ class _MentorPrivateProfileState extends State<MentorPrivateProfile> {
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: educationLevel,
                   items:
                       educationLevels.map((String level) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: level,
                           child: Text(level),
                         );
@@ -352,10 +355,12 @@ class _MentorPrivateProfileState extends State<MentorPrivateProfile> {
                       ),
                     ),
                   ),
+                  // ignore: deprecated_member_use
                   value: selectedLanguage,
                   items:
                       languages.map((String language) {
                         return DropdownMenuItem<String>(
+                          // ignore: deprecated_member_use
                           value: language,
                           child: Text(language),
                         );

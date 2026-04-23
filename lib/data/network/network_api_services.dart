@@ -1,9 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:getxmvvm/data/app_exception.dart';
-import 'package:getxmvvm/data/network/base_api_services.dart';
+import 'package:toriino_todd/data/app_exception.dart';
+import 'package:toriino_todd/data/network/base_api_services.dart';
 import 'package:http/http.dart' as http;
 
 class NetworkApiServices extends BaseApiServices {

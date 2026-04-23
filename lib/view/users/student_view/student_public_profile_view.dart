@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:getxmvvm/getx_controllers/advanceddrawercontroller.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StudentPublicProfileView extends StatelessWidget {
@@ -553,10 +553,10 @@ class StudentPublicProfileView extends StatelessWidget {
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/svg.dart';
 // import 'package:get/get.dart';
-// import 'package:getxmvvm/getx_controllers/advanceddrawercontroller%20.dart';
-// import 'package:getxmvvm/resources/colors/app_colors.dart';
-// import 'package:getxmvvm/utils/responsive.dart';
-// import 'package:getxmvvm/view/users/student_view/review.dart';
+// import 'package:toriino_todd/getx_controllers/advanceddrawercontroller%20.dart';
+// import 'package:toriino_todd/resources/colors/app_colors.dart';
+// import 'package:toriino_todd/utils/responsive.dart';
+// import 'package:toriino_todd/view/users/student_view/review.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
 // class StudentPublicProfileView extends StatelessWidget {

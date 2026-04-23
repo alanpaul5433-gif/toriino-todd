@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart' show SvgPicture;
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/utils/responsive.dart';
-import 'package:getxmvvm/utils/utils.dart';
-import 'package:getxmvvm/widgets/auth_button.dart';
-import 'package:getxmvvm/widgets/components/edit.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/widgets/components/edit.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CreatenewTicticketView extends StatelessWidget {

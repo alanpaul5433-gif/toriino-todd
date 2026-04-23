@@ -1,8 +1,9 @@
-import 'dart:ui';
+﻿import 'dart:ui';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
-import 'package:getxmvvm/resources/colors/app_colors.dart';
-import 'package:getxmvvm/widgets/components/starrating.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/widgets/components/starrating.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class FilterBottomSheet extends StatefulWidget {
@@ -13,6 +14,7 @@ class FilterBottomSheet extends StatefulWidget {
 }
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
+  // ignore: prefer_final_fields
   String _selectedDuration = '1 h';
   String _selectedLanguage = 'English';
   String _selectedCategory = 'All';
@@ -538,13 +540,15 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
 
   void _applyFilters() {
     // Implement your filter logic here
-    print('Applied Filters:');
-    print('Duration: $_selectedDuration');
-    print('Language: $_selectedLanguage');
-    print('Category: $_selectedCategory');
-    print('Level: $_selectedLevel');
-    print('Rating: $_rating');
-    print('Price Range: \$${_minPrice.round()} - \$${_maxPrice.round()}');
+    if (kDebugMode) {
+      print('Applied Filters:');
+      print('Duration: $_selectedDuration');
+      print('Language: $_selectedLanguage');
+      print('Category: $_selectedCategory');
+      print('Level: $_selectedLevel');
+      print('Rating: $_rating');
+      print('Price Range: \$${_minPrice.round()} - \$${_maxPrice.round()}');
+    }
 
     // You can use GetX to update the controller or call a callback function
     // Example: Get.find<YourFilterController>().updateFilters(...);
