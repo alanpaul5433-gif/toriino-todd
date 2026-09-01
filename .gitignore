@@ -49,3 +49,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Admin panel
+admin-panel/node_modules/
+admin-panel/.next/
+admin-panel/.env.local
+
+# AWS deploy temp
+aws-backend/infrastructure/.tmp-zips/

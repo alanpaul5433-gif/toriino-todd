@@ -2,10 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
-      "runtimeExecutable": "flutter",
-      "runtimeArgs": ["run", "-d", "chrome", "--web-port", "8080"],
-      "port": 8080
+      "name": "admin-panel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001,
+      "cwd": "admin-panel"
     }
   ]
 }

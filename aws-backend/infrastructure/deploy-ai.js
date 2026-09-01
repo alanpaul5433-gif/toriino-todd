@@ -205,6 +205,15 @@ const AI_LAMBDAS = [
     },
     s3Trigger: RECORDING_S3_BUCKET,
   },
+  {
+    name: `${PROJECT_PREFIX}-admin`,
+    dir: path.join(__dirname, "..", "lambda", "admin"),
+    timeout: 30,
+    memorySize: 256,
+    envVars: {
+      COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID || config.userPoolId || "",
+    },
+  },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -435,6 +444,15 @@ function printRoutesSummary() {
     ["POST",     "/sessions/{id}/recording/start", "toriino-agora-recording"],
     ["POST",     "/sessions/{id}/recording/stop",  "toriino-agora-recording"],
     ["GET",      "/sessions/{id}/recording",       "toriino-agora-recording"],
+    ["GET",      "/admin/stats",                   "toriino-admin"],
+    ["GET/PUT",  "/admin/users",                   "toriino-admin"],
+    ["GET",      "/admin/courses",                 "toriino-admin"],
+    ["GET",      "/admin/sessions",                "toriino-admin"],
+    ["GET",      "/admin/mentors",                 "toriino-admin"],
+    ["GET",      "/admin/earnings",                "toriino-admin"],
+    ["GET",      "/admin/reviews",                 "toriino-admin"],
+    ["GET",      "/admin/ai/stats",                "toriino-admin"],
+    ["POST",     "/admin/notifications/broadcast", "toriino-admin"],
   ];
   for (const [method, route, fn] of routes) {
     console.log(`  │  ${method.padEnd(8)} ${route.padEnd(36)} → ${fn}`);
