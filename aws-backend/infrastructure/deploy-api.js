@@ -34,7 +34,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 
-const REGION = "us-east-2";
+const REGION = "us-east-1";
 const PROJECT_PREFIX = "toriino";
 const STAGE_NAME = "prod";
 

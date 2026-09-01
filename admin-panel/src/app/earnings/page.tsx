@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import AdminShell from '@/components/AdminShell';
 import { api, EarningsOverview } from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { exportToCsv } from '@/lib/export';
+import { Download } from 'lucide-react';
 
 export default function EarningsPage() {
   const [data, setData] = useState<EarningsOverview | null>(null);
@@ -19,9 +21,19 @@ export default function EarningsPage() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="page-title">Earnings & Revenue</h1>
-          <p className="text-gray-500 mt-1">Platform-wide financial overview</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="page-title">Earnings & Revenue</h1>
+            <p className="text-gray-500 mt-1">Platform-wide financial overview</p>
+          </div>
+          {data && (
+            <button
+              onClick={() => exportToCsv('toriino-earnings', data.byUser.map(u => ({ ...u })))}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Download size={16} /> Export CSV
+            </button>
+          )}
         </div>
 
         {loading ? (
