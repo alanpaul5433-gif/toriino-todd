@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
@@ -63,7 +63,8 @@ void main() {
       await tester.pumpWidget(
         GetMaterialApp(home: const RoleSelectionScreen()),
       );
-      await tester.tap(find.text("I'm a Student"));
+      await tester.pump();
+      await tester.tap(find.text("I’m a Student", skipOffstage: false));
       await tester.pump();
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.onPressed, isNotNull);
@@ -74,9 +75,9 @@ void main() {
         GetMaterialApp(home: const RoleSelectionScreen()),
       );
       await tester.pump();
-      expect(find.text("I'm a Student"), findsOneWidget);
-      expect(find.text("I'm a Teacher"), findsOneWidget);
-      expect(find.text("I'm a Mentor"), findsOneWidget);
+      expect(find.text("I’m a Student", skipOffstage: false), findsOneWidget);
+      expect(find.text("I’m a Teacher", skipOffstage: false), findsOneWidget);
+      expect(find.text("I’m a Mentor", skipOffstage: false), findsOneWidget);
     });
   });
 

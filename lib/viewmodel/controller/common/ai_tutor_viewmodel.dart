@@ -1,63 +1,88 @@
-﻿import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:toriino_todd/repository/mock/mock_ai_tutor.dart';
+import 'package:toriino_todd/model/ai/chat_message_model.dart';
+import 'package:toriino_todd/services/gemini_service.dart';
 
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final String time;
-
-  ChatMessage({required this.text, required this.isUser, required this.time});
-}
+export 'package:toriino_todd/model/ai/chat_message_model.dart';
 
 class AiTutorViewmodel extends GetxController {
   final messageController = TextEditingController();
-  final RxList<ChatMessage> messages = <ChatMessage>[].obs;
+  final RxList<ChatMessageModel> messages = <ChatMessageModel>[].obs;
   final RxBool isTyping = false.obs;
+
+  // Rolling conversation history passed to Gemini for context
+  final List<String> _history = [];
+
+  // Optional: set this when the student is inside a specific course
+  String? courseTopic;
 
   @override
   void onInit() {
     super.onInit();
-    // Add welcome message
-    messages.add(ChatMessage(
-      text: 'Hello! I\'m your AI Tutor powered by Toriino. Ask me anything about your courses, homework, or any academic topic. I\'m here to help you learn!',
+    const welcome = 'Hello! I\'m your AI Tutor powered by Toriino. '
+        'Ask me anything about your courses, homework, or any academic topic. '
+        'I\'m here to help you learn!';
+    messages.add(ChatMessageModel(
+      id: _id(),
+      text: welcome,
       isUser: false,
-      time: _formatTime(),
+      timestamp: DateTime.now(),
     ));
+    // Seed the history so Gemini knows its role from the first message
+    _history.add(
+      courseTopic != null
+          ? 'You are a helpful AI study tutor on the Toriino platform for the topic: "$courseTopic". Be concise and educational.'
+          : 'You are a helpful AI study tutor on the Toriino platform. Be concise and educational.',
+    );
+    _history.add(welcome);
   }
 
   void sendMessage() {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
 
-    // Add user message
-    messages.add(ChatMessage(
+    messages.add(ChatMessageModel(
+      id: _id(),
       text: text,
       isUser: true,
-      time: _formatTime(),
+      timestamp: DateTime.now(),
     ));
     messageController.clear();
-
-    // Show typing indicator
     isTyping.value = true;
 
-    // Get AI response
-    MockAiTutor.getResponse(text).then((response) {
+    // Keep last 20 turns to stay within context window
+    final recentHistory = _history.length > 20
+        ? _history.sublist(_history.length - 20)
+        : List<String>.from(_history);
+
+    GeminiService.instance
+        .askStudyAssistant(
+          question: text,
+          courseTopic: courseTopic,
+          history: recentHistory,
+        )
+        .then((reply) {
       isTyping.value = false;
-      messages.add(ChatMessage(
-        text: response,
+      _history.add(text);
+      _history.add(reply);
+      messages.add(ChatMessageModel(
+        id: _id(),
+        text: reply,
         isUser: false,
-        time: _formatTime(),
+        timestamp: DateTime.now(),
+      ));
+    }).catchError((e) {
+      isTyping.value = false;
+      messages.add(ChatMessageModel(
+        id: _id(),
+        text: 'Sorry, I couldn\'t reach the AI right now. Please try again.',
+        isUser: false,
+        timestamp: DateTime.now(),
       ));
     });
   }
 
-  String _formatTime() {
-    final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : now.hour;
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '${hour == 0 ? 12 : hour}:${now.minute.toString().padLeft(2, '0')} $period';
-  }
+  String _id() => DateTime.now().microsecondsSinceEpoch.toString();
 
   @override
   void onClose() {

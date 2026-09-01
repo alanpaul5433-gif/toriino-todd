@@ -54,7 +54,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     RoleSelectionCard(
-                      svgImage: "assets/icons/advertising_4318884 1 (1).svg",
+                      svgImage: "assets/icons/books.svg",
                       title: "I’m a Student",
                       isSelected: selectedRole == "Student",
                       onTap: () {
@@ -65,7 +65,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     ),
                     const SizedBox(height: 20),
                     RoleSelectionCard(
-                      svgImage: "assets/icons/advertising_4318884 1 (1).svg",
+                      svgImage: "assets/icons/mentoring.svg",
                       title: "I’m a Mentor",
                       isSelected: selectedRole == "Mentor",
                       onTap: () {
@@ -75,11 +75,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-        
+
                     // Promoter option
                     RoleSelectionCard(
-                      svgImage: "assets/icons/boxing.svg",
-                      title: "I'm a Teacher",
+                      svgImage: "assets/icons/presentation.svg",
+                      title: "I’m a Teacher",
                       isSelected: selectedRole == "Teacher",
                       onTap: () {
                         setState(() {
@@ -178,7 +178,10 @@ class RoleSelectionCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset(svgImage.toString()),
+            SvgPicture.asset(
+              svgImage,
+              placeholderBuilder: (_) => const SizedBox(height: 48, width: 48),
+            ),
             Text(
               title,
               style: GoogleFonts.rethinkSans(

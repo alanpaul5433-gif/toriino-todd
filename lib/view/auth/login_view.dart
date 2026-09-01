@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/view/auth/sign_up_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
-// social_button removed — social login not implemented yet
 import 'package:google_fonts/google_fonts.dart';
 
 class Loginview extends StatefulWidget {
@@ -19,6 +19,7 @@ class Loginview extends StatefulWidget {
 
 class _LoginviewState extends State<Loginview> {
   final ValueNotifier<bool> _obsecurePassword = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   FocusNode emailFoucsNode = FocusNode();
@@ -33,6 +34,40 @@ class _LoginviewState extends State<Loginview> {
     passwordFoucsNode.dispose();
     emailFoucsNode.dispose();
     _obsecurePassword.dispose();
+    _loading.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (emailController.text.isEmpty) {
+      Utils.toastMassage("Please Enter Email First");
+      return;
+    }
+    if (passwordController.text.isEmpty) {
+      Utils.toastMassage("Please Enter Password First");
+      return;
+    }
+    if (passwordController.text.length < 8) {
+      Utils.toastMassage("Password must be at least 8 characters");
+      return;
+    }
+
+    _loading.value = true;
+    final result = await AuthService.signIn(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+    _loading.value = false;
+
+    if (result['success'] == true) {
+      Utils.toastMassage("Login successful!");
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+      );
+    } else {
+      Utils.toastMassage(result['message'] ?? "Login failed");
+    }
   }
 
   @override
@@ -198,45 +233,21 @@ class _LoginviewState extends State<Loginview> {
                   ),
                 ),
                 SizedBox(height: Responsive.h(2.5)),
-                AuthButton(
-                  buttontext: "Login",
-                  loading: false,
-                  //  authViewmodel.loading,
-                  onPress: () {
-                    if (emailController.text.isEmpty) {
-                      Utils.toastMassage("Please Enter Email First");
-                    } else if (passwordController.text.isEmpty) {
-                      Utils.toastMassage("Please Enter Password First");
-                    } else if (passwordController.text.length < 8) {
-                      Utils.toastMassage(
-                        "Please Enter 8 digits",
-                        // context,
-                      );
-                    } else {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RoleSelectionScreen(),
-                        ),
-                      );
-                      // Navigator.pushReplacementNamed(context, RoutesName.role);
-                      // Map<String, String> headr = {
-                      //   "x-api-key": "reqres-free-v1",
-                      // };
-                      // Map data = {
-                      //   'email': emailController.text.toString(),
-                      //   'password': passwordController.text.toString(),
-                      // };
-                      // authViewmodel.loginApi(data, headr, context);
-                    }
-                  },
+                ValueListenableBuilder<bool>(
+                  valueListenable: _loading,
+                  builder: (context, isLoading, _) => AuthButton(
+                    buttontext: "Login",
+                    loading: isLoading,
+                    onPress: _handleLogin,
+                  ),
                 ),
                 SizedBox(height: Responsive.h(8)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text.rich(
+                    Flexible(
+                    child: Text.rich(
                       textAlign: TextAlign.center,
                       TextSpan(
                         text: "New here? ",
@@ -269,6 +280,7 @@ class _LoginviewState extends State<Loginview> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                   ],
                 ),
@@ -363,10 +375,18 @@ void _showForgotPasswordBottomSheet(
             ),
             SizedBox(height: Responsive.h(2)),
             AuthButton(
-              buttontext: "Send Reset Link",
-              onPress: () {
+              buttontext: "Send Reset Code",
+              onPress: () async {
+                if (email.text.isEmpty) {
+                  Utils.toastMassage("Please enter your email");
+                  return;
+                }
+                final result = await AuthService.forgotPassword(
+                  email: email.text.trim(),
+                );
+                if (!context.mounted) return;
                 Navigator.pop(context);
-                Utils.toastMassage("Reset link sent!");
+                Utils.toastMassage(result['message'] ?? "Reset code sent!");
               },
               loading: false,
             ),

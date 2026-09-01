@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Torino — Accounts Setup Guide</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .page {
+      max-width: 860px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      padding: 48px 48px 36px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .header p {
+      font-size: 13px;
+      opacity: 0.75;
+      margin-bottom: 2px;
+    }
+    .header .badge {
+      display: inline-block;
+      margin-top: 14px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Body ── */
+    .body { padding: 40px 48px; }
+
+    .intro {
+      background: #f0f4ff;
+      border-left: 4px solid #4361ee;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-bottom: 32px;
+      font-size: 13.5px;
+      color: #2d2d2d;
+    }
+
+    /* ── Overview Table ── */
+    .overview-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 36px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .overview-table thead tr {
+      background: #0f0c29;
+      color: #fff;
+    }
+    .overview-table thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .overview-table tbody tr:nth-child(even) { background: #f7f8fc; }
+    .overview-table tbody tr:nth-child(odd) { background: #fff; }
+    .overview-table tbody td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #eee;
+    }
+    .cost-badge {
+      display: inline-block;
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .cost-badge.paid {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    /* ── Section Card ── */
+    .section {
+      margin-bottom: 36px;
+      border: 1px solid #e8eaf0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #0f0c29;
+      color: #fff;
+      padding: 14px 20px;
+    }
+    .section-number {
+      background: rgba(255,255,255,0.2);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .section-title { font-size: 15px; font-weight: 700; }
+    .section-subtitle { font-size: 12px; opacity: 0.75; margin-top: 1px; }
+    .section-body { padding: 22px 24px; }
+
+    /* Steps */
+    .steps { list-style: none; counter-reset: step-counter; margin-bottom: 18px; }
+    .steps li {
+      counter-increment: step-counter;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 13.5px;
+    }
+    .steps li::before {
+      content: counter(step-counter);
+      background: #4361ee;
+      color: #fff;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Required box */
+    .required-box {
+      background: #e8f0fe;
+      border: 1px solid #c5d8f8;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-top: 16px;
+    }
+    .required-box h4 {
+      color: #1a56db;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .required-box ul { list-style: none; }
+    .required-box ul li {
+      font-size: 13px;
+      padding: 3px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .required-box ul li::before {
+      content: "→";
+      color: #1a56db;
+      font-weight: 700;
+    }
+
+    /* Warning / tip boxes */
+    .warn {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #78350f;
+      margin-top: 12px;
+    }
+    .tip {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #166534;
+      margin-top: 12px;
+    }
+
+    /* Checklist */
+    .checklist-section { margin-bottom: 36px; }
+    .checklist-section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f0c29;
+      margin-bottom: 14px;
+    }
+    .checklist-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .checklist-table thead tr { background: #0f0c29; color: #fff; }
+    .checklist-table thead th {
+      padding: 11px 16px;
+      text-align: left;
+      font-size: 13px;
+    }
+    .checklist-table tbody tr:nth-child(even) { background: #f7f8fc; }
+    .checklist-table tbody td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #eee;
+    }
+    .check-box {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #aaa;
+      border-radius: 3px;
+      margin-right: 4px;
+    }
+
+    /* Security section */
+    .security-section {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 22px 24px;
+      margin-bottom: 36px;
+    }
+    .security-section h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #991b1b;
+      margin-bottom: 12px;
+    }
+    .security-section ul { list-style: none; }
+    .security-section ul li {
+      font-size: 13px;
+      padding: 4px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .security-section ul li::before { content: "⚠️"; flex-shrink: 0; }
+
+    /* Footer */
+    .footer {
+      background: #0f0c29;
+      color: rgba(255,255,255,0.8);
+      padding: 24px 48px;
+      font-size: 12.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer strong { color: #fff; }
+
+    a { color: #4361ee; text-decoration: none; }
+
+    @media print {
+      body { background: #fff; }
+      .page { box-shadow: none; margin: 0; border-radius: 0; }
+      .section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Torino — Accounts Setup Guide</h1>
+    <p>Prepared for: Todd (Client)</p>
+    <p>Prepared by: Henry (Developer)</p>
+    <p>Date: May 22, 2026</p>
+    <span class="badge">Confidential · Internal Use Only</span>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Intro -->
+    <div class="intro">
+      This document guides you through creating all the third-party accounts required to fully launch the <strong>Torino</strong> platform. Please follow each section carefully, create the account, and share the credentials with the development team so we can configure and integrate everything on your behalf.
+    </div>
+
+    <!-- Overview -->
+    <table class="overview-table">
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>Purpose</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Apple Developer</strong></td>
+          <td>Publish iOS app on the App Store</td>
+          <td><span class="cost-badge paid">$99 / year</span></td>
+        </tr>
+        <tr>
+          <td><strong>Google Play Console</strong></td>
+          <td>Publish Android app on the Play Store</td>
+          <td><span class="cost-badge paid">$25 one-time</span></td>
+        </tr>
+        <tr>
+          <td><strong>AWS (Amazon)</strong></td>
+          <td>Backend, database, authentication, storage</td>
+          <td><span class="cost-badge">Pay as you use</span></td>
+        </tr>
+        <tr>
+          <td><strong>Agora</strong></td>
+          <td>Live video &amp; audio sessions</td>
+          <td><span class="cost-badge">Free tier available</span></td>
+        </tr>
+        <tr>
+          <td><strong>Gemini (Google AI)</strong></td>
+          <td>AI features inside the app</td>
+          <td><span class="cost-badge">Free tier available</span></td>
+        </tr>
+        <tr>
+          <td><strong>Stripe</strong></td>
+          <td>Payment processing for courses &amp; sessions</td>
+          <td><span class="cost-badge">% per transaction</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ── 1. Apple ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">1</div>
+        <div>
+          <div class="section-title">Apple Developer Account</div>
+          <div class="section-subtitle">developer.apple.com &nbsp;·&nbsp; $99/year</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://developer.apple.com">developer.apple.com</a> and click <strong>Account</strong></li>
+          <li>Sign in with your Apple ID (or create one at <a href="https://appleid.apple.com">appleid.apple.com</a>)</li>
+          <li>Click <strong>Join the Apple Developer Program</strong></li>
+          <li>Select <strong>Enroll as Individual</strong> (your name on store) or <strong>Organization</strong> (company name — requires a D-U-N-S number)</li>
+          <li>Complete identity verification</li>
+          <li>Pay the <strong>$99/year</strong> fee using a card or PayPal</li>
+          <li>Wait for approval — usually within 24–48 hours</li>
+          <li>Once approved, go to <a href="https://appstoreconnect.apple.com">App Store Connect</a> → <strong>Users and Access</strong> → Invite developer</li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>Apple ID email address used to create the account</li>
+            <li>Invite the developer email to your team as <strong>Admin</strong> in App Store Connect</li>
+            <li>Apple Developer Team ID (found under Membership in developer.apple.com)</li>
+          </ul>
+        </div>
+        <div class="warn">⚠️ Use a business Apple ID, not a personal one, to keep your app ownership separate.</div>
+      </div>
+    </div>
+
+    <!-- ── 2. Google Play ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">2</div>
+        <div>
+          <div class="section-title">Google Play Console</div>
+          <div class="section-subtitle">play.google.com/console &nbsp;·&nbsp; $25 one-time</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://play.google.com/console">play.google.com/console</a></li>
+          <li>Sign in with a <strong>Google account</strong> (use a business Gmail such as torino@gmail.com)</li>
+          <li>Click <strong>Get Started</strong></li>
+          <li>Enter your developer name — this will appear publicly on the Play Store</li>
+          <li>Accept the <strong>Developer Distribution Agreement</strong></li>
+          <li>Pay the <strong>$25 one-time</strong> registration fee</li>
+          <li>Fill in your contact details (address, phone number)</li>
+          <li>Account is typically activated within a few hours</li>
+          <li>Go to <strong>Users and Permissions</strong> → Invite the developer as <strong>Admin</strong></li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>Gmail address used for the Play Console</li>
+            <li>Invite developer email via Users and Permissions → Grant Admin access</li>
+          </ul>
+        </div>
+        <div class="tip">💡 Use a dedicated business Gmail for this account, not a personal Gmail.</div>
+      </div>
+    </div>
+
+    <!-- ── 3. AWS ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">3</div>
+        <div>
+          <div class="section-title">AWS — Amazon Web Services</div>
+          <div class="section-subtitle">aws.amazon.com &nbsp;·&nbsp; Pay as you use (free tier for most services)</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://aws.amazon.com">aws.amazon.com</a> and click <strong>Create an AWS Account</strong></li>
+          <li>Enter your email address and choose an account name: <strong>Torino</strong></li>
+          <li>Set a strong root password and save it somewhere secure</li>
+          <li>Enter your contact information — select <strong>Personal</strong> or <strong>Business</strong></li>
+          <li>Add a credit or debit card (AWS only charges for usage, free tier applies to most services)</li>
+          <li>Complete phone number verification</li>
+          <li>Select the <strong>Basic (Free)</strong> support plan</li>
+          <li>Your account will be activated within minutes</li>
+          <li>Once inside, go to <strong>IAM → Users → Create User</strong></li>
+          <li>Name the user <strong>torino-dev</strong>, attach policy: <strong>AdministratorAccess</strong></li>
+          <li>Under Security Credentials, click <strong>Create Access Key</strong> → copy both keys</li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>IAM User <strong>Access Key ID</strong></li>
+            <li>IAM User <strong>Secret Access Key</strong></li>
+            <li>Your AWS account region preference (e.g., us-east-1)</li>
+          </ul>
+        </div>
+        <div class="warn">⚠️ Never share your root account credentials. Always use the IAM user keys created in Step 10.</div>
+      </div>
+    </div>
+
+    <!-- ── 4. Agora ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">4</div>
+        <div>
+          <div class="section-title">Agora — Live Video &amp; Audio</div>
+          <div class="section-subtitle">agora.io &nbsp;·&nbsp; Free (10,000 minutes/month)</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://www.agora.io">agora.io</a> and click <strong>Sign Up</strong></li>
+          <li>Register with your email and a password, or sign in with Google</li>
+          <li>Verify your email address</li>
+          <li>Once in the dashboard, click <strong>Create Project</strong></li>
+          <li>Enter project name: <strong>Torino</strong></li>
+          <li>Select <strong>Secured mode</strong> (recommended for production)</li>
+          <li>Click <strong>Submit</strong></li>
+          <li>Click on the project → copy the <strong>App ID</strong> and <strong>App Certificate</strong></li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>Agora <strong>App ID</strong></li>
+            <li>Agora <strong>App Certificate</strong></li>
+          </ul>
+        </div>
+        <div class="tip">💡 Agora provides 10,000 free minutes per month — more than enough for development and early users.</div>
+      </div>
+    </div>
+
+    <!-- ── 5. Gemini ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">5</div>
+        <div>
+          <div class="section-title">Gemini API — Google AI</div>
+          <div class="section-subtitle">aistudio.google.com &nbsp;·&nbsp; Free tier available</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://aistudio.google.com">aistudio.google.com</a></li>
+          <li>Sign in with your <strong>Google account</strong></li>
+          <li>Click <strong>Get API Key</strong> from the left sidebar</li>
+          <li>Click <strong>Create API Key</strong></li>
+          <li>Select an existing Google Cloud project or create a new one named <strong>Torino</strong></li>
+          <li>Your API Key will be generated — <strong>copy it immediately</strong> and save it</li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>Gemini <strong>API Key</strong></li>
+          </ul>
+        </div>
+        <div class="warn">⚠️ Keep this key private at all times. Do not share it in public messages or emails. Send it through a secure method.</div>
+        <div class="tip">💡 The free tier covers a generous number of requests — ideal for development and moderate usage.</div>
+      </div>
+    </div>
+
+    <!-- ── 6. Stripe ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-number">6</div>
+        <div>
+          <div class="section-title">Stripe — Payment Processing</div>
+          <div class="section-subtitle">stripe.com &nbsp;·&nbsp; 2.9% + $0.30 per transaction</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <ol class="steps">
+          <li>Go to <a href="https://stripe.com">stripe.com</a> and click <strong>Start now</strong></li>
+          <li>Enter your email, full name, and country</li>
+          <li>Set a strong password and verify your email</li>
+          <li>Complete your business profile:
+            <ul style="margin-top:6px; margin-left:20px; font-size:13px;">
+              <li>Business type: <strong>Individual</strong> or <strong>Company</strong></li>
+              <li>Industry: <strong>Education</strong> or <strong>Software</strong></li>
+              <li>Website: your app link or placeholder</li>
+            </ul>
+          </li>
+          <li>Add your <strong>bank account</strong> details for receiving payouts</li>
+          <li>Submit any identity verification documents if requested</li>
+          <li>Go to <strong>Developers → API Keys</strong> and copy both keys</li>
+        </ol>
+        <div class="required-box">
+          <h4>📋 What to send us after account creation:</h4>
+          <ul>
+            <li>Stripe <strong>Publishable Key</strong> (starts with pk_live_...)</li>
+            <li>Stripe <strong>Secret Key</strong> (starts with sk_live_...)</li>
+            <li>Stripe <strong>Webhook Secret</strong> (we will set this up together)</li>
+          </ul>
+        </div>
+        <div class="warn">⚠️ The Secret Key must never be shared publicly. Send it only through a secure private channel.</div>
+        <div class="tip">💡 No monthly fee. Stripe only charges when a payment is processed (2.9% + $0.30 per transaction).</div>
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="checklist-section">
+      <h2>✅ Account Creation Checklist</h2>
+      <table class="checklist-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Created</th>
+            <th>Credentials Sent to Developer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Apple Developer</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+          <tr>
+            <td><strong>Google Play Console</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+          <tr>
+            <td><strong>AWS</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+          <tr>
+            <td><strong>Agora</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+          <tr>
+            <td><strong>Gemini API</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+          <tr>
+            <td><strong>Stripe</strong></td>
+            <td><span class="check-box"></span> Done</td>
+            <td><span class="check-box"></span> Sent</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Security -->
+    <div class="security-section">
+      <h2>🔒 How to Share Credentials Securely</h2>
+      <p style="font-size:13px; margin-bottom:12px;">All credentials (API keys, access keys, passwords) must be shared through a secure method only. Please avoid sending them through regular email or messaging apps.</p>
+      <ul>
+        <li><strong>Recommended:</strong> Share via <a href="https://1password.com">1Password</a> or <a href="https://bitwarden.com">Bitwarden</a> — create a shared vault and add us</li>
+        <li><strong>Acceptable:</strong> Send through an encrypted messaging app such as Signal or Telegram (secret chat)</li>
+        <li><strong>Avoid:</strong> Regular Gmail, WhatsApp messages, or plain text — these are not secure for sensitive credentials</li>
+        <li>Never include API keys or passwords in a regular email body</li>
+      </ul>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>
+      <strong>Torino</strong> — Accounts Setup Guide &nbsp;·&nbsp; Confidential
+    </div>
+    <div>
+      Prepared by <strong>Henry</strong> &nbsp;·&nbsp; May 2026
+    </div>
+  </div>
+
+</div><!-- /page -->
+</body>
+</html>

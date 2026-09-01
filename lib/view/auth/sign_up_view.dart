@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
-import 'package:toriino_todd/view/auth/role_selector_view.dart';
+import 'package:toriino_todd/view/auth/otp_verification_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/widgets/radio_button.dart';
-// social_button removed — social login not implemented yet
 import 'package:google_fonts/google_fonts.dart';
 
 class Sginupview extends StatefulWidget {
@@ -20,6 +20,7 @@ class Sginupview extends StatefulWidget {
 
 class _SginupviewState extends State<Sginupview> {
   final ValueNotifier<bool> _obsecurePassword = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
   TextEditingController nameController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
@@ -42,7 +43,53 @@ class _SginupviewState extends State<Sginupview> {
     passwordFoucsNode.dispose();
     sumbitFoucsNode.dispose();
     _obsecurePassword.dispose();
+    _loading.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSignUp() async {
+    if (nameController.text.isEmpty) {
+      Utils.toastMassage("Please enter your full name");
+      return;
+    }
+    if (emailController.text.isEmpty) {
+      Utils.toastMassage("Please enter your email");
+      return;
+    }
+    if (passwordController.text.isEmpty) {
+      Utils.toastMassage("Please enter a password");
+      return;
+    }
+    if (passwordController.text.length < 8) {
+      Utils.toastMassage("Password must be at least 8 characters");
+      return;
+    }
+
+    _loading.value = true;
+    final result = await AuthService.signUp(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+      name: nameController.text.trim(),
+      role: 'Student',
+    );
+    _loading.value = false;
+
+    if (result['success'] == true) {
+      Utils.toastMassage("Account created! Please verify your email.");
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationView(
+            email: emailController.text.trim(),
+            name: nameController.text.trim(),
+            role: 'Student',
+          ),
+        ),
+      );
+    } else {
+      Utils.toastMassage(result['message'] ?? "Sign up failed");
+    }
   }
 
   @override
@@ -322,35 +369,13 @@ class _SginupviewState extends State<Sginupview> {
                 ),
 
                 SizedBox(height: Responsive.h(1.5)),
-                AuthButton(
-                  buttontext: "Sign Up",
-                  loading: false,
-                  onPress: () {
-                    if (emailController.text.isEmpty) {
-                      Utils.toastMassage("Please Enter Email First");
-                    } else if (passwordController.text.isEmpty) {
-                      Utils.toastMassage("Please Enter Password First");
-                    } else if (passwordController.text.length < 8) {
-                      Utils.toastMassage("Please Enter 8 digits");
-                    } else {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RoleSelectionScreen(),
-                        ),
-                      );
-                      // Navigate to
-
-                      // Map<String, String> headr = {
-                      //   "x-api-key": "reqres-free-v1",
-                      // };
-                      // Map data = {
-                      //   'email': emailController.text.toString(),
-                      //   'password': passwordController.text.toString(),
-                      // };
-                      // // authViewmodel.loginApi(data, headr, context);
-                    }
-                  },
+                ValueListenableBuilder<bool>(
+                  valueListenable: _loading,
+                  builder: (context, isLoading, _) => AuthButton(
+                    buttontext: "Sign Up",
+                    loading: isLoading,
+                    onPress: _handleSignUp,
+                  ),
                 ),
                 SizedBox(height: Responsive.h(4)),
                 Row(

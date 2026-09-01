@@ -1,3 +1,9 @@
+# Android signing secrets — never commit these
+android/key.properties
+android/app/release.jks
+android/app/*.jks
+android/app/*.keystore
+
 # Miscellaneous
 *.class
 *.log

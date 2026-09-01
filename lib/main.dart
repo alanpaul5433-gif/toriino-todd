@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/resources/getx_localization/language.dart';
 import 'package:toriino_todd/resources/routes/routes.dart';
+import 'package:toriino_todd/services/stripe_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  StripeService.init();
   runApp(const MyApp());
 }
 

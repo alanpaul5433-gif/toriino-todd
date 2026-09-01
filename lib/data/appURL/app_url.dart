@@ -55,4 +55,22 @@ class AppUrl {
   // Earnings
   static const String earnings = '$baseUrl/earnings';
   static const String earningsHistory = '$baseUrl/earnings/history';
+
+  // Agora token (server-generated, never on client)
+  static const String agoraToken = '$baseUrl/sessions/token';
+
+  // AI — session intelligence
+  static String sessionSummary(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/summary';
+  static String sessionTranscript(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/transcript';
+
+  // AI — chat history per user
+  static String aiChat(String userId) => '$baseUrl/ai/chat/$userId';
+
+  // AI — AI Twins
+  static String aiTwin(String userId) => '$baseUrl/ai/twins/$userId';
+
+  // AI — user memory (progress, activity, preferences)
+  static String aiMemory(String userId) => '$baseUrl/ai/memory/$userId';
 }
