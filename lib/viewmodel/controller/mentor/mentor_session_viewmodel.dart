@@ -1,10 +1,12 @@
-﻿import 'package:get/get.dart';
+import 'package:get/get.dart';
 import 'package:toriino_todd/data/response/api_response.dart';
 import 'package:toriino_todd/model/session/session_model.dart';
-import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/repository/session_repo.dart';
 import 'package:toriino_todd/utils/utils.dart';
 
 class MentorSessionViewmodel extends GetxController {
+  final _sessionRepo = SessionRepo();
+
   final rxSessions = Rx<ApiResponse<SessionListResponse>>(ApiResponse.loading());
 
   @override
@@ -15,7 +17,7 @@ class MentorSessionViewmodel extends GetxController {
 
   void fetchSessions() {
     rxSessions.value = ApiResponse.loading();
-    MockRepo.getSessions(role: 'mentor').then((value) {
+    _sessionRepo.getSessions(role: 'mentor').then((value) {
       rxSessions.value = ApiResponse.success(SessionListResponse.fromJson(value));
     }).onError((error, _) {
       rxSessions.value = ApiResponse.error(error.toString());
@@ -23,17 +25,29 @@ class MentorSessionViewmodel extends GetxController {
   }
 
   void startSession(String sessionId) {
-    Utils.toastMassage("Session started");
-    fetchSessions();
+    _sessionRepo.updateSessionStatus(sessionId, 'active').then((_) {
+      fetchSessions();
+      Utils.toastMassage("Session started");
+    }).onError((error, _) {
+      Utils.toastMassage(error.toString());
+    });
   }
 
   void completeSession(String sessionId) {
-    Utils.toastMassage("Session completed");
-    fetchSessions();
+    _sessionRepo.updateSessionStatus(sessionId, 'completed').then((_) {
+      fetchSessions();
+      Utils.toastMassage("Session completed");
+    }).onError((error, _) {
+      Utils.toastMassage(error.toString());
+    });
   }
 
   void cancelSession(String sessionId) {
-    Utils.toastMassage("Session cancelled");
-    fetchSessions();
+    _sessionRepo.updateSessionStatus(sessionId, 'cancelled').then((_) {
+      fetchSessions();
+      Utils.toastMassage("Session cancelled");
+    }).onError((error, _) {
+      Utils.toastMassage(error.toString());
+    });
   }
 }

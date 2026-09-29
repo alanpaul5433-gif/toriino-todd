@@ -6,7 +6,7 @@ import 'package:toriino_todd/model/ai/session_summary_model.dart';
 import 'package:toriino_todd/services/ai_interface.dart';
 
 class GeminiService implements AiInterface {
-  static const _modelName = 'gemini-1.5-flash-latest';
+  static const _modelName = 'gemini-flash-latest';
 
   late final GenerativeModel _model;
 

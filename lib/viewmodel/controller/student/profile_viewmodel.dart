@@ -1,11 +1,13 @@
-﻿import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/data/response/api_response.dart';
 import 'package:toriino_todd/model/user/user_profile_model.dart';
-import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/utils/utils.dart';
 
 class ProfileViewmodel extends GetxController {
+  final _userRepo = UserRepo();
+
   final rxProfile = Rx<ApiResponse<UserProfileModel>>(ApiResponse.loading());
 
   final nameController = TextEditingController();
@@ -23,7 +25,7 @@ class ProfileViewmodel extends GetxController {
 
   void fetchProfile() {
     rxProfile.value = ApiResponse.loading();
-    MockRepo.getProfile().then((value) {
+    _userRepo.getProfile().then((value) {
       final profile = UserProfileModel.fromJson(value);
       rxProfile.value = ApiResponse.success(profile);
       nameController.text = profile.name ?? '';
@@ -44,7 +46,7 @@ class ProfileViewmodel extends GetxController {
       'location': locationController.text,
     };
 
-    MockRepo.updateProfile(data).then((value) {
+    _userRepo.updateProfile(data).then((value) {
       saving.value = false;
       Utils.toastMassage("Profile updated");
       fetchProfile();

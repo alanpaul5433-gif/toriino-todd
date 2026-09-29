@@ -1,12 +1,14 @@
-﻿import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/data/response/api_response.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/model/course/lesson_model.dart';
-import 'package:toriino_todd/repository/mock/mock_repo.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:toriino_todd/utils/utils.dart';
 
 class TeacherCourseViewmodel extends GetxController {
+  final _courseRepo = CourseRepo();
+
   final rxMyCourses = Rx<ApiResponse<CourseListResponse>>(ApiResponse.loading());
   final rxLessons = Rx<ApiResponse<List<LessonModel>>>(ApiResponse.loading());
 
@@ -32,7 +34,7 @@ class TeacherCourseViewmodel extends GetxController {
 
   void fetchMyCourses() {
     rxMyCourses.value = ApiResponse.loading();
-    MockRepo.getMyCreatedCourses().then((value) {
+    _courseRepo.getMyCreatedCourses().then((value) {
       rxMyCourses.value = ApiResponse.success(CourseListResponse.fromJson(value));
     }).onError((error, _) {
       rxMyCourses.value = ApiResponse.error(error.toString());
@@ -42,15 +44,17 @@ class TeacherCourseViewmodel extends GetxController {
   void createCourse() {
     saving.value = true;
     Map<String, dynamic> data = {
+      'courseId': 'crs_${DateTime.now().millisecondsSinceEpoch}',
       'title': titleController.text,
       'description': descriptionController.text,
       'category': selectedCategory.value,
       'duration': durationController.text,
       'price': double.tryParse(priceController.text) ?? 0,
       'level': selectedLevel.value,
+      'status': 'active',
     };
 
-    MockRepo.createCourse(data).then((value) {
+    _courseRepo.createCourse(data).then((value) {
       saving.value = false;
       Utils.toastMassage("Course created!");
       clearCourseForm();
@@ -64,8 +68,8 @@ class TeacherCourseViewmodel extends GetxController {
 
   void fetchLessons(String courseId) {
     rxLessons.value = ApiResponse.loading();
-    MockRepo.getLessons(courseId).then((value) {
-      final lessons = (value['lessons'] as List)
+    _courseRepo.getLessons(courseId).then((value) {
+      final lessons = (value['lessons'] as List? ?? [])
           .map((e) => LessonModel.fromJson(e as Map<String, dynamic>))
           .toList();
       rxLessons.value = ApiResponse.success(lessons);
@@ -77,12 +81,13 @@ class TeacherCourseViewmodel extends GetxController {
   void addLesson(String courseId) {
     savingLesson.value = true;
     Map<String, dynamic> data = {
+      'lessonId': 'les_${DateTime.now().millisecondsSinceEpoch}',
       'title': lessonTitleController.text,
       'description': lessonDescriptionController.text,
       'duration': lessonDurationController.text,
     };
 
-    MockRepo.addLesson(courseId, data).then((value) {
+    _courseRepo.addLesson(courseId, data).then((value) {
       savingLesson.value = false;
       Utils.toastMassage("Lesson added!");
       clearLessonForm();

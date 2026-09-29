@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:toriino_todd/config/aws_config.dart';
@@ -158,5 +159,20 @@ class AuthService {
   // ── Get Saved Token ──────────────────────────────────
   static Future<String?> getToken() async {
     return await _storage.read(key: 'id_token');
+  }
+
+  // ── Get Cognito User ID (sub claim from id_token) ────
+  static Future<String?> getUserId() async {
+    try {
+      final token = await _storage.read(key: 'id_token');
+      if (token == null) return null;
+      final parts = token.split('.');
+      if (parts.length < 2) return null;
+      final normalized = base64Url.normalize(parts[1]);
+      final payload = json.decode(utf8.decode(base64Url.decode(normalized)));
+      return payload['sub'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 }

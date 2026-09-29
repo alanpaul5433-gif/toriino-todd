@@ -33,11 +33,11 @@ async function scanAll(TableName, FilterExpression, ExpressionAttributeValues) {
 // Dashboard aggregate stats
 async function getDashboardStats() {
   const [users, courses, sessions, enrollments, earnings, reviews] = await Promise.all([
-    scanAll('toriino-users'),
-    scanAll('toriino-courses'),
-    scanAll('toriino-sessions'),
+    scanAll('torino-users'),
+    scanAll('torino-courses'),
+    scanAll('torino-sessions'),
     scanAll('toriino-enrollments'),
-    scanAll('toriino-earnings'),
+    scanAll('torino-earnings'),
     scanAll('toriino-reviews'),
   ]);
 
@@ -92,7 +92,7 @@ exports.handler = async (event) => {
 
     // GET /admin/users
     if (method === 'GET' && pathParts[0] === 'users' && !pathParts[1]) {
-      const users = await scanAll('toriino-users');
+      const users = await scanAll('torino-users');
       const roleFilter = qs.role;
       const search = qs.search?.toLowerCase();
       let result = roleFilter ? users.filter(u => u.role === roleFilter) : users;
@@ -106,7 +106,7 @@ exports.handler = async (event) => {
       const userId = pathParts[1];
       const { status } = body; // 'active' | 'disabled'
       await db.send(new UpdateItemCommand({
-        TableName: 'toriino-users',
+        TableName: 'torino-users',
         Key: marshall({ userId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -124,7 +124,7 @@ exports.handler = async (event) => {
       const userId = pathParts[1];
       const { role } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'toriino-users',
+        TableName: 'torino-users',
         Key: marshall({ userId }),
         UpdateExpression: 'SET #r = :r, updatedAt = :u',
         ExpressionAttributeNames: { '#r': 'role' },
@@ -136,13 +136,13 @@ exports.handler = async (event) => {
     // DELETE /admin/users/:id
     if (method === 'DELETE' && pathParts[0] === 'users' && pathParts[1]) {
       const userId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'toriino-users', Key: marshall({ userId }) }));
+      await db.send(new DeleteItemCommand({ TableName: 'torino-users', Key: marshall({ userId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/courses
     if (method === 'GET' && pathParts[0] === 'courses' && !pathParts[1]) {
-      const courses = await scanAll('toriino-courses');
+      const courses = await scanAll('torino-courses');
       const statusFilter = qs.status;
       let result = statusFilter ? courses.filter(c => c.status === statusFilter) : courses;
       result.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -154,7 +154,7 @@ exports.handler = async (event) => {
       const courseId = pathParts[1];
       const { status } = body; // 'published' | 'draft' | 'rejected'
       await db.send(new UpdateItemCommand({
-        TableName: 'toriino-courses',
+        TableName: 'torino-courses',
         Key: marshall({ courseId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -166,13 +166,13 @@ exports.handler = async (event) => {
     // DELETE /admin/courses/:id
     if (method === 'DELETE' && pathParts[0] === 'courses' && pathParts[1] && !pathParts[2]) {
       const courseId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'toriino-courses', Key: marshall({ courseId }) }));
+      await db.send(new DeleteItemCommand({ TableName: 'torino-courses', Key: marshall({ courseId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/sessions
     if (method === 'GET' && pathParts[0] === 'sessions' && !pathParts[1]) {
-      const sessions = await scanAll('toriino-sessions');
+      const sessions = await scanAll('torino-sessions');
       const statusFilter = qs.status;
       let result = statusFilter ? sessions.filter(s => s.status === statusFilter) : sessions;
       result.sort((a, b) => (b.createdAt || b.dateTime || '').localeCompare(a.createdAt || a.dateTime || ''));
@@ -192,7 +192,7 @@ exports.handler = async (event) => {
       const sessionId = pathParts[1];
       const { status } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'toriino-sessions',
+        TableName: 'torino-sessions',
         Key: marshall({ sessionId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -203,8 +203,8 @@ exports.handler = async (event) => {
 
     // GET /admin/mentors
     if (method === 'GET' && pathParts[0] === 'mentors' && !pathParts[1]) {
-      const mentors = await scanAll('toriino-mentors');
-      const users = await scanAll('toriino-users');
+      const mentors = await scanAll('torino-mentors');
+      const users = await scanAll('torino-users');
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
       const reviews = await scanAll('toriino-reviews');
       const result = mentors.map(m => ({
@@ -224,7 +224,7 @@ exports.handler = async (event) => {
       const mentorId = pathParts[1];
       const { approved } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'toriino-mentors',
+        TableName: 'torino-mentors',
         Key: marshall({ mentorId }),
         UpdateExpression: 'SET approved = :a, updatedAt = :u',
         ExpressionAttributeValues: marshall({ ':a': approved, ':u': new Date().toISOString() }),
@@ -234,8 +234,8 @@ exports.handler = async (event) => {
 
     // GET /admin/earnings
     if (method === 'GET' && pathParts[0] === 'earnings') {
-      const earnings = await scanAll('toriino-earnings');
-      const users = await scanAll('toriino-users');
+      const earnings = await scanAll('torino-earnings');
+      const users = await scanAll('torino-users');
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
 
       // Group by month for chart
@@ -307,7 +307,7 @@ exports.handler = async (event) => {
       const { title, message, targetRole } = body;
       if (!title || !message) return res(400, { error: 'title and message required' });
 
-      const users = await scanAll('toriino-users');
+      const users = await scanAll('torino-users');
       const targets = targetRole && targetRole !== 'all' ? users.filter(u => u.role === targetRole) : users;
 
       const notifId = `notif_${Date.now()}`;

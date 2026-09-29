@@ -1,6 +1,6 @@
 class AppUrl {
   // TODO: Replace with your actual AWS API Gateway URL after deployment
-  static const String baseUrl = 'https://YOUR_API_ID.execute-api.us-east-2.amazonaws.com/prod';
+  static const String baseUrl = 'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod';
 
   // Auth (public - no token required)
   static const String register = '$baseUrl/auth/register';

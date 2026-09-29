@@ -1,12 +1,12 @@
-﻿import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:toriino_todd/repository/mock/mock_data.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
+import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -18,6 +18,40 @@ class RoleSelectionScreen extends StatefulWidget {
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   String? selectedRole;
+  bool _saving = false;
+
+  Future<void> _continueWithRole() async {
+    if (selectedRole == null) return;
+    setState(() => _saving = true);
+
+    final prefs = UsersPrefrence();
+    await prefs.saveUserRole(selectedRole!);
+
+    // Best-effort backend update — don't block navigation on failure
+    try {
+      await UserRepo().updateProfile({'role': selectedRole});
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (selectedRole == "Student") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => MainWrapper()),
+      );
+    } else if (selectedRole == "Mentor") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,40 +126,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 SizedBox(height: Responsive.h(10),),
         
                 ElevatedButton(
-                  onPressed:
-                      selectedRole == null
-                          ? null
-                          : () {
-                            // Proceed with the selected role
-                            if (kDebugMode) {
-                              print('Selected role: $selectedRole');
-                            }
-                            // Set mock data role
-                            MockData.setRole(selectedRole!);
-
-                            if (selectedRole == "Student") {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MainWrapper(),
-                                ),
-                              );
-                            } else if (selectedRole == "Mentor") {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MentorBottomNavBar(),
-                                ),
-                              );
-                            } else {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TeacherBottomNavBar(),
-                                ),
-                              );
-                            }
-                          },
+                  onPressed: (selectedRole == null || _saving) ? null : _continueWithRole,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColor.red,
                     foregroundColor: AppColor.white,
@@ -134,7 +135,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       borderRadius: BorderRadius.circular(22),
                     ),
                   ),
-                  child: const Text('Continue', style: TextStyle(fontSize: 18)),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Continue', style: TextStyle(fontSize: 18)),
                 ),
               ],
             ),

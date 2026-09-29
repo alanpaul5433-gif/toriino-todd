@@ -5,7 +5,7 @@ const { randomUUID } = require("crypto");
 const REGION = process.env.AWS_REGION || "us-east-1";
 const CHAT_TABLE = process.env.CHAT_TABLE || "toriino-ai-chat";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
+const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
@@ -22,7 +22,14 @@ function response(statusCode, body) {
 }
 
 function getUserId(event) {
-  return event.requestContext?.authorizer?.claims?.sub;
+  const sub = event.requestContext?.authorizer?.claims?.sub;
+  if (sub) return sub;
+  try {
+    const auth = event.headers?.Authorization || event.headers?.authorization || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).sub || null;
+  } catch { return null; }
 }
 
 exports.handler = async (event) => {
@@ -93,7 +100,10 @@ async function sendChatMessage(userId, data) {
     }),
   });
 
-  if (!geminiResponse.ok) throw new Error(`Gemini API error: ${geminiResponse.status}`);
+  if (!geminiResponse.ok) {
+    const errBody = await geminiResponse.text().catch(() => '');
+    throw new Error(`Gemini API error: ${geminiResponse.status} — ${errBody}`);
+  }
   const geminiData = await geminiResponse.json();
   const aiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't process that. Please try again.";
 

@@ -13,10 +13,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const r = await fetch(`${BASE}/admin${path}`, { ...options, headers });
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}/admin${path}`, { ...options, headers });
+  } catch {
+    throw new Error('Network error — check your connection');
+  }
+
+  if (r.status === 401 || r.status === 403) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      window.location.href = '/login?reason=session_expired';
+    }
+    throw new Error('Session expired — please log in again');
+  }
+
   if (!r.ok) {
     const err = await r.json().catch(() => ({ error: r.statusText }));
-    throw new Error(err.error || 'Request failed');
+    throw new Error(err.error || err.message || 'Request failed');
   }
   return r.json();
 }
