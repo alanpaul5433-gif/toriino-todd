@@ -1,11 +1,9 @@
-﻿import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
+﻿import 'package:toriino_todd/services/auth_service.dart';
 
 class AuthInterceptor {
-  static final UsersPrefrence _usersPrefrence = UsersPrefrence();
-
   /// Returns headers with Authorization Bearer token for authenticated requests.
   static Future<Map<String, String>> getAuthHeaders() async {
-    final token = await _usersPrefrence.getUser();
+    final token = await AuthService.getToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${token ?? ''}',
