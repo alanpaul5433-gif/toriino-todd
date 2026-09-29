@@ -26,12 +26,15 @@ class AiTutorView extends StatelessWidget {
                 children: [
                   SvgPicture.asset('assets/icons/Toriino AI.svg', height: 28),
                   SizedBox(width: Responsive.w(2)),
-                  Text(
-                    "AI Tutor",
-                    style: GoogleFonts.rethinkSans(
-                      color: AppColor.white,
-                      fontSize: Responsive.textScaleFactor * 20,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      "AI Tutor",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.rethinkSans(
+                        color: AppColor.white,
+                        fontSize: Responsive.textScaleFactor * 20,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -48,6 +51,7 @@ class AiTutorView extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             SvgPicture.asset("assets/icons/plus-sign.svg", height: 14),
                             SizedBox(width: 4),
