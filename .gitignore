@@ -60,6 +60,9 @@ aws-backend/infrastructure/.tmp-zips/
 aws-backend/node_modules/
 aws-backend/lambda/**/*.zip
 
+# Test credentials — never commit
+.env.test
+
 # Android local machine config
 android/local.properties
 android/.gradle/
