@@ -48,17 +48,17 @@ class _SplashViewState extends State<SplashView> {
     // Sync role from JWT to overwrite stale SharedPreferences (P1-2)
     final jwtRole = await _extractRoleFromJwt();
     if (jwtRole != null) {
-      await UsersPrefrence().saveUserRole(jwtRole);
+      await UsersPrefrence().saveUserRole(jwtRole.toLowerCase());
     }
 
     final prefs = UsersPrefrence();
-    final role = await prefs.getUserRole();
+    final role = (await prefs.getUserRole())?.toLowerCase();
 
-    if (role == 'Mentor') {
+    if (role == 'mentor') {
       _goTo(MentorBottomNavBar());
-    } else if (role == 'Teacher') {
+    } else if (role == 'teacher') {
       _goTo(TeacherBottomNavBar());
-    } else if (role == 'Student') {
+    } else if (role == 'student') {
       _goTo(MainWrapper());
     } else {
       // Logged in but no role stored — send to role selection

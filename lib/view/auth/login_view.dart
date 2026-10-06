@@ -72,19 +72,19 @@ class _LoginviewState extends State<Loginview> {
       AnalyticsService.logLogin();
       if (!mounted) return;
       // Always persist the role fresh from the JWT token to avoid stale state
-      final jwtRole = result['role'] as String?;
+      final jwtRole = (result['role'] as String?)?.toLowerCase();
       if (jwtRole != null) {
         await UsersPrefrence().saveUserRole(jwtRole);
       }
-      final savedRole = jwtRole ?? await UsersPrefrence().getUserRole();
+      final savedRole = jwtRole ?? (await UsersPrefrence().getUserRole())?.toLowerCase();
       if (!mounted) return;
       try { Get.find<CustomDrawerController>().changeIndex(0); } catch (_) {}
       FcmService.registerAfterLogin();
-      if (savedRole == 'Student') {
+      if (savedRole == 'student') {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainWrapper()));
-      } else if (savedRole == 'Mentor') {
+      } else if (savedRole == 'mentor') {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MentorBottomNavBar()));
-      } else if (savedRole == 'Teacher') {
+      } else if (savedRole == 'teacher') {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => TeacherBottomNavBar()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RoleSelectionScreen()));
