@@ -85,4 +85,8 @@ class AppUrl {
 
   // AI — user memory (progress, activity, preferences)
   static String aiMemory(String userId) => '$baseUrl/ai/memory/$userId';
+
+  // Student search (mentor 1-on-1 session scheduling)
+  static String studentSearch(String query) =>
+      '$baseUrl/students/search?q=${Uri.encodeQueryComponent(query)}';
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:toriino_todd/repository/student_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_session_viewmodel.dart';
@@ -21,7 +22,12 @@ class _MentorCreateSessionViewState extends State<MentorCreateSessionView> {
   TimeOfDay? _selectedTime;
 
   // 1-on-1 specific
-  final _studentIdController = TextEditingController();
+  final _studentIdController = TextEditingController(); // holds selected userId
+  final _studentSearchController = TextEditingController();
+  String? _selectedStudentName;
+  List<StudentSearchResult> _studentSearchResults = [];
+  bool _studentSearchLoading = false;
+  final _studentRepo = StudentRepo();
   final _durationController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -35,6 +41,7 @@ class _MentorCreateSessionViewState extends State<MentorCreateSessionView> {
   void dispose() {
     _topicController.dispose();
     _studentIdController.dispose();
+    _studentSearchController.dispose();
     _durationController.dispose();
     _notesController.dispose();
     _descriptionController.dispose();
@@ -289,9 +296,101 @@ class _MentorCreateSessionViewState extends State<MentorCreateSessionView> {
     );
   }
 
+  Future<void> _searchStudents(String query) async {
+    if (query.trim().length < 2) {
+      setState(() { _studentSearchResults = []; });
+      return;
+    }
+    setState(() { _studentSearchLoading = true; });
+    try {
+      final results = await _studentRepo.search(query);
+      if (mounted) setState(() { _studentSearchResults = results; });
+    } catch (_) {
+      if (mounted) setState(() { _studentSearchResults = []; });
+    } finally {
+      if (mounted) setState(() { _studentSearchLoading = false; });
+    }
+  }
+
   List<Widget> _build1on1Fields(BuildContext context) {
     return [
-      _field("Student ID", controller: _studentIdController),
+      // Searchable student picker
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _studentSearchController,
+            style: const TextStyle(color: Colors.white),
+            decoration: _inputDecoration("Search student by name or email")
+                .copyWith(
+              suffixIcon: _studentSearchLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            onChanged: _searchStudents,
+          ),
+          if (_selectedStudentName != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Selected: $_selectedStudentName',
+              style: GoogleFonts.dmSans(
+                color: AppColor.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (_studentSearchResults.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: AppColor.primaryColor,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _studentSearchResults.length,
+                itemBuilder: (context, index) {
+                  final student = _studentSearchResults[index];
+                  return ListTile(
+                    title: Text(
+                      student.displayName,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      student.email,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _studentIdController.text = student.userId;
+                        _selectedStudentName = student.displayName;
+                        _studentSearchResults = [];
+                        _studentSearchController.text = student.displayName;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
       SizedBox(height: Responsive.h(1.5)),
       _dateTimeRow(context),
       SizedBox(height: Responsive.h(1.5)),
