@@ -1,8 +1,10 @@
 ﻿import 'package:awesome_calendart/awesome_calendart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/repository/earnings_repo.dart';
 import 'package:toriino_todd/repository/session_repo.dart';
+import 'package:toriino_todd/repository/wallet_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/services/stripe_service.dart';
@@ -526,14 +528,37 @@ void _bookSessionBottomSheet(
             return;
           }
 
-          // Step 2: Charge the student. Real sessionId + mentorId go into
-          // Stripe metadata so the webhook can confirm and credit earnings.
-          final result = await StripeService.payForSession(
-            sessionId: realSessionId,
-            mentorId: mentorId,
-            mentorName: mentorName,
-            price: hourlyRate,
-          );
+          // Step 2: Deduct from wallet first (if balance available),
+          // then charge the shortfall via Stripe.
+          double stripeCharge = hourlyRate;
+          if (walletBalance > 0) {
+            final deductAmount = walletBalance >= hourlyRate ? hourlyRate : walletBalance;
+            try {
+              await WalletRepo().deduct(
+                amount: deductAmount,
+                description: 'Session with $mentorName',
+                idempotencyKey: realSessionId,
+              );
+              stripeCharge = (hourlyRate - deductAmount).clamp(0.0, hourlyRate);
+            } catch (e) {
+              debugPrint('[Wallet] deduction failed: $e — charging full amount via Stripe');
+            }
+          }
+
+          Map<String, dynamic> result;
+          if (stripeCharge <= 0) {
+            // Wallet covered the full amount — no Stripe charge needed.
+            result = {'success': true};
+          } else {
+            // Charge the student. Real sessionId + mentorId go into
+            // Stripe metadata so the webhook can confirm and credit earnings.
+            result = await StripeService.payForSession(
+              sessionId: realSessionId,
+              mentorId: mentorId,
+              mentorName: mentorName,
+              price: stripeCharge,
+            );
+          }
 
           if (!sheetContext.mounted) return;
           setSheetState(() => paying = false);
