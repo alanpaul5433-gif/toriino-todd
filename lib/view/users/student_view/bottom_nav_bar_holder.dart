@@ -132,21 +132,25 @@ class _MainWrapperState extends State<MainWrapper> {
                   title: const Text('Help & Support'),
                 ),
 
-                ListTile(
-                  onTap: () async {
-                    _customDrawerController.advancedDrawerController
-                        .hideDrawer();
-                    await AuthService.signOut();
-                    await UsersPrefrence().removeUser();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => Loginview()),
-                      (_) => false,
-                    );
-                  },
-                  leading: SvgPicture.asset("assets/icons/logout.svg"),
-                  title: const Text('Logout'),
+                Semantics(
+                  label: 'Logout',
+                  button: true,
+                  child: ListTile(
+                    onTap: () async {
+                      _customDrawerController.advancedDrawerController
+                          .hideDrawer();
+                      await AuthService.signOut();
+                      await UsersPrefrence().removeUser();
+                      if (!context.mounted) return;
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => Loginview()),
+                        (_) => false,
+                      );
+                    },
+                    leading: SvgPicture.asset("assets/icons/logout.svg"),
+                    title: const Text('Logout'),
+                  ),
                 ),
               ],
             ),
