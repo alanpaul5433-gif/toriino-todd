@@ -19,6 +19,10 @@ class FcmService {
   static final _api = NetworkApiServices();
 
   static Future<void> init() async {
+    if (Firebase.apps.isEmpty) {
+      debugPrint('[FCM] Firebase not initialized — skipping FCM setup');
+      return;
+    }
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     await _messaging.requestPermission(
