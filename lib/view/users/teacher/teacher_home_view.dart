@@ -43,6 +43,7 @@ class TeacherHomeView extends StatelessWidget {
         child: Padding(
           padding: Responsive.padding(left: 2, right: 2, top: 2),
           child: ListView(
+            padding: const EdgeInsets.only(bottom: kBottomNavigationBarHeight),
             children: [
               Column(
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -134,21 +135,25 @@ class TeacherHomeView extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: Responsive.wp(2)),
-                      GestureDetector(
-                        onTap:
-                            customDrawerController
-                                .advancedDrawerController
-                                .toggleDrawer,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColor.backGroundColor.withValues(
-                              alpha: 0.1,
+                      Semantics(
+                        label: 'Open menu',
+                        button: true,
+                        child: GestureDetector(
+                          onTap:
+                              customDrawerController
+                                  .advancedDrawerController
+                                  .toggleDrawer,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColor.backGroundColor.withValues(
+                                alpha: 0.1,
+                              ),
                             ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: SvgPicture.asset('assets/icons/menu.svg'),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SvgPicture.asset('assets/icons/menu.svg'),
+                            ),
                           ),
                         ),
                       ),

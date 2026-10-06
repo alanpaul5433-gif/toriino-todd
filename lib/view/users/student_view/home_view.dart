@@ -50,6 +50,7 @@ class _HomeViewState extends State<HomeView> {
       backgroundColor: AppColor.primaryColor,
       body: SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: kBottomNavigationBarHeight),
           child: Padding(
             padding: Responsive.padding(left: 2, right: 2, bottom: 1, top: 1),
             child: Column(
@@ -150,25 +151,29 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ),
                     SizedBox(width: Responsive.w(2)),
-                    GestureDetector(
-                      onTap: () {
-                        return customDrawerController.toggleDrawer();
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColor.backGroundColor.withValues(
-                            alpha: 0.1,
+                    Semantics(
+                      label: 'Open menu',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () {
+                          return customDrawerController.toggleDrawer();
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColor.backGroundColor.withValues(
+                              alpha: 0.1,
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: Responsive.padding(
-                            left: 2,
-                            right: 2,
-                            bottom: 2,
-                            top: 2,
+                          child: Padding(
+                            padding: Responsive.padding(
+                              left: 2,
+                              right: 2,
+                              bottom: 2,
+                              top: 2,
+                            ),
+                            child: SvgPicture.asset('assets/icons/menu.svg'),
                           ),
-                          child: SvgPicture.asset('assets/icons/menu.svg'),
                         ),
                       ),
                     ),
