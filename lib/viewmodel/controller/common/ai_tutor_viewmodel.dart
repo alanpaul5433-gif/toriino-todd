@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:toriino_todd/data/appURL/app_url.dart';
+import 'package:toriino_todd/data/network/auth_interceptor.dart';
 import 'package:toriino_todd/model/ai/chat_message_model.dart';
-import 'package:toriino_todd/services/gemini_service.dart';
+import 'package:toriino_todd/services/auth_service.dart';
 
 export 'package:toriino_todd/model/ai/chat_message_model.dart';
 
@@ -10,8 +15,8 @@ class AiTutorViewmodel extends GetxController {
   final RxList<ChatMessageModel> messages = <ChatMessageModel>[].obs;
   final RxBool isTyping = false.obs;
 
-  // Rolling conversation history passed to Gemini for context
-  final List<String> _history = [];
+  // Rolling conversation history (index 0 = AI welcome, 1 = user, 2 = AI, ...)
+  final List<Map<String, dynamic>> _history = [];
 
   // Optional: set this when the student is inside a specific course
   String? courseTopic;
@@ -28,13 +33,7 @@ class AiTutorViewmodel extends GetxController {
       isUser: false,
       timestamp: DateTime.now(),
     ));
-    // Seed the history so Gemini knows its role from the first message
-    _history.add(
-      courseTopic != null
-          ? 'You are a helpful AI study tutor on the Toriino platform for the topic: "$courseTopic". Be concise and educational.'
-          : 'You are a helpful AI study tutor on the Toriino platform. Be concise and educational.',
-    );
-    _history.add(welcome);
+    _history.add({'text': welcome, 'isUser': false});
   }
 
   void sendMessage() {
@@ -50,28 +49,45 @@ class AiTutorViewmodel extends GetxController {
     messageController.clear();
     isTyping.value = true;
 
-    // Keep last 20 turns to stay within context window
-    final recentHistory = _history.length > 20
-        ? _history.sublist(_history.length - 20)
-        : List<String>.from(_history);
+    _sendViaLambda(text);
+  }
 
-    GeminiService.instance
-        .askStudyAssistant(
-          question: text,
-          courseTopic: courseTopic,
-          history: recentHistory,
-        )
-        .then((reply) {
-      isTyping.value = false;
-      _history.add(text);
-      _history.add(reply);
-      messages.add(ChatMessageModel(
-        id: _id(),
-        text: reply,
-        isUser: false,
-        timestamp: DateTime.now(),
-      ));
-    }).catchError((e) {
+  Future<void> _sendViaLambda(String text) async {
+    try {
+      final userId = await AuthService.getUserId();
+      if (userId == null) throw Exception('Not logged in');
+
+      final headers = await AuthInterceptor.getAuthHeaders();
+      final recentHistory = _history.length > 20
+          ? _history.sublist(_history.length - 20)
+          : List<Map<String, dynamic>>.from(_history);
+
+      final response = await http.post(
+        Uri.parse(AppUrl.aiChat(userId)),
+        headers: headers,
+        body: jsonEncode({
+          'message': text,
+          if (courseTopic != null) 'sessionContext': courseTopic,
+          'history': recentHistory,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final reply = (data['aiMessage']?['text'] as String?) ?? 'No response.';
+        isTyping.value = false;
+        _history.add({'text': text, 'isUser': true});
+        _history.add({'text': reply, 'isUser': false});
+        messages.add(ChatMessageModel(
+          id: _id(),
+          text: reply,
+          isUser: false,
+          timestamp: DateTime.now(),
+        ));
+      } else {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+    } catch (_) {
       isTyping.value = false;
       messages.add(ChatMessageModel(
         id: _id(),
@@ -79,7 +95,23 @@ class AiTutorViewmodel extends GetxController {
         isUser: false,
         timestamp: DateTime.now(),
       ));
-    });
+    }
+  }
+
+  void resetChat() {
+    messages.clear();
+    _history.clear();
+    isTyping.value = false;
+    const welcome = 'Hello! I\'m your AI Tutor powered by Toriino. '
+        'Ask me anything about your courses, homework, or any academic topic. '
+        'I\'m here to help you learn!';
+    messages.add(ChatMessageModel(
+      id: _id(),
+      text: welcome,
+      isUser: false,
+      timestamp: DateTime.now(),
+    ));
+    _history.add({'text': welcome, 'isUser': false});
   }
 
   String _id() => DateTime.now().microsecondsSinceEpoch.toString();

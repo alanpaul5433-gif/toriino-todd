@@ -47,7 +47,7 @@ class ReviewListResponse {
 
   factory ReviewListResponse.fromJson(Map<String, dynamic> json) {
     return ReviewListResponse(
-      reviews: (json['reviews'] as List)
+      reviews: (json['reviews'] as List? ?? [])
           .map((e) => ReviewModel.fromJson(e))
           .toList(),
       count: json['count'] ?? 0,

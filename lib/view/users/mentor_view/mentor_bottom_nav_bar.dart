@@ -11,6 +11,7 @@ import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_home_view.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:toriino_todd/view/users/mentor_view/earinig_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_sessions_view.dart';
@@ -36,7 +37,7 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
     EarinigView(),
     MentorSessionsView(),
     MentorPrivateProfileView(),
-    AiTutorView(),
+    AiTutorView(tag: 'mentor'),
   ];
 
   @override
@@ -62,6 +63,22 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Obx(() {
+                  final vm = Get.find<MentorHomeViewmodel>();
+                  final avatarUrl = vm.rxProfile.value.data?.avatarUrl;
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                    child: CircleAvatar(
+                      radius: 36,
+                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: avatarUrl == null || avatarUrl.isEmpty
+                          ? const Icon(Icons.person, size: 36)
+                          : null,
+                    ),
+                  );
+                }),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15.0),
                   child: SvgPicture.asset("assets/icons/TORIINO.svg"),

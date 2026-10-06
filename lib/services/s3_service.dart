@@ -1,45 +1,64 @@
-import 'dart:io';
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:toriino_todd/config/aws_config.dart';
+import 'package:toriino_todd/data/appURL/app_url.dart';
+import 'package:toriino_todd/data/network/auth_interceptor.dart';
 
+/// Uploads files to S3 via a server-issued pre-signed PUT URL.
+///
+/// The Lambda (upload-url) scopes the key to the Cognito sub and enforces
+/// content-type and size limits.  No AWS credentials are ever stored in the
+/// Flutter app.
 class S3Service {
-  static const String _bucket = AWSConfig.s3Bucket;
-  static const String _region = AWSConfig.s3Region;
-  static String get _baseUrl =>
-      'https://$_bucket.s3.$_region.amazonaws.com';
-
-  // ── Upload File ──────────────────────────────────────
+  // ── Upload File via pre-signed URL ───────────────────
   static Future<Map<String, dynamic>> uploadFile({
     required File file,
-    required String folder, // e.g. 'profiles', 'courses', 'thumbnails'
+    required String folder, // 'profiles' | 'courses/thumbnails' | 'lessons'
     required String fileName,
   }) async {
     try {
-      final bytes = await file.readAsBytes();
-      final key = '$folder/$fileName';
-      final url = '$_baseUrl/$key';
+      final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
+      final contentType = _getContentType(fileName);
 
-      final response = await http.put(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': _getContentType(fileName),
-          'x-amz-acl': 'public-read',
-        },
+      // 1. Request a pre-signed PUT URL from the Lambda
+      final authHeaders = await AuthInterceptor.getAuthHeaders();
+      final uri = Uri.parse(AppUrl.uploadUrl).replace(queryParameters: {
+        'folder': folder,
+        'contentType': contentType,
+        'ext': ext,
+      });
+
+      final metaResponse = await http.get(uri, headers: authHeaders);
+      if (metaResponse.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'Failed to get upload URL: ${metaResponse.statusCode}',
+        };
+      }
+
+      final meta = jsonDecode(metaResponse.body) as Map<String, dynamic>;
+      final uploadUrl = meta['uploadUrl'] as String?;
+      final publicUrl = meta['publicUrl'] as String?;
+      final key = meta['key'] as String?;
+
+      if (uploadUrl == null) {
+        return {'success': false, 'message': 'No uploadUrl in response'};
+      }
+
+      // 2. PUT the file bytes directly to S3 using the pre-signed URL
+      final bytes = await file.readAsBytes();
+      final putResponse = await http.put(
+        Uri.parse(uploadUrl),
+        headers: {'Content-Type': contentType},
         body: bytes,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return {
-          'success': true,
-          'url': url,
-          'key': key,
-        };
+      if (putResponse.statusCode == 200 || putResponse.statusCode == 204) {
+        return {'success': true, 'url': publicUrl ?? '', 'key': key ?? ''};
       } else {
         return {
           'success': false,
-          'message': 'Upload failed: ${response.statusCode}',
+          'message': 'S3 PUT failed: ${putResponse.statusCode}',
         };
       }
     } catch (e) {
@@ -47,11 +66,11 @@ class S3Service {
     }
   }
 
-  // ── Upload Profile Picture ───────────────────────────
+  // ── Convenience wrappers ─────────────────────────────
   static Future<Map<String, dynamic>> uploadProfilePicture({
     required File imageFile,
     required String userId,
-  }) async {
+  }) {
     final ext = imageFile.path.split('.').last;
     return uploadFile(
       file: imageFile,
@@ -60,11 +79,10 @@ class S3Service {
     );
   }
 
-  // ── Upload Course Thumbnail ──────────────────────────
   static Future<Map<String, dynamic>> uploadCourseThumbnail({
     required File imageFile,
     required String courseId,
-  }) async {
+  }) {
     final ext = imageFile.path.split('.').last;
     return uploadFile(
       file: imageFile,
@@ -73,24 +91,7 @@ class S3Service {
     );
   }
 
-  // ── Get Public URL ───────────────────────────────────
-  static String getPublicUrl(String key) {
-    return '$_baseUrl/$key';
-  }
-
-  // ── Delete File ──────────────────────────────────────
-  static Future<bool> deleteFile(String key) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/$key'),
-      );
-      return response.statusCode == 204;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // ── Helper ───────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────
   static String _getContentType(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
     switch (ext) {
@@ -110,12 +111,5 @@ class S3Service {
       default:
         return 'application/octet-stream';
     }
-  }
-
-  // ── Generate Unique File Name ────────────────────────
-  static String generateFileName(String userId, String extension) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final hash = md5.convert(utf8.encode('$userId$timestamp')).toString();
-    return '$hash.$extension';
   }
 }

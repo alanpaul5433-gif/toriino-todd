@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+  "appName": "Torino Todd",
+  "@appName": { "description": "The name of the application" },
+  "signIn": "Sign In",
+  "@signIn": { "description": "Sign in button label" },
+  "signUp": "Sign Up",
+  "@signUp": {},
+  "email": "Email",
+  "@email": {},
+  "password": "Password",
+  "@password": {},
+  "forgotPassword": "Forgot Password?",
+  "@forgotPassword": {},
+  "continueLabel": "Continue",
+  "@continueLabel": {},
+  "errorGeneric": "Something went wrong. Please try again.",
+  "@errorGeneric": {},
+  "loading": "Loading...",
+  "@loading": {}
+}

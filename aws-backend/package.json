@@ -3,13 +3,19 @@
   "version": "1.0.0",
   "description": "Toriino Todd AWS Backend - Lambda Functions & Infrastructure",
   "scripts": {
+    "test": "jest --testPathPattern=tests/ --forceExit",
     "deploy:infra": "node infrastructure/deploy.js",
     "deploy:lambdas": "node infrastructure/deploy-lambdas.js",
     "deploy:api": "node infrastructure/deploy-api.js",
     "deploy:all": "npm run deploy:infra && npm run deploy:lambdas && npm run deploy:api"
   },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "stripe": "^14.25.0"
+  },
   "dependencies": {
     "@aws-sdk/client-api-gateway": "^3.700.0",
+    "@aws-sdk/client-cloudfront": "^3.700.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.700.0",
     "@aws-sdk/client-dynamodb": "^3.700.0",
     "@aws-sdk/client-iam": "^3.700.0",
@@ -18,9 +24,8 @@
     "@aws-sdk/client-sts": "^3.700.0",
     "@aws-sdk/client-transcribe": "^3.700.0",
     "@aws-sdk/lib-dynamodb": "^3.700.0",
-    "@aws-sdk/util-dynamodb": "^3.700.0",
     "@aws-sdk/s3-request-presigner": "^3.700.0",
-    "@aws-sdk/client-cloudfront": "^3.700.0",
+    "@aws-sdk/util-dynamodb": "^3.700.0",
     "mime-types": "^2.1.35"
   }
 }

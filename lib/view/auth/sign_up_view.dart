@@ -7,6 +7,7 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/view/auth/otp_verification_view.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/widgets/radio_button.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,7 @@ class Sginupview extends StatefulWidget {
 class _SginupviewState extends State<Sginupview> {
   final ValueNotifier<bool> _obsecurePassword = ValueNotifier<bool>(true);
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
+  bool _termsAccepted = false;
   TextEditingController nameController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
@@ -48,6 +50,10 @@ class _SginupviewState extends State<Sginupview> {
   }
 
   Future<void> _handleSignUp() async {
+    if (!_termsAccepted) {
+      Utils.toastMassage("Please accept the Terms & Privacy to continue");
+      return;
+    }
     if (nameController.text.isEmpty) {
       Utils.toastMassage("Please enter your full name");
       return;
@@ -70,12 +76,13 @@ class _SginupviewState extends State<Sginupview> {
       email: emailController.text.trim(),
       password: passwordController.text.trim(),
       name: nameController.text.trim(),
-      role: 'Student',
+      phone: phoneController.text.trim(),
     );
     _loading.value = false;
 
     if (result['success'] == true) {
       Utils.toastMassage("Account created! Please verify your email.");
+      AnalyticsService.logSignUp(role: 'Student');
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -148,7 +155,7 @@ class _SginupviewState extends State<Sginupview> {
                   focusNode: nameFoucsNode,
                   cursorColor: AppColor.red,
                   cursorErrorColor: AppColor.red,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.name,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(
@@ -161,7 +168,7 @@ class _SginupviewState extends State<Sginupview> {
                       borderSide: BorderSide(color: AppColor.red),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(Responsive.w(12)),
                     ),
                     prefixIcon: Padding(
@@ -208,7 +215,7 @@ class _SginupviewState extends State<Sginupview> {
                       borderSide: BorderSide(color: AppColor.red),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(Responsive.w(12)),
                     ),
                     prefixIcon: Padding(
@@ -218,7 +225,7 @@ class _SginupviewState extends State<Sginupview> {
                     filled: true,
 
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    hintText: "Email Adress",
+                    hintText: "Email Address",
                     hintStyle: GoogleFonts.dmSans(
                       color: AppColor.white,
                       fontWeight: FontWeight.normal,
@@ -241,7 +248,7 @@ class _SginupviewState extends State<Sginupview> {
                   focusNode: phoneFoucsNode,
                   cursorColor: AppColor.red,
                   cursorErrorColor: AppColor.red,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(
@@ -254,7 +261,7 @@ class _SginupviewState extends State<Sginupview> {
                       borderSide: BorderSide(color: AppColor.red),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(Responsive.w(12)),
                     ),
                     prefixIcon: Padding(
@@ -311,7 +318,7 @@ class _SginupviewState extends State<Sginupview> {
                           borderSide: BorderSide(color: AppColor.red),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColor.red),
+                          borderSide: BorderSide(color: AppColor.focusedBorder),
                           borderRadius: BorderRadius.circular(Responsive.w(12)),
                         ),
                         prefixIcon: Padding(
@@ -340,7 +347,10 @@ class _SginupviewState extends State<Sginupview> {
                 Row(
                   spacing: 5,
                   children: [
-                    TickRadioButton(value: true),
+                    TickRadioButton(
+                      value: _termsAccepted,
+                      onChanged: (v) => setState(() => _termsAccepted = v),
+                    ),
                     Text.rich(
                       TextSpan(
                         children: [

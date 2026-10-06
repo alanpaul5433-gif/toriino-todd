@@ -63,11 +63,11 @@ class CreatenewTicticketView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.red),
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
                     borderRadius: BorderRadius.circular(22),
                   ),
                   errorBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.primaryColor),
+                    borderSide: BorderSide(color: AppColor.red),
                     borderRadius: BorderRadius.circular(22),
                   ),
                   disabledBorder: OutlineInputBorder(

@@ -126,7 +126,7 @@ class OngoingCourseCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Chance Calzoni",
+                              mentorName ?? '--',
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(

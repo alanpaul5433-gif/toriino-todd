@@ -110,7 +110,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                           borderSide: BorderSide(color: AppColor.red),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColor.red),
+                          borderSide: BorderSide(color: AppColor.focusedBorder),
                           borderRadius: BorderRadius.circular(Responsive.w(12)),
                         ),
                         prefixIcon: Padding(
@@ -176,7 +176,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                           borderSide: BorderSide(color: AppColor.red),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColor.red),
+                          borderSide: BorderSide(color: AppColor.focusedBorder),
                           borderRadius: BorderRadius.circular(Responsive.w(12)),
                         ),
                         prefixIcon: Padding(
@@ -242,7 +242,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                           borderSide: BorderSide(color: AppColor.red),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColor.red),
+                          borderSide: BorderSide(color: AppColor.focusedBorder),
                           borderRadius: BorderRadius.circular(Responsive.w(12)),
                         ),
                         prefixIcon: Padding(

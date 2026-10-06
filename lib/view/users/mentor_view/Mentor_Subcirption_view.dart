@@ -1,12 +1,42 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/stripe_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class MentorSubcirptionView extends StatelessWidget {
+class MentorSubcirptionView extends StatefulWidget {
   const MentorSubcirptionView({super.key});
+
+  @override
+  State<MentorSubcirptionView> createState() => _MentorSubcirptionViewState();
+}
+
+class _MentorSubcirptionViewState extends State<MentorSubcirptionView> {
+  bool _paying = false;
+
+  void _subscribe(double amount, String planName) {
+    if (_paying) return;
+    setState(() => _paying = true);
+    StripeService.processPayment(
+      amount: amount,
+      currency: 'usd',
+      description: 'Mentor Subscription – $planName',
+    ).then((result) {
+      if (!mounted) return;
+      setState(() => _paying = false);
+      if (result['success'] == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
+        );
+      } else {
+        Utils.toastMassage(result['message'] ?? 'Payment failed');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,22 +53,16 @@ class MentorSubcirptionView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // GestureDetector(
-                    //   onTap: () => Navigator.of(context).pop(),
-                    //   child: SvgPicture.asset(
-                    //     "assets/icons/Arrow - Right 3.svg",
-                    //   ),
-                    // ),
                     Column(
                       children: [
                         GestureDetector(
-                          onTap:
-                              () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MentorBottomNavBar(),
-                                ),
-                              ),
+                          onTap: _paying
+                              ? null
+                              : () => Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => MentorBottomNavBar()),
+                                  ),
                           child: Text(
                             'Skip',
                             textAlign: TextAlign.right,
@@ -54,11 +78,9 @@ class MentorSubcirptionView extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 10),
-
+                const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
                   children: [
                     Text(
                       'Stand Out. Get Featured',
@@ -83,6 +105,12 @@ class MentorSubcirptionView extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Responsive.h(1)),
+                if (_paying)
+                  const Center(
+                      child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )),
                 subscribeCard(
                   "assets/icons/cube_box.svg",
                   "Monthly Plan",
@@ -92,48 +120,33 @@ class MentorSubcirptionView extends StatelessWidget {
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(9.99, 'Monthly Plan'),
                   context,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 subscribeCard(
                   "assets/icons/mdi_gold.svg",
                   "Quarterly Plan (Save 17%)",
-                  "9.99/",
+                  "49.99/",
                   "6 Month",
                   "Appear on homepage featured mentors",
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(49.99, 'Quarterly Plan'),
                   context,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 subscribeCard(
                   "assets/icons/bxs_diamond.svg",
                   "Annual Plan (Best Value)",
-                  "9.99/",
+                  "99.99/",
                   "Yearly",
                   "Appear on homepage featured mentors",
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(99.99, 'Annual Plan'),
                   context,
                 ),
               ],
@@ -214,14 +227,13 @@ Widget subscribeCard(
               ],
             ),
             SizedBox(height: Responsive.h(1)),
-            //Divider
             Row(children: [Expanded(child: Divider())]),
             SizedBox(height: Responsive.h(1)),
             dottedText(feature1),
             dottedText(feature2),
             dottedText(feature3),
-            dottedText(feature4), SizedBox(height: Responsive.h(1)),
-
+            dottedText(feature4),
+            SizedBox(height: Responsive.h(1)),
             subcribebutton(),
           ],
         ),

@@ -1,6 +1,8 @@
 class AppUrl {
-  // TODO: Replace with your actual AWS API Gateway URL after deployment
-  static const String baseUrl = 'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod',
+  );
 
   // Auth (public - no token required)
   static const String register = '$baseUrl/auth/register';
@@ -22,6 +24,7 @@ class AppUrl {
   static const String courses = '$baseUrl/courses';
   static const String myCourses = '$baseUrl/courses/my-courses';
   static const String myCreatedCourses = '$baseUrl/courses/my-created';
+  static const String courseUploadUrl = '$baseUrl/courses/upload-url';
   static String courseById(String id) => '$baseUrl/courses/$id';
   static String courseLessons(String id) => '$baseUrl/courses/$id/lessons';
   static String courseLesson(String courseId, String lessonId) =>
@@ -56,8 +59,17 @@ class AppUrl {
   static const String earnings = '$baseUrl/earnings';
   static const String earningsHistory = '$baseUrl/earnings/history';
 
+  // Upload — pre-signed S3 PUT URL (P2-2)
+  static const String uploadUrl = '$baseUrl/upload-url';
+
   // Agora token (server-generated, never on client)
   static const String agoraToken = '$baseUrl/sessions/token';
+
+  // Session recording
+  static String startRecording(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/recording/start';
+  static String stopRecording(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/recording/stop';
 
   // AI — session intelligence
   static String sessionSummary(String sessionId) =>

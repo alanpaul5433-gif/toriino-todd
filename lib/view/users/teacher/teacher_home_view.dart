@@ -10,9 +10,13 @@ import 'package:toriino_todd/view/users/student_view/student_public_profile_view
 import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/edit_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_subcribption.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_course_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherHomeView extends StatelessWidget {
@@ -27,7 +31,15 @@ class TeacherHomeView extends StatelessWidget {
     Responsive.init(context);
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
-      body: SafeArea(
+      body: Obx(() {
+        final allLoading =
+            teacherController.rxProfile.value.status == Status.loading &&
+            teacherController.rxCourses.value.status == Status.loading &&
+            teacherController.rxEarnings.value.status == Status.loading;
+        if (allLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return SafeArea(
         child: Padding(
           padding: Responsive.padding(left: 2, right: 2, top: 2),
           child: ListView(
@@ -41,11 +53,15 @@ class TeacherHomeView extends StatelessWidget {
                       Expanded(
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              backgroundImage: AssetImage(
-                                "assets/icons/Ellipse 6.png",
-                              ),
-                            ),
+                            Obx(() {
+                              final avatarUrl = teacherController.rxProfile.value.data?.avatarUrl;
+                              return CircleAvatar(
+                                radius: 24,
+                                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                    ? NetworkImage(avatarUrl) as ImageProvider
+                                    : const AssetImage('assets/icons/Ellipse 6.png'),
+                              );
+                            }),
                             SizedBox(width: Responsive.wp(1)),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,37 +155,34 @@ class TeacherHomeView extends StatelessWidget {
                     ],
                   ),
 
-                  Row(
-                    spacing: 6,
-                    children: [
-                      bloc(
-                        title: "Total Courses",
-                        value: "26",
-                        context: context,
-                      ),
-                      bloc(
-                        title: "Total Enrollments",
-                        value: "03",
-                        context: context,
-                      ),
-                      bloc(
-                        title: "Average Rating",
-                        value: "4.8",
-                        context: context,
-                      ),
-                      // bloc("Total Courses", "26"),
-                      // bloc("Total Enrollments", "03"),
-                      // bloc("Average Rating", "4.8"),
-                    ],
-                  ),
+                  Obx(() {
+                    final coursesState = teacherController.rxCourses.value;
+                    final courses = coursesState.data?.courses ?? [];
+                    final totalCourses = courses.length;
+                    final totalEnrollments = courses.fold<int>(0, (sum, c) => sum + (c.enrollmentCount ?? 0));
+                    final avgRating = courses.isEmpty ? 0.0 : courses.fold<double>(0, (sum, c) => sum + (c.rating ?? 0)) / courses.length;
+                    final hasData = coursesState.data != null;
+                    return Row(
+                      spacing: 6,
+                      children: [
+                        bloc(title: "Total Courses", value: hasData ? totalCourses.toString() : '--', context: context),
+                        bloc(title: "Total Enrollments", value: hasData ? totalEnrollments.toString() : '--', context: context),
+                        bloc(title: "Average Rating", value: hasData ? avgRating.toStringAsFixed(1) : '--', context: context),
+                      ],
+                    );
+                  }),
 
-                  Row(
+                  Obx(() {
+                    final sessionsState = teacherController.rxSessions.value;
+                    final sessions = sessionsState.data?.sessions ?? [];
+                    final upcoming = sessions.where((s) => s.status == 'scheduled').length;
+                    final hasData = sessionsState.data != null;
+                    return Row(
                     spacing: 6,
                     children: [
-                      // bloc("Upcoming Sessions", "03"),
                       bloc(
                         title: "Upcoming Sessions",
-                        value: "03",
+                        value: hasData ? upcoming.toString() : '--',
                         context: context,
                       ),
                       Expanded(
@@ -204,19 +217,24 @@ class TeacherHomeView extends StatelessWidget {
                                         ),
                                       ),
                                       Spacer(),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            '\$540.00',
-                                            style: GoogleFonts.dmSans(
-                                              color: AppColor.white,
-                                              fontSize: Responsive.sp(16),
-                                              fontWeight: FontWeight.w500,
-                                              letterSpacing: -0.30,
+                                      Obx(() {
+                                        final earningsState = teacherController.rxEarnings.value;
+                                        final total = earningsState.data?.totalEarnings;
+                                        final label = total != null ? '\$${total.toStringAsFixed(2)}' : '--';
+                                        return Row(
+                                          children: [
+                                            Text(
+                                              label,
+                                              style: GoogleFonts.dmSans(
+                                                color: AppColor.white,
+                                                fontSize: Responsive.sp(16),
+                                                fontWeight: FontWeight.w500,
+                                                letterSpacing: -0.30,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                          ],
+                                        );
+                                      }),
                                     ],
                                   ),
                                 ),
@@ -307,7 +325,8 @@ class TeacherHomeView extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
+                  );
+                  }),
 
                   AuthButton(
                     buttontext: "Create New Course",
@@ -340,16 +359,18 @@ class TeacherHomeView extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                'Reach More Students',
-                                style: GoogleFonts.dmSans(
-                                  color: Colors.white,
-                                  fontSize: Responsive.textScaleFactor * 20,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.30,
+                              Flexible(
+                                child: Text(
+                                  'Reach More Students',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.dmSans(
+                                    color: Colors.white,
+                                    fontSize: Responsive.textScaleFactor * 20,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: -0.30,
+                                  ),
                                 ),
                               ),
-                              Spacer(),
                               SvgPicture.asset(
                                 "assets/icons/bitcoin-icons_verify-filled.svg",
                               ),
@@ -438,147 +459,184 @@ class TeacherHomeView extends StatelessWidget {
                         ),
                       ),
 
-                      Row(
-                        children: [
-                          Text(
-                            'View all',
-                            textAlign: TextAlign.right,
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: Responsive.sp(10),
-                              fontWeight: FontWeight.w400,
-                              height: 1.60,
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherCousreView())),
+                        child: Row(
+                          children: [
+                            Text(
+                              'View all',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.dmSans(
+                                color: Colors.white,
+                                fontSize: Responsive.sp(10),
+                                fontWeight: FontWeight.w400,
+                                height: 1.60,
+                              ),
                             ),
-                          ),
-                          SvgPicture.asset(
-                            "assets/icons/eva_arrow-up-fill.svg",
-                          ),
-                        ],
+                            SvgPicture.asset(
+                              "assets/icons/eva_arrow-up-fill.svg",
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   SizedBox(height: Responsive.hp(2)),
 
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: 5,
-                    itemBuilder: ((context, index) {
-                      return recentSessionsHistoryCard(context);
-                    }),
-                  ),
+                  Obx(() {
+                    final coursesState = teacherController.rxCourses.value;
+                    final courses = coursesState.data?.courses ?? [];
+                    if (courses.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24.0),
+                        child: Center(
+                          child: Text(
+                            coursesState.data == null ? 'Loading courses...' : 'No courses yet',
+                            style: GoogleFonts.dmSans(color: AppColor.white.withValues(alpha: 0.6)),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: courses.length,
+                      itemBuilder: (ctx, index) {
+                        return recentSessionsHistoryCard(ctx, courses[index]);
+                      },
+                    );
+                  }),
                 ],
               ),
             ],
           ),
         ),
-      ),
+      );
+      }),
     );
   }
 }
 
-void _courseCompleteAlert(BuildContext context) {
+void _courseCompleteAlert(BuildContext context, [CourseModel? course]) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (BuildContext context) {
-      return Dialog(
-        backgroundColor: AppColor.primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.0),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset("assets/icons/bin.svg"),
-              SizedBox(height: Responsive.hp(1)),
-              Text(
-                "Delete this course?",
-                style: TextStyle(
-                  color: AppColor.white,
-                  fontSize: Responsive.textScaleFactor * 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: Responsive.hp(1)),
-              Text(
-                textAlign: TextAlign.center,
-                "Are you sure you want to delete ‘UI/UX Mastery Bootcamp’? This action cannot be undone.",
-                style: TextStyle(
-                  color: AppColor.white,
-                  fontSize: Responsive.textScaleFactor * 16,
-                ),
-              ),
-              SizedBox(height: Responsive.hp(5)),
-
-              Row(
-                // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    builder: (BuildContext dialogContext) {
+      bool isDeleting = false;
+      return StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return Dialog(
+            backgroundColor: AppColor.primaryColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Utils.toastMassage("Session booked Successful");
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(28),
-                          color: AppColor.red,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 16.0,
-                          ),
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "Confirm",
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: Responsive.textScaleFactor * 14,
-                                    color: AppColor.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
+                  SvgPicture.asset("assets/icons/bin.svg"),
+                  SizedBox(height: Responsive.hp(1)),
+                  Text(
+                    "Delete this course?",
+                    style: TextStyle(
+                      color: AppColor.white,
+                      fontSize: Responsive.textScaleFactor * 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: Responsive.hp(1)),
+                  Text(
+                    textAlign: TextAlign.center,
+                    "Are you sure you want to delete '${course?.title ?? 'this course'}'? This action cannot be undone.",
+                    style: TextStyle(
+                      color: AppColor.white,
+                      fontSize: Responsive.textScaleFactor * 16,
+                    ),
+                  ),
+                  SizedBox(height: Responsive.hp(5)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: isDeleting
+                              ? null
+                              : () async {
+                                  if (course?.courseId == null) {
+                                    Navigator.pop(dialogContext);
+                                    Utils.toastMassage(
+                                        "Cannot delete: course ID missing");
+                                    return;
+                                  }
+                                  setDialogState(() => isDeleting = true);
+                                  try {
+                                    await CourseRepo()
+                                        .deleteCourse(course!.courseId!);
+                                    Navigator.pop(dialogContext);
+                                    Utils.toastMassage(
+                                        "Course deleted successfully");
+                                    final vm = Get.isRegistered<
+                                            TeacherCourseViewmodel>()
+                                        ? Get.find<TeacherCourseViewmodel>()
+                                        : null;
+                                    vm?.fetchMyCourses();
+                                  } catch (e) {
+                                    setDialogState(() => isDeleting = false);
+                                    Utils.toastMassage(
+                                        "Error deleting course: $e");
+                                  }
+                                },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(28),
+                              color: AppColor.red,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                                horizontal: 16.0,
+                              ),
+                              child: Center(
+                                child: isDeleting
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white),
+                                      )
+                                    : Text(
+                                        "Confirm",
+                                        style: GoogleFonts.dmSans(
+                                          fontSize:
+                                              Responsive.textScaleFactor * 14,
+                                          color: AppColor.white,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  SizedBox(width: Responsive.wp(4)),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        // Navigator.push(
-                        //   context,
-                        //   MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
-                        // );
-                        Utils.toastMassage("Session booked Successful");
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          color: AppColor.white.withValues(alpha: 0.20),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 16.0,
-                          ),
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
+                      SizedBox(width: Responsive.wp(4)),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pop(dialogContext);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              color: AppColor.white.withValues(alpha: 0.20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                                horizontal: 16.0,
+                              ),
+                              child: Center(
+                                child: Text(
                                   "Cancel",
                                   style: GoogleFonts.dmSans(
                                     fontSize: Responsive.textScaleFactor * 14,
@@ -586,18 +644,18 @@ void _courseCompleteAlert(BuildContext context) {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     },
   );
@@ -636,7 +694,7 @@ Widget test(BuildContext context) {
                     children: [
                       CircleAvatar(
                         radius: 20,
-                        backgroundImage: AssetImage("assets/images/michel.png"),
+                        backgroundImage: const AssetImage("assets/icons/Ellipse 6 (1).png"),
                       ),
                       SizedBox(width: 10),
 
@@ -644,7 +702,7 @@ Widget test(BuildContext context) {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Michel",
+                            "--",
                             style: GoogleFonts.dmSans(
                               fontSize: Responsive.sp(10),
                               color: AppColor.white,
@@ -671,7 +729,7 @@ Widget test(BuildContext context) {
                       "assets/icons/material-symbols_star (1).svg",
                     ),
                     Text(
-                      "4.8",
+                      "--",
                       style: GoogleFonts.dmSans(
                         color: AppColor.white,
                         fontWeight: FontWeight.w500,
@@ -694,95 +752,109 @@ Widget test(BuildContext context) {
             SizedBox(height: 10),
 
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              spacing: 4,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Type",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Type",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "Group",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "Group",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Duration",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Duration",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "1hr",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "1hr",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Seats Left",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Seats Left",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "2-5",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "2-5",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Language",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Language",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "English / Arabic",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.sp(10),
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "English / Arabic",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.sp(10),
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -841,7 +913,7 @@ Widget test(BuildContext context) {
   );
 }
 
-Widget recentSessionsHistoryCard(BuildContext context) {
+Widget recentSessionsHistoryCard(BuildContext context, [CourseModel? course]) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 4.0),
     child: Container(
@@ -859,7 +931,7 @@ Widget recentSessionsHistoryCard(BuildContext context) {
                 circularIcon("assets/icons/book.svg",),
                 SizedBox(width: Responsive.wp(2)),
                 Text(
-                  'COURSE 01',
+                  course?.category?.toUpperCase() ?? 'COURSE',
                   style: GoogleFonts.dmSans(
                     color: AppColor.white,
                     fontSize: Responsive.sp(10),
@@ -870,7 +942,7 @@ Widget recentSessionsHistoryCard(BuildContext context) {
               ],
             ),
             Text(
-              'Published 2 days ago',
+              course?.status == 'published' ? 'Published' : (course?.status ?? 'Draft'),
               style: GoogleFonts.dmSans(
                 color: AppColor.white,
                 fontSize: Responsive.sp(10),
@@ -883,29 +955,34 @@ Widget recentSessionsHistoryCard(BuildContext context) {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  "UI/UX Design Basics",
-                  style: GoogleFonts.dmSans(
-                    fontSize: Responsive.sp(20),
-                    color: AppColor.white,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    course?.title ?? 'Untitled Course',
+                    style: GoogleFonts.dmSans(
+                      fontSize: Responsive.sp(20),
+                      color: AppColor.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Row(
-                  children: [
-                    SvgPicture.asset(
-                      "assets/icons/material-symbols_star (1).svg",
-                    ),
-                    Text(
-                      "4.8",
-                      style: GoogleFonts.dmSans(
-                        color: AppColor.white,
-                        fontSize: Responsive.sp(12),
-                        fontWeight: FontWeight.w500,
+                if (course?.rating != null)
+                  Row(
+                    children: [
+                      SvgPicture.asset(
+                        "assets/icons/material-symbols_star (1).svg",
                       ),
-                    ),
-                  ],
-                ),
+                      Text(
+                        course!.rating!.toStringAsFixed(1),
+                        style: GoogleFonts.dmSans(
+                          color: AppColor.white,
+                          fontSize: Responsive.sp(12),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
             SizedBox(height: Responsive.hp(1)),
@@ -913,11 +990,20 @@ Widget recentSessionsHistoryCard(BuildContext context) {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => EditCoureView()),
-                        ),
+                    onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    EditCoureView(course: course ?? CourseModel())),
+                          );
+                          if (result == true) {
+                            final vm = Get.isRegistered<TeacherCourseViewmodel>()
+                                ? Get.find<TeacherCourseViewmodel>()
+                                : null;
+                            vm?.fetchMyCourses();
+                          }
+                        },
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -955,7 +1041,7 @@ Widget recentSessionsHistoryCard(BuildContext context) {
                 SizedBox(width: Responsive.wp(2)),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _courseCompleteAlert(context),
+                    onTap: () => _courseCompleteAlert(context, course),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -1012,52 +1098,6 @@ Widget circularIcon(String image) {
   );
 }
 
-// Widget bloc(String titletext, String price) {
-//   return Expanded(
-//     child: Padding(
-//       padding: Responsive.padding(left: 1, right: 1, bottom: 1, top: 1),
-//       child: Container(
-//         height: Responsive.hp(12),
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(18),
-//           color: AppColor.white.withValues(alpha: 0.08),
-//         ),
-//         child: Padding(
-//           padding: const EdgeInsets.all(8.0),
-//           child: Column(
-//             children: [
-//               Text(
-//                 titletext,
-//                 style: GoogleFonts.dmSans(
-//                   color: Colors.white,
-//                 fontSize: Responsive.sp(10),
-//                   fontWeight: FontWeight.w400,
-//                   letterSpacing: -0.20,
-//                 ),
-//               ),
-//               Spacer(),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.end,
-//                 children: [
-//                   Text(
-//                     price,
-//                     textAlign: TextAlign.right,
-//                     style: GoogleFonts.dmSans(
-//                       color: Colors.white,
-//                       fontSize: Responsive.textScaleFactor * 25,
-//                       fontWeight: FontWeight.bold,
-//                       letterSpacing: -0.30,
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//   );
-// }
 Widget bloc({
   required String title,
   required String value,

@@ -154,12 +154,12 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
                     ),
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
@@ -199,11 +199,11 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),

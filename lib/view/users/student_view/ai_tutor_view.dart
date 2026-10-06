@@ -7,9 +7,10 @@ import 'package:toriino_todd/viewmodel/controller/common/ai_tutor_viewmodel.dart
 import 'package:google_fonts/google_fonts.dart';
 
 class AiTutorView extends StatelessWidget {
-  AiTutorView({super.key});
+  AiTutorView({super.key, this.tag});
 
-  final AiTutorViewmodel chatController = Get.put(AiTutorViewmodel());
+  final String? tag;
+  late final AiTutorViewmodel chatController = Get.put(AiTutorViewmodel(), tag: tag);
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +25,11 @@ class AiTutorView extends StatelessWidget {
               padding: const EdgeInsets.all(12.0),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/icons/Toriino AI.svg', height: 28),
+                  SizedBox(
+                    width: 110,
+                    height: 28,
+                    child: SvgPicture.asset('assets/icons/Toriino AI.svg', fit: BoxFit.contain),
+                  ),
                   SizedBox(width: Responsive.w(2)),
                   Flexible(
                     child: Text(
@@ -40,8 +45,7 @@ class AiTutorView extends StatelessWidget {
                   const Spacer(),
                   GestureDetector(
                     onTap: () {
-                      chatController.messages.clear();
-                      chatController.onInit();
+                      chatController.resetChat();
                     },
                     child: Container(
                       decoration: BoxDecoration(

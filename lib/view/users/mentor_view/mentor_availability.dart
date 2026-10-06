@@ -1,9 +1,11 @@
 ﻿import 'package:awesome_calendart/awesome_calendart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/edit_mentor_avaiblity_view.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_availability_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorAvailability extends StatefulWidget {
@@ -14,10 +16,17 @@ class MentorAvailability extends StatefulWidget {
 }
 
 class _MentorAvailabilityState extends State<MentorAvailability> {
+  late MentorAvailabilityViewmodel _vm;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   String _selectedSessionMode = 'Group'; // '1-on-1' or 'Group'
   String? _sessionType; // Make it nullable
+
+  @override
+  void initState() {
+    super.initState();
+    _vm = Get.put(MentorAvailabilityViewmodel());
+  }
 
 
   Future<void> _selectStartTime() async {
@@ -305,8 +314,106 @@ class _MentorAvailabilityState extends State<MentorAvailability> {
                 SizedBox(height: Responsive.h(2)),
               ],
 
-              
-            
+              SizedBox(height: Responsive.h(1)),
+              Text(
+                'Your Availability Slots',
+                style: GoogleFonts.rethinkSans(
+                  color: Colors.white,
+                  fontSize: Responsive.textScaleFactor * 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: Responsive.h(1)),
+              Obx(() {
+                final status = _vm.rxSlots.value;
+                if (status.status?.name == 'loading') {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColor.red),
+                    ),
+                  );
+                }
+                final slots = status.data ?? [];
+                if (slots.isEmpty) {
+                  return Text(
+                    'No availability set yet. Tap Edit to add slots.',
+                    style: GoogleFonts.dmSans(
+                      color: AppColor.white.withValues(alpha: 0.5),
+                      fontSize: Responsive.textScaleFactor * 12,
+                    ),
+                  );
+                }
+                return Column(
+                  children: slots.map((slot) {
+                    return Container(
+                      margin: EdgeInsets.only(bottom: Responsive.h(1)),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: Responsive.w(4),
+                        vertical: Responsive.h(1.5),
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColor.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColor.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            color: AppColor.red,
+                            size: Responsive.w(4.5),
+                          ),
+                          SizedBox(width: Responsive.w(3)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  slot.dayOfWeek ?? '',
+                                  style: GoogleFonts.dmSans(
+                                    color: AppColor.white,
+                                    fontSize: Responsive.textScaleFactor * 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${slot.startTime ?? ''} – ${slot.endTime ?? ''}',
+                                  style: GoogleFonts.dmSans(
+                                    color: AppColor.white.withValues(alpha: 0.6),
+                                    fontSize: Responsive.textScaleFactor * 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (slot.isRecurring == true)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColor.red.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Recurring',
+                                style: GoogleFonts.dmSans(
+                                  color: AppColor.red,
+                                  fontSize: Responsive.textScaleFactor * 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              }),
+
             ],
           ),
         ),

@@ -97,11 +97,11 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
 
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.2),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -142,11 +142,11 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
 
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.2),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -186,11 +186,11 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
 
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.2),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -228,11 +228,11 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.2),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),

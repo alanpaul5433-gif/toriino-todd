@@ -120,7 +120,7 @@ class StudentPublicProfileView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  'Michel S.',
+                  '--',
                   style: GoogleFonts.dmSans(
                     color: Colors.white,
                     fontSize: Responsive.textScaleFactor * 18,
@@ -160,7 +160,7 @@ class StudentPublicProfileView extends StatelessWidget {
           ),
         ),
         Text(
-          'Collage',
+          'College',
           style: GoogleFonts.dmSans(
             color: Colors.white,
             fontSize: Responsive.textScaleFactor * 12,
@@ -380,7 +380,7 @@ class StudentPublicProfileView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Chance Calzoni",
+                          '--',
                           style: TextStyle(
                             color: AppColor.white,
                             fontWeight: FontWeight.w500,
@@ -474,7 +474,7 @@ class StudentPublicProfileView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Chance Calzoni',
+                        '--',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: Responsive.textScaleFactor * 12,
@@ -660,7 +660,7 @@ class StudentPublicProfileView extends StatelessWidget {
 //                                 crossAxisAlignment: CrossAxisAlignment.center,
 //                                 children: [
 //                                   Text(
-//                                     'Michel S.',
+//                                     '--',
 //                                     style: GoogleFonts.dmSans(
 //                                       color: Colors.white,
 //                                       fontSize: Responsive.textScaleFactor * 18,
@@ -701,7 +701,7 @@ class StudentPublicProfileView extends StatelessWidget {
 //                           ),
 
 //                           Text(
-//                             'Collage',
+//                             'College',
 //                             style: GoogleFonts.dmSans(
 //                               color: Colors.white,
 //                               fontSize: Responsive.textScaleFactor * 12,
@@ -1052,7 +1052,7 @@ class StudentPublicProfileView extends StatelessWidget {
 //                                                     CrossAxisAlignment.start,
 //                                                 children: [
 //                                                   Text(
-//                                                     "Chance Calzoni",
+//                                                     '--',
 //                                                     style: TextStyle(
 //                                                       color: AppColor.white,
 //                                                       fontWeight:
@@ -1173,7 +1173,7 @@ class StudentPublicProfileView extends StatelessWidget {
 //                   crossAxisAlignment: CrossAxisAlignment.start,
 //                   children: [
 //                     Text(
-//                       'Chance Calzoni',
+//                       '--',
 //                       style: TextStyle(
 //                         color: Colors.white,
 //                         fontSize: Responsive.textScaleFactor * 12,

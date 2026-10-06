@@ -99,7 +99,7 @@ class _NotificationSettingViewState extends State<NotificationSettingView> {
                 },
               ),
               _buildSwitchField(
-                label: 'Cancelation',
+                label: 'Cancellation',
                 value: _cancelation,
                 onChanged: (value) {
                   setState(() {

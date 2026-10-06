@@ -1,13 +1,42 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/stripe_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class TeacherSubcribption extends StatelessWidget {
+class TeacherSubcribption extends StatefulWidget {
   const TeacherSubcribption({super.key});
+
+  @override
+  State<TeacherSubcribption> createState() => _TeacherSubcribptionState();
+}
+
+class _TeacherSubcribptionState extends State<TeacherSubcribption> {
+  bool _paying = false;
+
+  void _subscribe(double amount, String planName) {
+    if (_paying) return;
+    setState(() => _paying = true);
+    StripeService.processPayment(
+      amount: amount,
+      currency: 'usd',
+      description: 'Teacher Subscription – $planName',
+    ).then((result) {
+      if (!mounted) return;
+      setState(() => _paying = false);
+      if (result['success'] == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
+        );
+      } else {
+        Utils.toastMassage(result['message'] ?? 'Payment failed');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +57,13 @@ class TeacherSubcribption extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         GestureDetector(
-                          onTap:
-                              () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TeacherBottomNavBar(),
-                                ),
-                              ),
+                          onTap: _paying
+                              ? null
+                              : () => Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => TeacherBottomNavBar()),
+                                  ),
                           child: Text(
                             'Skip',
                             textAlign: TextAlign.right,
@@ -51,7 +80,6 @@ class TeacherSubcribption extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 Text(
                   'Stand Out. Get Featured',
                   style: GoogleFonts.dmSans(
@@ -72,6 +100,12 @@ class TeacherSubcribption extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Responsive.h(1)),
+                if (_paying)
+                  const Center(
+                      child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )),
                 subscribeCard(
                   "assets/icons/cube_box.svg",
                   "Monthly Plan",
@@ -81,51 +115,33 @@ class TeacherSubcribption extends StatelessWidget {
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Utils.toastMassage("Subscription activated successfully!");
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(9.99, 'Monthly Plan'),
                   context,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 subscribeCard(
                   "assets/icons/mdi_gold.svg",
                   "Quarterly Plan (Save 17%)",
-                  "9.99/",
+                  "49.99/",
                   "6 Month",
                   "Appear on homepage featured mentors",
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Utils.toastMassage("Subscription activated successfully!");
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(49.99, 'Quarterly Plan'),
                   context,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 subscribeCard(
                   "assets/icons/bxs_diamond.svg",
                   "Annual Plan (Best Value)",
-                  "9.99/",
+                  "99.99/",
                   "Yearly",
                   "Appear on homepage featured mentors",
                   "Rank higher in search",
                   "Increased student trust",
                   "Access analytics about visibility",
-                  () {
-                    Utils.toastMassage("Subscription activated successfully!");
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => TeacherBottomNavBar()),
-                    );
-                  },
+                  () => _subscribe(99.99, 'Annual Plan'),
                   context,
                 ),
               ],
@@ -206,14 +222,13 @@ Widget subscribeCard(
               ],
             ),
             SizedBox(height: Responsive.h(1)),
-            //Divider
             Row(children: [Expanded(child: Divider())]),
             SizedBox(height: Responsive.h(1)),
             dottedText(feature1),
             dottedText(feature2),
             dottedText(feature3),
-            dottedText(feature4), SizedBox(height: Responsive.h(1)),
-
+            dottedText(feature4),
+            SizedBox(height: Responsive.h(1)),
             subcribebutton(),
           ],
         ),

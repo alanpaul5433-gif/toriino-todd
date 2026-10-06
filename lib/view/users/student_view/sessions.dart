@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/live_session/live_session_screen.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/view/users/student_view/review.dart';
 import 'package:toriino_todd/viewmodel/controller/student/session_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -104,6 +106,27 @@ class SessionsView extends StatelessWidget {
                     return Center(child: Text('Error loading sessions', style: TextStyle(color: AppColor.white)));
                   }
                   final sessions = response.data?.sessions ?? [];
+                  if (sessions.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.event_note_outlined, color: Colors.white38, size: 56),
+                          SizedBox(height: 16),
+                          Text(
+                            'No sessions yet.',
+                            style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 15, fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Book a session with a mentor to get started.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                   return ListView.builder(
                   itemCount: sessions.length,
                   itemBuilder: ((context, index) {
@@ -132,9 +155,8 @@ class SessionsView extends StatelessWidget {
                                     children: [
                                       CircleAvatar(
                                         radius: 20,
-                                        backgroundImage: AssetImage(
-                                          "assets/icons/Ellipse 6.png",
-                                        ),
+                                        backgroundColor: AppColor.red.withValues(alpha: 0.3),
+                                        child: Icon(Icons.person, color: AppColor.white),
                                       ),
                                       SizedBox(width: 10),
 
@@ -160,19 +182,20 @@ class SessionsView extends StatelessWidget {
                                       ),
                                     ],
                                   ),
-                                  Row(
-                                    children: [
-                                      SvgPicture.asset(
-                                        "assets/icons/material-symbols_star (1).svg",
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: AppColor.white.withValues(alpha: 0.12),
+                                    ),
+                                    child: Text(
+                                      sessions[index].status ?? 'scheduled',
+                                      style: GoogleFonts.dmSans(
+                                        color: AppColor.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                      Text(
-                                        "4.8",
-                                        style: GoogleFonts.dmSans(
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -210,7 +233,7 @@ class SessionsView extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        "Group",
+                                        sessions[index].topic ?? '--',
                                         style: GoogleFonts.dmSans(
                                           fontSize: 12.sp,
                                           color: AppColor.white,
@@ -264,7 +287,7 @@ class SessionsView extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        "2-5",
+                                        '--',
                                         style: GoogleFonts.dmSans(
                                           fontSize: 12.sp,
                                           color: AppColor.white,
@@ -291,7 +314,7 @@ class SessionsView extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        "English / Arabic",
+                                        '--',
                                         style: GoogleFonts.dmSans(
                                           fontSize: 12.sp,
                                           color: AppColor.white,
@@ -313,20 +336,23 @@ class SessionsView extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: GestureDetector(
-                                      // onTap:
-                                      // () => Navigator.push(
-                                      //   context,
-                                      //   MaterialPageRoute(
-                                      //     builder:
-                                      //         (_) => AvailabilityScreen(),
-                                      //   ),
-                                      // ),
+                                      onTap: (sessions[index].status == 'scheduled' || sessions[index].status == 'active')
+                                          ? () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => LiveSessionScreen(
+                                                    sessionId: sessions[index].sessionId ?? '',
+                                                    isMentor: false,
+                                                  ),
+                                                ),
+                                              )
+                                          : null,
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            28,
-                                          ),
-                                          color: AppColor.red,
+                                          borderRadius: BorderRadius.circular(28),
+                                          color: (sessions[index].status == 'scheduled' || sessions[index].status == 'active')
+                                              ? AppColor.red
+                                              : AppColor.white.withValues(alpha: 0.2),
                                         ),
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -334,20 +360,20 @@ class SessionsView extends StatelessWidget {
                                             horizontal: 16.0,
                                           ),
                                           child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                            mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
                                               Text(
-                                                "Reschedule",
+                                                (sessions[index].status == 'scheduled' || sessions[index].status == 'active')
+                                                    ? "Join Session"
+                                                    : "Completed",
                                                 style: GoogleFonts.dmSans(
                                                   fontSize: Responsive.sp(12),
                                                   color: AppColor.white,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                              SvgPicture.asset(
-                                                "assets/icons/arrow.svg",
-                                              ),
+                                              if (sessions[index].status == 'scheduled' || sessions[index].status == 'active')
+                                                SvgPicture.asset("assets/icons/arrow.svg"),
                                             ],
                                           ),
                                         ),
@@ -371,6 +397,48 @@ class SessionsView extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                              // Rate Session button — only for completed sessions
+                              if (sessions[index].status == 'completed') ...[
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => showSubmitReviewSheet(
+                                    context,
+                                    targetId: sessions[index].sessionId ?? sessions[index].mentorId ?? '',
+                                    targetType: 'mentor',
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(
+                                        color: AppColor.red.withValues(alpha: 0.6),
+                                      ),
+                                      color: AppColor.red.withValues(alpha: 0.12),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                        horizontal: 16.0,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.star_border, color: AppColor.red, size: 16),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            "Rate Session",
+                                            style: GoogleFonts.dmSans(
+                                              fontSize: Responsive.sp(12),
+                                              color: AppColor.red,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

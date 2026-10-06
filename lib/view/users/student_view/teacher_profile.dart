@@ -444,7 +444,7 @@ class TeacherProfile extends StatelessWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'Jamie Dunn',
+                                                '--',
                                                 style: TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 14,
@@ -665,7 +665,7 @@ class TeacherProfile extends StatelessWidget {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          "Chance Calzoni",
+                                          '--',
                                           style: GoogleFonts.dmSans(
                                             color: AppColor.white,
                                             fontWeight: FontWeight.w500,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/data/response/api_response.dart';
 import 'package:toriino_todd/model/session/session_model.dart';
@@ -47,6 +48,21 @@ class MentorSessionViewmodel extends GetxController {
       fetchSessions();
       Utils.toastMassage("Session cancelled");
     }).onError((error, _) {
+      Utils.toastMassage(error.toString());
+    });
+  }
+
+  final isCreating = false.obs;
+
+  void createSession(Map<String, dynamic> data, {VoidCallback? onSuccess}) {
+    isCreating.value = true;
+    _sessionRepo.bookSession(data).then((_) {
+      isCreating.value = false;
+      fetchSessions();
+      Utils.toastMassage("Session created");
+      onSuccess?.call();
+    }).onError((error, _) {
+      isCreating.value = false;
       Utils.toastMassage(error.toString());
     });
   }

@@ -6,6 +6,7 @@ import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/edit_mentor_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorPrivateProfileView extends StatelessWidget {
@@ -15,6 +16,7 @@ class MentorPrivateProfileView extends StatelessWidget {
   Widget build(BuildContext context) {
     final CustomDrawerController customDrawerController =
         Get.find<CustomDrawerController>();
+    final MentorHomeViewmodel profileVm = Get.find<MentorHomeViewmodel>();
     Responsive.init(context);
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
@@ -122,15 +124,18 @@ class MentorPrivateProfileView extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  'Jaylon Culhane',
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 18,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
+                                Obx(() {
+                                  final profile = profileVm.rxProfile.value.data;
+                                  return Text(
+                                    profile?.name ?? '',
+                                    style: GoogleFonts.dmSans(
+                                      color: Colors.white,
+                                      fontSize: Responsive.textScaleFactor * 18,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.30,
+                                    ),
+                                  );
+                                }),
                                 SizedBox(width: Responsive.w(2)),
 
                                 SvgPicture.asset(
@@ -138,15 +143,18 @@ class MentorPrivateProfileView extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            Text(
-                              'Data Science Specialist',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: Responsive.textScaleFactor * 12,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
+                            Obx(() {
+                              profileVm.rxProfile.value; // reactive trigger
+                              return Text(
+                                'Mentor Profile',
+                                style: GoogleFonts.dmSans(
+                                  color: Colors.white,
+                                  fontSize: Responsive.textScaleFactor * 12,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -0.20,
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ],
@@ -179,15 +187,21 @@ class MentorPrivateProfileView extends StatelessWidget {
                       ),
                     ),
 
-                    Text(
-                      'Data Science',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.20,
-                      ),
-                    ),
+                    Obx(() {
+                      final profile = profileVm.rxProfile.value.data;
+                      final industry = (profile?.interests?.isNotEmpty == true)
+                          ? profile!.interests!.first
+                          : '--';
+                      return Text(
+                        industry,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.20,
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 SizedBox(height: Responsive.h(2)),
@@ -206,86 +220,78 @@ class MentorPrivateProfileView extends StatelessWidget {
                       ),
                     ),
 
-                    Text(
-                      '5',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.20,
-                      ),
-                    ),
+                    Obx(() {
+                      profileVm.rxProfile.value; // reactive trigger
+                      return Text(
+                        '--',
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.20,
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 SizedBox(height: Responsive.h(2)),
 
-                Text(
-                  "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white,
-                    fontSize: Responsive.textScaleFactor * 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.50,
-                  ),
-                ),
+                Obx(() {
+                  final profile = profileVm.rxProfile.value.data;
+                  final bio = (profile?.bio != null && profile!.bio!.isNotEmpty)
+                      ? profile.bio!
+                      : 'No bio yet. Tap Edit Profile to add one.';
+                  return Text(
+                    bio,
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.50,
+                    ),
+                  );
+                }),
                 SizedBox(height: Responsive.h(2)),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
                   children: [
-                    Row(
-                      children: [
-                        SvgPicture.asset("assets/icons/mic.svg"),
-                        Text(
-                          'English, German',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 10,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.20,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    Text.rich(
-                      TextSpan(
+                    Obx(() {
+                      final profile = profileVm.rxProfile.value.data;
+                      final loc = (profile?.location != null && profile!.location!.isNotEmpty)
+                          ? profile.location!
+                          : (profile?.email != null ? profile!.email! : '—');
+                      return Row(
                         children: [
-                          TextSpan(
-                            text: '\$30/',
+                          SvgPicture.asset("assets/icons/mic.svg"),
+                          Text(
+                            loc,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' ',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'hr',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
+                              fontSize: Responsive.textScaleFactor * 10,
                               fontFamily: 'DM Sans',
                               fontWeight: FontWeight.w400,
                               letterSpacing: -0.20,
                             ),
                           ),
                         ],
-                      ),
-                    ),
+                      );
+                    }),
+
+                    Obx(() {
+                      profileVm.rxProfile.value; // reactive trigger
+                      return Text(
+                        '--',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontFamily: 'DM Sans',
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.20,
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 SizedBox(height: Responsive.h(2)),
@@ -339,144 +345,45 @@ class MentorPrivateProfileView extends StatelessWidget {
                 SizedBox(height: Responsive.h(2)),
 
                 //Skill cipsviewview
-                Wrap(
-                  spacing: 5,
-                  runSpacing: 10,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Data Science',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
+                Obx(() {
+                  final profile = profileVm.rxProfile.value.data;
+                  final chips = (profile?.interests != null && profile!.interests!.isNotEmpty)
+                      ? profile.interests!
+                      : <String>['--'];
+                  return Wrap(
+                    spacing: 5,
+                    runSpacing: 10,
+                    children: chips
+                        .map(
+                          (tag) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: ShapeDecoration(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  width: 1,
+                                  color: Colors.white.withValues(alpha: 0.40),
+                                ),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontFamily: 'DM Sans',
+                                fontWeight: FontWeight.w400,
+                                height: 1.50,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Machine Learning',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Resume Review',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Career Guidance',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                        )
+                        .toList(),
+                  );
+                }),
                 SizedBox(height: Responsive.h(2)),
 
                 Row(
@@ -623,7 +530,7 @@ class MentorPrivateProfileView extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -774,7 +681,7 @@ class MentorPrivateProfileView extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,

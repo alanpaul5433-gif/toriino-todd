@@ -20,4 +20,5 @@ class EarningsRepo {
       headers: headers,
     );
   }
+
 }

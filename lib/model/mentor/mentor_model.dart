@@ -65,7 +65,7 @@ class MentorListResponse {
 
   factory MentorListResponse.fromJson(Map<String, dynamic> json) {
     return MentorListResponse(
-      mentors: (json['mentors'] as List)
+      mentors: (json['mentors'] as List? ?? [])
           .map((e) => MentorModel.fromJson(e))
           .toList(),
       count: json['count'] ?? 0,

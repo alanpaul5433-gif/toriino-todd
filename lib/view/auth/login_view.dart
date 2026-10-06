@@ -1,12 +1,21 @@
 ﻿import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/resources/routes/routes_name.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/view/auth/sign_up_view.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
+import 'package:toriino_todd/services/fcm_service.dart';
+import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
+import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -60,11 +69,26 @@ class _LoginviewState extends State<Loginview> {
 
     if (result['success'] == true) {
       Utils.toastMassage("Login successful!");
+      AnalyticsService.logLogin();
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-      );
+      // Always persist the role fresh from the JWT token to avoid stale state
+      final jwtRole = result['role'] as String?;
+      if (jwtRole != null) {
+        await UsersPrefrence().saveUserRole(jwtRole);
+      }
+      final savedRole = jwtRole ?? await UsersPrefrence().getUserRole();
+      if (!mounted) return;
+      try { Get.find<CustomDrawerController>().changeIndex(0); } catch (_) {}
+      FcmService.registerAfterLogin();
+      if (savedRole == 'Student') {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainWrapper()));
+      } else if (savedRole == 'Mentor') {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MentorBottomNavBar()));
+      } else if (savedRole == 'Teacher') {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => TeacherBottomNavBar()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RoleSelectionScreen()));
+      }
     } else {
       Utils.toastMassage(result['message'] ?? "Login failed");
     }
@@ -132,7 +156,7 @@ class _LoginviewState extends State<Loginview> {
                       borderSide: BorderSide(color: AppColor.red),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(Responsive.w(12)),
                     ),
                     prefixIcon: Padding(
@@ -187,7 +211,7 @@ class _LoginviewState extends State<Loginview> {
                           borderSide: BorderSide(color: AppColor.red),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColor.red),
+                          borderSide: BorderSide(color: AppColor.focusedBorder),
                           borderRadius: BorderRadius.circular(Responsive.w(12)),
                         ),
                         prefixIcon: Padding(
@@ -355,7 +379,7 @@ void _showForgotPasswordBottomSheet(
                     borderSide: BorderSide(color: AppColor.red),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.red),
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
                     borderRadius: BorderRadius.circular(Responsive.w(12)),
                   ),
                   prefixIcon: Padding(
@@ -385,8 +409,13 @@ void _showForgotPasswordBottomSheet(
                   email: email.text.trim(),
                 );
                 if (!context.mounted) return;
-                Navigator.pop(context);
-                Utils.toastMassage(result['message'] ?? "Reset code sent!");
+                if (result['success'] == true) {
+                  Navigator.pop(context);
+                  Utils.toastMassage(result['message'] ?? "Reset code sent!");
+                  Get.toNamed(RoutesName.resetPassword, arguments: {'email': email.text.trim()});
+                } else {
+                  Utils.toastMassage(result['message'] ?? "Reset code sent!");
+                }
               },
               loading: false,
             ),

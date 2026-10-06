@@ -3,6 +3,7 @@ import 'package:toriino_todd/data/response/api_response.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/model/course/lesson_model.dart';
 import 'package:toriino_todd/repository/course_repo.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/utils/utils.dart';
 
 class CourseViewmodel extends GetxController {
@@ -65,6 +66,7 @@ class CourseViewmodel extends GetxController {
     enrolling.value = true;
     _courseRepo.enrollCourse(courseId).then((value) {
       enrolling.value = false;
+      AnalyticsService.logEnroll(courseId: courseId);
       Utils.toastMassage("Enrolled successfully!");
       fetchMyCourses();
     }).onError((error, _) {

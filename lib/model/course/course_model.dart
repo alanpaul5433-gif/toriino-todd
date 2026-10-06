@@ -8,6 +8,7 @@ class CourseModel {
   final double? price;
   final String? imageUrl;
   final String? level;
+  final String? language;
   final double? rating;
   final int? enrollmentCount;
   final String? status;
@@ -24,6 +25,7 @@ class CourseModel {
     this.price,
     this.imageUrl,
     this.level,
+    this.language,
     this.rating,
     this.enrollmentCount,
     this.status,
@@ -42,6 +44,7 @@ class CourseModel {
       price: (json['price'] as num?)?.toDouble(),
       imageUrl: json['imageUrl'],
       level: json['level'],
+      language: json['language'],
       rating: (json['rating'] as num?)?.toDouble(),
       enrollmentCount: json['enrollmentCount'],
       status: json['status'],
@@ -61,6 +64,7 @@ class CourseModel {
     if (price != null) data['price'] = price;
     if (imageUrl != null) data['imageUrl'] = imageUrl;
     if (level != null) data['level'] = level;
+    if (language != null) data['language'] = language;
     if (rating != null) data['rating'] = rating;
     if (enrollmentCount != null) data['enrollmentCount'] = enrollmentCount;
     if (status != null) data['status'] = status;
@@ -76,7 +80,7 @@ class CourseListResponse {
 
   factory CourseListResponse.fromJson(Map<String, dynamic> json) {
     return CourseListResponse(
-      courses: (json['courses'] as List)
+      courses: (json['courses'] as List? ?? [])
           .map((e) => CourseModel.fromJson(e))
           .toList(),
       count: json['count'] ?? 0,

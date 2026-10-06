@@ -36,11 +36,11 @@ class EditProfileTextfeild extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColor.red),
+          borderSide: BorderSide(color: AppColor.focusedBorder),
           borderRadius: BorderRadius.circular(28),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColor.primaryColor),
+          borderSide: BorderSide(color: AppColor.red),
           borderRadius: BorderRadius.circular(28),
         ),
         disabledBorder: OutlineInputBorder(

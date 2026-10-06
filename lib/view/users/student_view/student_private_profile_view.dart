@@ -1,10 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/edit_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 import 'package:toriino_todd/view/users/student_view/review.dart';
+import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StudentProfile extends StatelessWidget {
@@ -13,6 +15,7 @@ class StudentProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Responsive.init(context);
+    final ProfileViewmodel profileVm = Get.put(ProfileViewmodel());
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
       body: SafeArea(
@@ -91,27 +94,33 @@ class StudentProfile extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: Responsive.w(10),
-                              backgroundImage: const AssetImage(
-                                "assets/images/michel.png",
-                              ),
-                            ),
+                            Obx(() {
+                              final avatarUrl = profileVm.rxProfile.value.data?.avatarUrl;
+                              return CircleAvatar(
+                                radius: Responsive.w(10),
+                                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                    ? NetworkImage(avatarUrl) as ImageProvider
+                                    : const AssetImage("assets/images/michel.png"),
+                              );
+                            }),
                             SizedBox(width: Responsive.w(2)),
 
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text(
-                                  'Michel S.',
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 18,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.20,
-                                  ),
-                                ),
+                                Obx(() {
+                                  final profile = profileVm.rxProfile.value.data;
+                                  return Text(
+                                    profile?.name ?? '',
+                                    style: GoogleFonts.dmSans(
+                                      color: Colors.white,
+                                      fontSize: Responsive.textScaleFactor * 18,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.20,
+                                    ),
+                                  );
+                                }),
                               ],
                             ),
                           ],
@@ -144,28 +153,36 @@ class StudentProfile extends StatelessWidget {
                           ),
                         ),
 
-                        Text(
-                          'Collage',
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.20,
-                          ),
-                        ),
+                        Obx(() {
+                          final profile = profileVm.rxProfile.value.data;
+                          return Text(
+                            profile?.location ?? '--',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white,
+                              fontSize: Responsive.textScaleFactor * 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.20,
+                            ),
+                          );
+                        }),
                       ],
                     ),
                     SizedBox(height: Responsive.h(2)),
 
-                    Text(
-                      "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w400,
-                        height: 1.50,
-                      ),
-                    ),
+                    Obx(() {
+                      final profile = profileVm.rxProfile.value.data;
+                      final bio = profile?.bio ?? '';
+                      if (bio.isEmpty) return const SizedBox.shrink();
+                      return Text(
+                        bio,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontWeight: FontWeight.w400,
+                          height: 1.50,
+                        ),
+                      );
+                    }),
                     SizedBox(height: Responsive.h(2)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -173,16 +190,20 @@ class StudentProfile extends StatelessWidget {
                         Row(
                           children: [
                             SvgPicture.asset("assets/icons/mic.svg"),
-                            Text(
-                              'English, German',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: Responsive.textScaleFactor * 10,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
+                            Obx(() {
+                              final profile = profileVm.rxProfile.value.data;
+                              final langs = profile?.interests?.join(', ') ?? '--';
+                              return Text(
+                                langs,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontFamily: 'DM Sans',
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -0.20,
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ],
@@ -253,7 +274,7 @@ class StudentProfile extends StatelessWidget {
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '03',
+                                        '--',
                                         textAlign: TextAlign.right,
                                         style: TextStyle(
                                           color: Colors.white,
@@ -298,7 +319,7 @@ class StudentProfile extends StatelessWidget {
 
                                     children: [
                                       Text(
-                                        '02',
+                                        '--',
                                         textAlign: TextAlign.right,
                                         style: TextStyle(
                                           color: Colors.white,
@@ -343,7 +364,7 @@ class StudentProfile extends StatelessWidget {
 
                                     children: [
                                       Text(
-                                        '01',
+                                        '--',
                                         textAlign: TextAlign.right,
                                         style: TextStyle(
                                           color: Colors.white,
@@ -400,9 +421,13 @@ class StudentProfile extends StatelessWidget {
                         ),
                         GestureDetector(
                           onTap: () {
+                            final uid = profileVm.rxProfile.value.data?.userId ?? '';
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => ReviewView()),
+                              MaterialPageRoute(builder: (_) => ReviewView(
+                                targetId: uid,
+                                targetType: 'student',
+                              )),
                             );
                           },
                           child: Text(
@@ -480,7 +505,7 @@ class StudentProfile extends StatelessWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'Jamie Dunn',
+                                                '--',
                                                 style: GoogleFonts.dmSans(
                                                   color: Colors.white,
                                                   fontSize:
@@ -560,7 +585,7 @@ class StudentProfile extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Courses Offered by Mentor',
+                          'My Enrolled Courses',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: Responsive.textScaleFactor * 12,
@@ -689,7 +714,7 @@ class StudentProfile extends StatelessWidget {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          "Chance Calzoni",
+                                          '--',
                                           style: GoogleFonts.dmSans(
                                             color: AppColor.white,
                                             fontWeight: FontWeight.bold,

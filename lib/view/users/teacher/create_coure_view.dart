@@ -1,9 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/teacher/add_lesson_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_course_viewmodel.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,6 +20,20 @@ class _CreateCoureViewState extends State<CreateCoureView> {
   String? selectedlanguages;
   String? courseCategory;
   String? courselevel;
+
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _durationController = TextEditingController();
+  final _priceController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _durationController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
 
   final List<String> courseCategories = [
     'Programming',
@@ -53,6 +69,10 @@ class _CreateCoureViewState extends State<CreateCoureView> {
       child: Scaffold(
         backgroundColor: AppColor.primaryColor,
         body: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: Responsive.w(5),
+            vertical: Responsive.h(2),
+          ),
           child: Column(
             children: [
               Row(
@@ -63,7 +83,7 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: SvgPicture.asset("assets/icons/Arrow - Right 3.svg")),
-                      SizedBox(width: Responsive.w(1)),
+                      SizedBox(width: Responsive.w(2)),
                       Text(
                         'Create New Course',
                         style: TextStyle(
@@ -138,14 +158,13 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                   ),
                 ],
               ),
-              SizedBox(height: Responsive.h(1)),
+              SizedBox(height: Responsive.h(2)),
 
-              textflieds("Course Title"),
-              SizedBox(height: Responsive.h(1)),
+              textflieds("Course Title", controller: _titleController),
+              SizedBox(height: Responsive.h(1.5)),
 
               TextFormField(
-                // controller: controller,
-                // focusNode: focusNode,
+                controller: _descriptionController,
                 style: TextStyle(color: AppColor.white),
                 maxLines: 4,
                 decoration: InputDecoration(
@@ -161,11 +180,11 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     borderRadius: BorderRadius.circular(28),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.red),
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   errorBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.primaryColor),
+                    borderSide: BorderSide(color: AppColor.red),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   disabledBorder: OutlineInputBorder(
@@ -178,7 +197,7 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                 //   Utils.fieldFoucsChange(context, focusNode, nextfocusNode);
                 // },
               ),
-              SizedBox(height: Responsive.h(1)),
+              SizedBox(height: Responsive.h(1.5)),
 
               DropdownButtonFormField<String>(
                 iconEnabledColor: AppColor.white,
@@ -190,34 +209,36 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColor.white.withValues(alpha: 0.08),
-                  enabledBorder: UnderlineInputBorder(
-                    // borderSide: BorderSide(color: AppColor.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  errorBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColor.red),
                     borderRadius: BorderRadius.circular(28),
                   ),
-
-                  hint: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Text(
-                      'Course Category',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.20,
-                      ),
+                  disabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  hint: Text(
+                    'Course Category',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 14,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.20,
                     ),
                   ),
                 ),
-                // ignore: deprecated_member_use
                 value: courseCategory,
                 items:
                     courseCategories.map((String language) {
                       return DropdownMenuItem<String>(
-                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,
@@ -241,7 +262,7 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                             ? 'Please select a course catogory'
                             : null,
               ),
-              SizedBox(height: Responsive.h(1)),
+              SizedBox(height: Responsive.h(1.5)),
               DropdownButtonFormField<String>(
                 iconEnabledColor: AppColor.white,
                 dropdownColor: AppColor.primaryColor,
@@ -252,34 +273,36 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColor.white.withValues(alpha: 0.08),
-                  enabledBorder: UnderlineInputBorder(
-                    // borderSide: BorderSide(color: AppColor.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  errorBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColor.red),
                     borderRadius: BorderRadius.circular(28),
                   ),
-
-                  hint: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Text(
-                      'Course Level',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.20,
-                      ),
+                  disabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  hint: Text(
+                    'Course Level',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 14,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.20,
                     ),
                   ),
                 ),
-                // ignore: deprecated_member_use
                 value: courselevel,
                 items:
                     courseLevels.map((String language) {
                       return DropdownMenuItem<String>(
-                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,
@@ -301,9 +324,9 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     (value) =>
                         value == null ? 'Please select course levels' : null,
               ),
-              SizedBox(height: Responsive.h(1)),
-              textflieds("Course Duration In hours"),
-              SizedBox(height: Responsive.h(1)),
+              SizedBox(height: Responsive.h(1.5)),
+              textflieds("Course Duration In hours", controller: _durationController),
+              SizedBox(height: Responsive.h(1.5)),
               DropdownButtonFormField<String>(
                 iconEnabledColor: AppColor.white,
                 dropdownColor: AppColor.primaryColor,
@@ -314,34 +337,36 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColor.white.withValues(alpha: 0.08),
-                  enabledBorder: UnderlineInputBorder(
-                    // borderSide: BorderSide(color: AppColor.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.focusedBorder),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  errorBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColor.red),
                     borderRadius: BorderRadius.circular(28),
                   ),
-
-                  hint: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Text(
-                      'Language',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.20,
-                      ),
+                  disabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColor.primaryColor),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  hint: Text(
+                    'Language',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 14,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.20,
                     ),
                   ),
                 ),
-                // ignore: deprecated_member_use
                 value: selectedlanguages,
                 items:
                     languages.map((String language) {
                       return DropdownMenuItem<String>(
-                        // ignore: deprecated_member_use
                         value: language,
                         child: Text(
                           language,
@@ -363,8 +388,8 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                     (value) =>
                         value == null ? 'Please select a language' : null,
               ),
-              SizedBox(height: Responsive.h(1)),
-              textflieds("Price Range"),
+              SizedBox(height: Responsive.h(1.5)),
+              textflieds("Price Range", controller: _priceController),
               SizedBox(height: Responsive.h(1)),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,11 +411,38 @@ class _CreateCoureViewState extends State<CreateCoureView> {
                 buttontext: "Next",
                 loading: false,
                 onPress: () {
+                  if (_titleController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter a course title')),
+                    );
+                    return;
+                  }
+                  if (_descriptionController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter a course description')),
+                    );
+                    return;
+                  }
+                  if (courseCategory == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please select a category')),
+                    );
+                    return;
+                  }
+                  final vm = Get.isRegistered<TeacherCourseViewmodel>()
+                      ? Get.find<TeacherCourseViewmodel>()
+                      : Get.put(TeacherCourseViewmodel());
+                  vm.titleController.text = _titleController.text.trim();
+                  vm.descriptionController.text = _descriptionController.text.trim();
+                  vm.durationController.text = _durationController.text.trim();
+                  vm.priceController.text = _priceController.text.trim();
+                  if (courseCategory != null) vm.selectedCategory.value = courseCategory!;
+                  if (courselevel != null) vm.selectedLevel.value = courselevel!;
+                  vm.selectedLanguage = selectedlanguages;
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => AddLessonView()),
                   );
-                  // Navigator.pop(context);
                 },
               ),
             ],
@@ -401,10 +453,9 @@ class _CreateCoureViewState extends State<CreateCoureView> {
   }
 }
 
-Widget textflieds(String text) {
+Widget textflieds(String text, {TextEditingController? controller}) {
   return TextFormField(
-    // controller: controller,
-    // focusNode: focusNode,
+    controller: controller,
     style: TextStyle(color: AppColor.white),
     decoration: InputDecoration(
       hint: Text(text, style: GoogleFonts.dmSans(color: AppColor.white)),
@@ -416,11 +467,11 @@ Widget textflieds(String text) {
         borderRadius: BorderRadius.circular(28),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: AppColor.red),
+        borderSide: BorderSide(color: AppColor.focusedBorder),
         borderRadius: BorderRadius.circular(28),
       ),
       errorBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: AppColor.primaryColor),
+        borderSide: BorderSide(color: AppColor.red),
         borderRadius: BorderRadius.circular(28),
       ),
       disabledBorder: OutlineInputBorder(

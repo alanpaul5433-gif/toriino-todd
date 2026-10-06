@@ -7,6 +7,7 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_profile_edit_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_upload_view.dart';
+import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherProfilePrivateView extends StatelessWidget {
@@ -16,6 +17,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
   Widget build(BuildContext context) {
     final CustomDrawerController customDrawerController =
         Get.find<CustomDrawerController>();
+    final ProfileViewmodel profileVm = Get.put(ProfileViewmodel());
     Responsive.init(context);
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
@@ -33,7 +35,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       child: Row(spacing: 2,
                         children: [
                           Text(
-                            'Your Profie',
+                            'Your Profile',
                             style: GoogleFonts.rethinkSans(
                               color: Colors.white,
                               fontSize: Responsive.textScaleFactor * 18,
@@ -114,12 +116,15 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
 
                       children: [
-                        CircleAvatar(
-                          radius: Responsive.w(10),
-                          backgroundImage: AssetImage(
-                            "assets/icons/Ellipse 6.png",
-                          ),
-                        ),
+                        Obx(() {
+                          final avatarUrl = profileVm.rxProfile.value.data?.avatarUrl;
+                          return CircleAvatar(
+                            radius: Responsive.w(10),
+                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl) as ImageProvider
+                                : const AssetImage('assets/icons/Ellipse 6.png'),
+                          );
+                        }),
                         SizedBox(width: Responsive.w(2)),
 
                         Column(
@@ -127,15 +132,18 @@ class TeacherProfilePrivateView extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  'Jaylon Culhane',
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 18,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
+                                Obx(() {
+                                  final profile = profileVm.rxProfile.value.data;
+                                  return Text(
+                                    profile?.name ?? '',
+                                    style: GoogleFonts.dmSans(
+                                      color: Colors.white,
+                                      fontSize: Responsive.textScaleFactor * 18,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.30,
+                                    ),
+                                  );
+                                }),
                                 SizedBox(width: Responsive.w(2)),
 
                                 SvgPicture.asset(
@@ -143,15 +151,21 @@ class TeacherProfilePrivateView extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            Text(
-                              'Data Science Specialist',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: Responsive.textScaleFactor * 12,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
+                            Obx(() {
+                              final profile = profileVm.rxProfile.value.data;
+                              final subtitle = profile?.bio != null && profile!.bio!.isNotEmpty
+                                  ? profile.bio!.split(' ').take(5).join(' ')
+                                  : '--';
+                              return Text(
+                                subtitle,
+                                style: GoogleFonts.dmSans(
+                                  color: Colors.white,
+                                  fontSize: Responsive.textScaleFactor * 12,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -0.20,
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ],
@@ -184,15 +198,21 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       ),
                     ),
 
-                    Text(
-                      'Data Science',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.20,
-                      ),
-                    ),
+                    Obx(() {
+                      final profile = profileVm.rxProfile.value.data;
+                      final industry = profile?.interests?.isNotEmpty == true
+                          ? profile!.interests!.first
+                          : '--';
+                      return Text(
+                        industry,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.20,
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 SizedBox(height: Responsive.h(2)),
@@ -212,7 +232,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                     ),
 
                     Text(
-                      '5',
+                      '--',
                       style: GoogleFonts.dmSans(
                         color: Colors.white,
                         fontSize: Responsive.textScaleFactor * 12,
@@ -224,15 +244,18 @@ class TeacherProfilePrivateView extends StatelessWidget {
                 ),
                 SizedBox(height: Responsive.h(2)),
 
-                Text(
-                  "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white,
-                    fontSize: Responsive.textScaleFactor * 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.50,
-                  ),
-                ),
+                Obx(() {
+                  final profile = profileVm.rxProfile.value.data;
+                  return Text(
+                    profile?.bio ?? '--',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.50,
+                    ),
+                  );
+                }),
                 SizedBox(height: Responsive.h(2)),
 
                 Row(
@@ -243,10 +266,9 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       children: [
                         SvgPicture.asset("assets/icons/mic.svg"),
                         Text(
-                          'English, German',
-                          style: TextStyle(
+                          '--',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 10,
                             fontFamily: 'DM Sans',
                             fontWeight: FontWeight.w400,
                             letterSpacing: -0.20,
@@ -255,40 +277,14 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       ],
                     ),
 
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '\$30/',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' ',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'hr',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      '--',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontFamily: 'DM Sans',
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.20,
                       ),
                     ),
                   ],
@@ -636,7 +632,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -644,50 +640,6 @@ class TeacherProfilePrivateView extends StatelessWidget {
                                               fontWeight: FontWeight.w500,
                                               letterSpacing: -0.30,
                                             ),
-                                          ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Container(
-                                                width: 13,
-                                                height: 13,
-                                                clipBehavior: Clip.antiAlias,
-                                                decoration: BoxDecoration(),
-                                                child: Stack(),
-                                              ),
-                                              Container(
-                                                width: 13,
-                                                height: 13,
-                                                clipBehavior: Clip.antiAlias,
-                                                decoration: BoxDecoration(),
-                                                child: Stack(),
-                                              ),
-                                              Container(
-                                                width: 13,
-                                                height: 13,
-                                                clipBehavior: Clip.antiAlias,
-                                                decoration: BoxDecoration(),
-                                                child: Stack(),
-                                              ),
-                                              Container(
-                                                width: 13,
-                                                height: 13,
-                                                clipBehavior: Clip.antiAlias,
-                                                decoration: BoxDecoration(),
-                                                child: Stack(),
-                                              ),
-                                              Container(
-                                                width: 13,
-                                                height: 13,
-                                                clipBehavior: Clip.antiAlias,
-                                                decoration: BoxDecoration(),
-                                                child: Stack(),
-                                              ),
-                                            ],
                                           ),
                                         ],
                                       ),
@@ -709,7 +661,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                             SizedBox(
                               width: 325,
                               child: Text(
-                                "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
+                                '--',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -787,7 +739,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -860,7 +812,7 @@ class TeacherProfilePrivateView extends StatelessWidget {
                             SizedBox(
                               width: 325,
                               child: Text(
-                                "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
+                                '--',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,

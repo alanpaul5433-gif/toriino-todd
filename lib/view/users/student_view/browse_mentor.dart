@@ -306,8 +306,9 @@ class BrowseMentor extends StatelessWidget {
                                           () => Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder:
-                                                  (_) => MentorPublicProfile(),
+                                              builder: (_) => MentorPublicProfile(
+                                                mentor: mentors[index],
+                                              ),
                                             ),
                                           ),
                                       child: Container(
@@ -352,8 +353,11 @@ class BrowseMentor extends StatelessWidget {
                                           () => Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder:
-                                                  (_) => AvailabilityView(),
+                                              builder: (_) => AvailabilityView(
+                                                mentorId: mentors[index].userId ?? '',
+                                                mentorName: mentors[index].name ?? 'Mentor',
+                                                hourlyRate: mentors[index].hourlyRate ?? 0.0,
+                                              ),
                                             ),
                                           ),
 
@@ -460,7 +464,7 @@ void _filterBottomSheet(BuildContext context) {
             //     decoration: InputDecoration(
             //       filled: true,
             //       fillColor: AppColor.white.withValues(alpha: 0.08),
-            //       enabledBorder: UnderlineInputBorder(
+            //       enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
             //         // borderSide: BorderSide(color: AppColor.white),
             //         borderRadius: BorderRadius.circular(28),
             //       ),
@@ -519,7 +523,7 @@ void _filterBottomSheet(BuildContext context) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Chance Calzoni',
+                      '--',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12.sp,

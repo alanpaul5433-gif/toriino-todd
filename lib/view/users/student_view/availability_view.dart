@@ -1,14 +1,27 @@
 ﻿import 'package:awesome_calendart/awesome_calendart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:toriino_todd/repository/earnings_repo.dart';
+import 'package:toriino_todd/repository/session_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/auth_service.dart';
+import 'package:toriino_todd/services/stripe_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AvailabilityView extends StatefulWidget {
-  const AvailabilityView({super.key});
+  final String mentorId;
+  final String mentorName;
+  final double hourlyRate;
+
+  const AvailabilityView({
+    super.key,
+    required this.mentorId,
+    required this.mentorName,
+    required this.hourlyRate,
+  });
 
   @override
   State<AvailabilityView> createState() => _AvailabilityViewState();
@@ -131,71 +144,6 @@ class _AvailabilityViewState extends State<AvailabilityView> {
                     });
                   },
                 ),
-                SizedBox(height: Responsive.h(1)),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: AppColor.white.withValues(alpha: 0.08),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Session Type',
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: 12,
-
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.20,
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColor.white),
-                            borderRadius: BorderRadius.circular(22),
-                            // color:  AppColor.white.withValues(alpha: 0.08),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              '1-on-1',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: 12,
-
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            color: AppColor.red,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              'Group',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: 12,
-
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
                 SizedBox(height: Responsive.h(1)),
 
@@ -238,7 +186,13 @@ class _AvailabilityViewState extends State<AvailabilityView> {
 
                 GestureDetector(
                   onTap: () {
-                    _bookSessionBottomSheet(context);
+                    _bookSessionBottomSheet(
+                      context,
+                      mentorId: widget.mentorId,
+                      mentorName: widget.mentorName,
+                      hourlyRate: widget.hourlyRate,
+                      startTime: _startTime,
+                    );
                   },
                   child: Container(
                     width: double.infinity,
@@ -500,7 +454,21 @@ class _AvailabilityViewState extends State<AvailabilityView> {
   // }
 }
 
-void _bookSessionBottomSheet(BuildContext context) {
+void _bookSessionBottomSheet(
+  BuildContext context, {
+  required String mentorId,
+  required String mentorName,
+  required double hourlyRate,
+  TimeOfDay? startTime,
+}) async {
+  double walletBalance = 0.0;
+  try {
+    final summary = await EarningsRepo().getEarningsSummary();
+    walletBalance = (summary['availableBalance'] as num?)?.toDouble() ?? 0.0;
+  } catch (_) {}
+
+  if (!context.mounted) return;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -508,117 +476,187 @@ void _bookSessionBottomSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
     ),
     backgroundColor: AppColor.primaryColor,
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: Responsive.w(5),
-          right: Responsive.w(5),
-          top: Responsive.h(3),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: Icon(Icons.close, color: AppColor.white),
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppColor.secconderyColor,
-                      child: Icon(Icons.person, color: AppColor.white),
-                    ),
-                    SizedBox(width: Responsive.textScaleFactor * 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Chance Calzoni',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Teacher',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 12,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Icon(Icons.star, color: AppColor.white, size:Responsive.textScaleFactor* 16),
-                    SizedBox(width:Responsive.w(2)),
-                    Text(
-                      "4.8",
-                      style: TextStyle(
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize:Responsive.textScaleFactor* 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            const Divider(color: Colors.grey),
-            SizedBox(height: Responsive.h(2)),
-            _cousreinfo("Course Category", "Design"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Course Duration", "2–5h"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Language", "English"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Rating", "4.5"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Price Info", "\$19.99"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Platform Fee", "\$4.99"),
-            SizedBox(height: Responsive.h(2)),
-            Text(
-              "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: Responsive.textScaleFactor * 12,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) {
+        bool paying = false;
+        // Session is created BEFORE Stripe payment so the real UUID is
+        // available in Stripe metadata. The webhook then uses it to confirm
+        // the session and credit mentor earnings. On cancel/failure the
+        // pre-created session is marked 'cancelled'.
+        void pay() async {
+          if (paying) return;
+          setSheetState(() => paying = true);
+
+          // Build scheduled datetime from selected time (or now)
+          final now = DateTime.now();
+          final DateTime scheduledAt = startTime != null
+              ? DateTime(now.year, now.month, now.day,
+                  startTime.hour, startTime.minute)
+              : now;
+
+          // Step 1: Create the session — get the real UUID back.
+          String? realSessionId;
+          try {
+            final studentId = await AuthService.getUserId();
+            final bookResult = await SessionRepo().bookSession({
+              'mentorId': mentorId,
+              'studentId': studentId ?? '',
+              'dateTime': scheduledAt.toIso8601String(),
+              'duration': 60,
+              'price': hourlyRate,
+              'sessionType': 'one-on-one',
+            });
+            if (bookResult is Map) {
+              realSessionId = (bookResult['sessionId'] ??
+                  bookResult['session']?['sessionId']) as String?;
+            }
+          } catch (e) {
+            if (!sheetContext.mounted) return;
+            setSheetState(() => paying = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not create session: $e')),
+            );
+            return;
+          }
+
+          if (realSessionId == null) {
+            if (!sheetContext.mounted) return;
+            setSheetState(() => paying = false);
+            Utils.toastMassage('Session setup failed. Please try again.');
+            return;
+          }
+
+          // Step 2: Charge the student. Real sessionId + mentorId go into
+          // Stripe metadata so the webhook can confirm and credit earnings.
+          final result = await StripeService.payForSession(
+            sessionId: realSessionId,
+            mentorId: mentorId,
+            mentorName: mentorName,
+            price: hourlyRate,
+          );
+
+          if (!sheetContext.mounted) return;
+          setSheetState(() => paying = false);
+
+          if (result['success'] == true) {
+            Navigator.pop(sheetContext);
+            _showPaymentAlert(context);
+          } else {
+            // Payment cancelled or failed — mark the pre-created session cancelled.
+            try {
+              await SessionRepo().updateSessionStatus(realSessionId, 'cancelled');
+            } catch (_) {}
+            Utils.toastMassage(result['message'] ?? 'Payment failed');
+          }
+        }
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            left: Responsive.w(5),
+            right: Responsive.w(5),
+            top: Responsive.h(3),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(sheetContext),
+                    child: Icon(Icons.close, color: AppColor.white),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: Responsive.h(2)),
-            AuthButton(
-              buttontext: "Proceed to Payment",
-              onPress: () {
-                Navigator.pop(context); // Close the bottom sheet
-                _showPaymentAlert(context); // Show the payment alert
-              },
-              loading: false,
-            ),
-            SizedBox(height: Responsive.h(2)),
-          ],
-        ),
-      );
-    },
+              SizedBox(height: Responsive.h(2)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppColor.secconderyColor,
+                        child: Icon(Icons.person, color: AppColor.white),
+                      ),
+                      SizedBox(width: Responsive.textScaleFactor * 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Session Mentor',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: Responsive.textScaleFactor * 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            mentorName,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: Responsive.textScaleFactor * 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: Responsive.h(2)),
+              const Divider(color: Colors.grey),
+              SizedBox(height: Responsive.h(2)),
+              _cousreinfo("Session Type", "1-on-1"),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Duration", "1h"),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Price", "\$${hourlyRate.toStringAsFixed(2)}"),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Platform Fee", "\$4.99"),
+              SizedBox(height: Responsive.h(1)),
+              // TODO(P5-3): When wallet-deduction Lambda is ready, charge only the shortfall
+              // and deduct walletBalance from the wallet endpoint before calling Stripe.
+              if (walletBalance > 0) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Wallet Balance', style: TextStyle(color: Colors.grey[400])),
+                    Text('\$${walletBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                if (walletBalance >= hourlyRate)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Full amount covered by wallet',
+                        style: TextStyle(color: Colors.green, fontSize: 12)),
+                  )
+                else
+                  Text(
+                    'Card charge: \$${(hourlyRate - walletBalance).toStringAsFixed(2)}',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                const SizedBox(height: 12),
+              ],
+              AuthButton(
+                buttontext: "Proceed to Payment",
+                onPress: pay,
+                loading: paying,
+              ),
+              SizedBox(height: Responsive.h(2)),
+            ],
+          ),
+        );
+      },
+    ),
   );
 }
 
@@ -674,7 +712,7 @@ void _showPaymentAlert(BuildContext context) {
               ),
               SizedBox(height: Responsive.h(1)),
               Text(
-                "It is a long established fact that a reader will be distracted by the readable content of a page.",
+                'Your session has been booked successfully. You\'ll receive a confirmation shortly.',
                 style: TextStyle(
                   color: AppColor.white,
                   fontSize: Responsive.textScaleFactor * 16,
@@ -685,8 +723,6 @@ void _showPaymentAlert(BuildContext context) {
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).pop();
-                  Utils.toastMassage("Session booked Successful");
                 },
                 child: Container(
                   decoration: BoxDecoration(

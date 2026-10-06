@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
@@ -28,9 +29,13 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _loading = false;
+  bool _resendCooldown = false;
+  int _cooldownSeconds = 60;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     for (var c in _controllers) c.dispose();
     for (var f in _focusNodes) f.dispose();
     super.dispose();
@@ -63,8 +68,27 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
   }
 
   Future<void> _resendCode() async {
-    Utils.toastMassage("Resending code...");
-    // Resend is handled by Cognito automatically on new sign up attempt
+    if (_resendCooldown) return;
+    setState(() {
+      _resendCooldown = true;
+      _cooldownSeconds = 60;
+    });
+    final email = widget.email;
+    final result = await AuthService.resendSignUpCode(email: email);
+    if (!mounted) return;
+    if (result['success'] == true) {
+      Utils.toastMassage('Verification code resent');
+    } else {
+      Utils.toastMassage(result['message'] ?? 'Resend failed');
+    }
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() => _cooldownSeconds--);
+      if (_cooldownSeconds <= 0) {
+        timer.cancel();
+        setState(() => _resendCooldown = false);
+      }
+    });
   }
 
   @override
@@ -169,9 +193,13 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
                       ),
                       children: [
                         TextSpan(
-                          text: "Resend",
+                          text: _resendCooldown
+                              ? "Resend in ${_cooldownSeconds}s"
+                              : "Resend",
                           style: TextStyle(
-                            color: AppColor.red,
+                            color: _resendCooldown
+                                ? AppColor.white.withValues(alpha: 0.4)
+                                : AppColor.red,
                             fontWeight: FontWeight.bold,
                             fontSize: Responsive.sp(12),
                           ),

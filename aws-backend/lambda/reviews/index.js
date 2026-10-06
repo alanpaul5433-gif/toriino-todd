@@ -78,6 +78,17 @@ async function submitReview(reviewerId, data) {
     return response(400, { error: "rating must be between 1 and 5" });
   }
 
+  // One review per student per target (UNK09)
+  const existing = await dynamodb.send(new QueryCommand({
+    TableName: REVIEWS_TABLE,
+    KeyConditionExpression: "targetId = :tid",
+    FilterExpression: "reviewerId = :rid",
+    ExpressionAttributeValues: { ":tid": data.targetId, ":rid": reviewerId },
+  }));
+  if (existing.Count > 0) {
+    return response(409, { error: "You have already submitted a review for this." });
+  }
+
   const reviewId = `${Date.now()}_${randomUUID().slice(0, 8)}`;
   const review = {
     targetId: data.targetId,

@@ -8,10 +8,6 @@ class AWSConfig {
   static const String s3Bucket = 'torino-app-storage';
   static const String s3Region = 'us-east-1';
 
-  // ── API Gateway ──────────────────────────────────────
-  static const String apiEndpoint =
-      'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/dev';
-
   // ── Cognito Pool URL ─────────────────────────────────
   static String get cognitoPoolUrl =>
       'https://cognito-idp.$region.amazonaws.com/$userPoolId';

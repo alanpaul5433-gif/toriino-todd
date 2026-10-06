@@ -9,6 +9,7 @@ class UserProfileModel {
   final String? dateOfBirth;
   final String? location;
   final List<String>? interests;
+  final double? rating;
   final String? createdAt;
   final String? updatedAt;
 
@@ -23,6 +24,7 @@ class UserProfileModel {
     this.dateOfBirth,
     this.location,
     this.interests,
+    this.rating,
     this.createdAt,
     this.updatedAt,
   });
@@ -41,6 +43,7 @@ class UserProfileModel {
       interests: json['interests'] != null
           ? List<String>.from(json['interests'])
           : null,
+      rating: (json['rating'] as num?)?.toDouble(),
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
     );

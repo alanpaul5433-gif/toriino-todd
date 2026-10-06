@@ -7,4 +7,6 @@ class AppColor {
   static const Color red = Color(0xFFE73121);
   static const Color secconderyColor = Color(0xFFFFFFFF);
   static const Color backGroundColor = Color.fromRGBO(255, 255, 255, 0.08);
+  // Use for input field focused border — distinct from validation error (red)
+  static const Color focusedBorder = Color(0xFFFFFFFF);
 }

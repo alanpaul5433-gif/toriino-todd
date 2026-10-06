@@ -1,4 +1,4 @@
-const { DynamoDBClient, ScanCommand, GetItemCommand, UpdateItemCommand, DeleteItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
+﻿const { DynamoDBClient, ScanCommand, GetItemCommand, UpdateItemCommand, DeleteItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminUpdateUserAttributesCommand, AdminDisableUserCommand, AdminEnableUserCommand, AdminAddUserToGroupCommand, AdminListGroupsForUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 
@@ -6,6 +6,12 @@ const db = new DynamoDBClient({ region: 'us-east-1' });
 const cognito = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 const COGNITO_USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
+
+const USERS_TABLE    = process.env.USERS_TABLE    || 'toriino-users';
+const COURSES_TABLE  = process.env.COURSES_TABLE  || 'toriino-courses';
+const SESSIONS_TABLE = process.env.SESSIONS_TABLE || 'toriino-sessions';
+const MENTORS_TABLE  = process.env.MENTORS_TABLE  || 'toriino-mentors';
+const EARNINGS_TABLE = process.env.EARNINGS_TABLE || 'toriino-earnings';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -33,11 +39,11 @@ async function scanAll(TableName, FilterExpression, ExpressionAttributeValues) {
 // Dashboard aggregate stats
 async function getDashboardStats() {
   const [users, courses, sessions, enrollments, earnings, reviews] = await Promise.all([
-    scanAll('torino-users'),
-    scanAll('torino-courses'),
-    scanAll('torino-sessions'),
+    scanAll(USERS_TABLE),
+    scanAll(COURSES_TABLE),
+    scanAll(SESSIONS_TABLE),
     scanAll('toriino-enrollments'),
-    scanAll('torino-earnings'),
+    scanAll(EARNINGS_TABLE),
     scanAll('toriino-reviews'),
   ]);
 
@@ -77,6 +83,14 @@ async function getDashboardStats() {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return res(200, {});
 
+  // Authorization: require custom:role === 'admin' from Cognito JWT claims.
+  // API Gateway Cognito authorizer populates requestContext.authorizer.claims.
+  const claims = event.requestContext?.authorizer?.claims || {};
+  const callerRole = claims['custom:role'];
+  if (callerRole !== 'admin') {
+    return res(403, { error: 'Forbidden: admin role required' });
+  }
+
   const method = event.httpMethod;
   const path = event.path || event.resource || '';
   const pathParts = path.replace(/^\/admin\/?/, '').split('/').filter(Boolean);
@@ -92,7 +106,7 @@ exports.handler = async (event) => {
 
     // GET /admin/users
     if (method === 'GET' && pathParts[0] === 'users' && !pathParts[1]) {
-      const users = await scanAll('torino-users');
+      const users = await scanAll(USERS_TABLE);
       const roleFilter = qs.role;
       const search = qs.search?.toLowerCase();
       let result = roleFilter ? users.filter(u => u.role === roleFilter) : users;
@@ -106,7 +120,7 @@ exports.handler = async (event) => {
       const userId = pathParts[1];
       const { status } = body; // 'active' | 'disabled'
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-users',
+        TableName: USERS_TABLE,
         Key: marshall({ userId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -124,7 +138,7 @@ exports.handler = async (event) => {
       const userId = pathParts[1];
       const { role } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-users',
+        TableName: USERS_TABLE,
         Key: marshall({ userId }),
         UpdateExpression: 'SET #r = :r, updatedAt = :u',
         ExpressionAttributeNames: { '#r': 'role' },
@@ -136,13 +150,13 @@ exports.handler = async (event) => {
     // DELETE /admin/users/:id
     if (method === 'DELETE' && pathParts[0] === 'users' && pathParts[1]) {
       const userId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'torino-users', Key: marshall({ userId }) }));
+      await db.send(new DeleteItemCommand({ TableName: USERS_TABLE, Key: marshall({ userId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/courses
     if (method === 'GET' && pathParts[0] === 'courses' && !pathParts[1]) {
-      const courses = await scanAll('torino-courses');
+      const courses = await scanAll(COURSES_TABLE);
       const statusFilter = qs.status;
       let result = statusFilter ? courses.filter(c => c.status === statusFilter) : courses;
       result.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -154,7 +168,7 @@ exports.handler = async (event) => {
       const courseId = pathParts[1];
       const { status } = body; // 'published' | 'draft' | 'rejected'
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-courses',
+        TableName: COURSES_TABLE,
         Key: marshall({ courseId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -166,13 +180,13 @@ exports.handler = async (event) => {
     // DELETE /admin/courses/:id
     if (method === 'DELETE' && pathParts[0] === 'courses' && pathParts[1] && !pathParts[2]) {
       const courseId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'torino-courses', Key: marshall({ courseId }) }));
+      await db.send(new DeleteItemCommand({ TableName: COURSES_TABLE, Key: marshall({ courseId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/sessions
     if (method === 'GET' && pathParts[0] === 'sessions' && !pathParts[1]) {
-      const sessions = await scanAll('torino-sessions');
+      const sessions = await scanAll(SESSIONS_TABLE);
       const statusFilter = qs.status;
       let result = statusFilter ? sessions.filter(s => s.status === statusFilter) : sessions;
       result.sort((a, b) => (b.createdAt || b.dateTime || '').localeCompare(a.createdAt || a.dateTime || ''));
@@ -192,7 +206,7 @@ exports.handler = async (event) => {
       const sessionId = pathParts[1];
       const { status } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-sessions',
+        TableName: SESSIONS_TABLE,
         Key: marshall({ sessionId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -203,8 +217,8 @@ exports.handler = async (event) => {
 
     // GET /admin/mentors
     if (method === 'GET' && pathParts[0] === 'mentors' && !pathParts[1]) {
-      const mentors = await scanAll('torino-mentors');
-      const users = await scanAll('torino-users');
+      const mentors = await scanAll(MENTORS_TABLE);
+      const users = await scanAll(USERS_TABLE);
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
       const reviews = await scanAll('toriino-reviews');
       const result = mentors.map(m => ({
@@ -224,7 +238,7 @@ exports.handler = async (event) => {
       const mentorId = pathParts[1];
       const { approved } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-mentors',
+        TableName: MENTORS_TABLE,
         Key: marshall({ mentorId }),
         UpdateExpression: 'SET approved = :a, updatedAt = :u',
         ExpressionAttributeValues: marshall({ ':a': approved, ':u': new Date().toISOString() }),
@@ -234,8 +248,8 @@ exports.handler = async (event) => {
 
     // GET /admin/earnings
     if (method === 'GET' && pathParts[0] === 'earnings') {
-      const earnings = await scanAll('torino-earnings');
-      const users = await scanAll('torino-users');
+      const earnings = await scanAll(EARNINGS_TABLE);
+      const users = await scanAll(USERS_TABLE);
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
 
       // Group by month for chart
@@ -307,7 +321,7 @@ exports.handler = async (event) => {
       const { title, message, targetRole } = body;
       if (!title || !message) return res(400, { error: 'title and message required' });
 
-      const users = await scanAll('torino-users');
+      const users = await scanAll(USERS_TABLE);
       const targets = targetRole && targetRole !== 'all' ? users.filter(u => u.role === targetRole) : users;
 
       const notifId = `notif_${Date.now()}`;

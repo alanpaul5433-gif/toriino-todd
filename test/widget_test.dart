@@ -3,8 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
-import 'package:toriino_todd/repository/mock/mock_data.dart';
-import 'package:toriino_todd/repository/mock/mock_repo.dart';
 
 void main() {
   // ── Auth Flow Tests ──────────────────────────────────────────────
@@ -81,69 +79,4 @@ void main() {
     });
   });
 
-  // ── Mock Data Layer Tests ────────────────────────────────────────
-
-  group('MockData - Student Profile', () {
-    setUp(() => MockData.setRole('Student'));
-
-    test('student profile has correct name', () {
-      final profile = MockData.studentProfile;
-      expect(profile['name'], equals('Henry Mitchell'));
-    });
-
-    test('student profile has email', () {
-      final profile = MockData.studentProfile;
-      expect(profile['email'], isNotEmpty);
-    });
-  });
-
-  group('MockData - Teacher Profile', () {
-    setUp(() => MockData.setRole('Teacher'));
-
-    test('teacher profile has correct name', () {
-      final profile = MockData.teacherProfile;
-      expect(profile['name'], equals('Sarah Johnson'));
-    });
-  });
-
-  group('MockData - Mentor Profile', () {
-    setUp(() => MockData.setRole('Mentor'));
-
-    test('mentor profile has correct name', () {
-      final profile = MockData.mentorProfile;
-      expect(profile['name'], equals('Jaylon Culhane'));
-    });
-  });
-
-  group('MockRepo - Async Data', () {
-    test('getCourses returns non-empty list', () async {
-      final courses = await MockRepo.getCourses();
-      expect(courses, isNotEmpty);
-    });
-
-    test('getMentors returns non-empty list', () async {
-      final mentors = await MockRepo.getMentors();
-      expect(mentors, isNotEmpty);
-    });
-
-    test('getSessions returns list for student role', () async {
-      final sessions = await MockRepo.getSessions(role: 'student');
-      expect(sessions, isNotEmpty);
-    });
-
-    test('getSessions returns list for mentor role', () async {
-      final sessions = await MockRepo.getSessions(role: 'mentor');
-      expect(sessions, isNotEmpty);
-    });
-
-    test('getEarningsSummary returns valid earnings data', () async {
-      final earnings = await MockRepo.getEarningsSummary();
-      expect(earnings['totalEarnings'], greaterThan(0));
-    });
-
-    test('getMyCreatedCourses returns teacher courses', () async {
-      final courses = await MockRepo.getMyCreatedCourses();
-      expect(courses, isNotEmpty);
-    });
-  });
 }

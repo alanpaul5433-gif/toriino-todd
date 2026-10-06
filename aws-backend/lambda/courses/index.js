@@ -10,6 +10,10 @@ const {
 } = require("@aws-sdk/lib-dynamodb");
 const { randomUUID } = require("crypto");
 
+function log(level, message, extra = {}) {
+  console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
+}
+
 const REGION = process.env.AWS_REGION || "us-east-2";
 const COURSES_TABLE = process.env.COURSES_TABLE || "toriino-courses";
 const LESSONS_TABLE = process.env.LESSONS_TABLE || "toriino-course-lessons";
@@ -96,35 +100,51 @@ exports.handler = async (event) => {
 
     return response(404, { error: "Route not found" });
   } catch (error) {
-    console.error("Courses error:", error);
+    log('ERROR', 'Courses handler error', { error: error.message, path, method });
     return response(500, { error: error.message });
   }
 };
 
 // ── List Courses ───────────────────────────────────────────
 async function listCourses(queryParams = {}) {
-  const { category, limit = "20" } = queryParams || {};
+  const { category, limit = "20", lastKey } = queryParams || {};
 
   if (category) {
-    const result = await dynamodb.send(
-      new QueryCommand({
-        TableName: COURSES_TABLE,
-        IndexName: "category-index",
-        KeyConditionExpression: "category = :cat",
-        ExpressionAttributeValues: { ":cat": category },
-        Limit: parseInt(limit),
-      })
-    );
-    return response(200, { courses: result.Items, count: result.Count });
+    const params = {
+      TableName: COURSES_TABLE,
+      IndexName: "category-index",
+      KeyConditionExpression: "category = :cat",
+      ExpressionAttributeValues: { ":cat": category },
+      Limit: parseInt(limit, 10),
+    };
+    if (lastKey) {
+      try { params.ExclusiveStartKey = JSON.parse(decodeURIComponent(lastKey)); } catch {}
+    }
+    const result = await dynamodb.send(new QueryCommand(params));
+    return response(200, {
+      courses: result.Items || [],
+      count: result.Count || 0,
+      lastKey: result.LastEvaluatedKey
+        ? encodeURIComponent(JSON.stringify(result.LastEvaluatedKey))
+        : null,
+    });
   }
 
-  const result = await dynamodb.send(
-    new ScanCommand({
-      TableName: COURSES_TABLE,
-      Limit: parseInt(limit),
-    })
-  );
-  return response(200, { courses: result.Items, count: result.Count });
+  const params = {
+    TableName: COURSES_TABLE,
+    Limit: parseInt(limit, 10),
+  };
+  if (lastKey) {
+    try { params.ExclusiveStartKey = JSON.parse(decodeURIComponent(lastKey)); } catch {}
+  }
+  const result = await dynamodb.send(new ScanCommand(params));
+  return response(200, {
+    courses: result.Items || [],
+    count: result.Count || 0,
+    lastKey: result.LastEvaluatedKey
+      ? encodeURIComponent(JSON.stringify(result.LastEvaluatedKey))
+      : null,
+  });
 }
 
 // ── Get Course ─────────────────────────────────────────────
@@ -162,6 +182,7 @@ async function createCourse(teacherId, data) {
     new PutCommand({ TableName: COURSES_TABLE, Item: course })
   );
 
+  log('INFO', 'Course created', { courseId, teacherId, title: data.title });
   return response(201, course);
 }
 
@@ -217,6 +238,7 @@ async function updateCourse(teacherId, courseId, data) {
 
 // ── Delete Course ──────────────────────────────────────────
 async function deleteCourse(teacherId, courseId) {
+  // 1. Verify ownership
   const existing = await dynamodb.send(
     new GetCommand({ TableName: COURSES_TABLE, Key: { courseId } })
   );
@@ -225,10 +247,41 @@ async function deleteCourse(teacherId, courseId) {
     return response(403, { error: "Not authorized" });
   }
 
+  // 2. Block delete if students are enrolled
+  const enrollments = await dynamodb.send(
+    new ScanCommand({
+      TableName: ENROLLMENTS_TABLE,
+      FilterExpression: "courseId = :cid",
+      ExpressionAttributeValues: { ":cid": courseId },
+    })
+  );
+  if ((enrollments.Items || []).length > 0) {
+    return response(409, { error: "Cannot delete a course with enrolled students" });
+  }
+
+  // 3. Cascade-delete all lessons
+  const lessons = await dynamodb.send(
+    new QueryCommand({
+      TableName: LESSONS_TABLE,
+      KeyConditionExpression: "courseId = :courseId",
+      ExpressionAttributeValues: { ":courseId": courseId },
+    })
+  );
+  for (const lesson of (lessons.Items || [])) {
+    await dynamodb.send(
+      new DeleteCommand({
+        TableName: LESSONS_TABLE,
+        Key: { courseId: lesson.courseId, lessonId: lesson.lessonId },
+      })
+    );
+  }
+
+  // 4. Delete the course
   await dynamodb.send(
     new DeleteCommand({ TableName: COURSES_TABLE, Key: { courseId } })
   );
 
+  log('INFO', 'Course deleted', { courseId, teacherId });
   return response(200, { message: "Course deleted" });
 }
 
@@ -347,6 +400,8 @@ async function enrollStudent(studentId, courseId) {
   await dynamodb.send(
     new PutCommand({ TableName: ENROLLMENTS_TABLE, Item: enrollment })
   );
+
+  log('INFO', 'Student enrolled', { studentId, courseId });
 
   // Increment enrollment count
   await dynamodb.send(

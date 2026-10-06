@@ -1,0 +1,47 @@
+{
+  "_comment": "OWNER: Deploy these alarms after deploying the Lambdas. Run: aws cloudformation deploy --template-file cloudwatch-alarms.json --stack-name torino-alarms",
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Torino Todd CloudWatch Alarms",
+  "Parameters": {
+    "NotificationEmail": { "Type": "String", "Default": "alanpaul5433@gmail.com" }
+  },
+  "Resources": {
+    "AlarmTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": { "Subscription": [{ "Protocol": "email", "Endpoint": { "Ref": "NotificationEmail" } }] }
+    },
+    "SessionsErrorAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "torino-sessions-errors",
+        "MetricName": "Errors", "Namespace": "AWS/Lambda",
+        "Dimensions": [{ "Name": "FunctionName", "Value": "torino-sessions" }],
+        "Statistic": "Sum", "Period": 300, "EvaluationPeriods": 1,
+        "Threshold": 5, "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmActions": [{ "Ref": "AlarmTopic" }]
+      }
+    },
+    "PaymentsErrorAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "torino-payments-errors",
+        "MetricName": "Errors", "Namespace": "AWS/Lambda",
+        "Dimensions": [{ "Name": "FunctionName", "Value": "torino-payments" }],
+        "Statistic": "Sum", "Period": 300, "EvaluationPeriods": 1,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmActions": [{ "Ref": "AlarmTopic" }]
+      }
+    },
+    "WebhookErrorAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "torino-webhook-errors",
+        "MetricName": "Errors", "Namespace": "AWS/Lambda",
+        "Dimensions": [{ "Name": "FunctionName", "Value": "torino-stripe-webhook" }],
+        "Statistic": "Sum", "Period": 300, "EvaluationPeriods": 1,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmActions": [{ "Ref": "AlarmTopic" }]
+      }
+    }
+  }
+}

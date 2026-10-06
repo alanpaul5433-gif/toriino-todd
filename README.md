@@ -1,20 +1,57 @@
-<<<<<<< HEAD
-# getxmvvm
+# Torino Todd
 
-A new Flutter project.
+A Flutter-based learning platform connecting students, teachers, and mentors.
 
-## Getting Started
+## Prerequisites
 
-This project is a starting point for a Flutter application.
+- Flutter 3.x
+- Dart 3.x
+- Android SDK 34+
+- Node.js 20+ (for Lambda development)
 
-A few resources to get you started if this is your first Flutter project:
+## Setup
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 1. Clone and install
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-=======
-# toriino
->>>>>>> bac76b6267fc1fc15a1c2474fcd16ce0f9757ca6
+```bash
+flutter pub get
+```
+
+### 2. Configure environment
+
+Copy `android/app/google-services.json.example` to `android/app/google-services.json` and fill in real values from Firebase console.
+
+Required `--dart-define` values at build time:
+
+| Key | Description |
+|-----|-------------|
+| `API_BASE_URL` | AWS API Gateway /prod base URL |
+| `GEMINI_API_KEY` | Google AI Studio key (Lambda env preferred) |
+| `AGORA_APP_ID` | Agora.io app ID |
+| `STRIPE_PK` | Stripe publishable key (`pk_test_` for dev) |
+
+### 3. Run (development)
+
+```powershell
+.\tool\run_dev.ps1
+```
+
+### 4. Build release APK
+
+```bash
+flutter build apk --release \
+  --dart-define=API_BASE_URL=https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod \
+  --dart-define=AGORA_APP_ID=<your-agora-app-id>
+```
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## API reference
+
+See [docs/API.md](docs/API.md).
+
+## Deployment
+
+See [docs/RUNBOOK.md](docs/RUNBOOK.md).

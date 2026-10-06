@@ -10,6 +10,7 @@ class MentorAvailabilityViewmodel extends GetxController {
 
   final rxSlots = Rx<ApiResponse<List<AvailabilityModel>>>(ApiResponse.loading());
   RxBool saving = false.obs;
+  RxBool saveSucceeded = false.obs;
   RxList<Map<String, dynamic>> editableSlots = <Map<String, dynamic>>[].obs;
 
   @override
@@ -59,11 +60,14 @@ class MentorAvailabilityViewmodel extends GetxController {
 
   void saveAvailability() {
     saving.value = true;
+    saveSucceeded.value = false;
     _mentorRepo.updateAvailability({'availability': editableSlots.toList()}).then((_) {
+      saveSucceeded.value = true;
       saving.value = false;
       Utils.toastMassage("Availability updated");
       fetchAvailability();
     }).onError((error, _) {
+      saveSucceeded.value = false;
       saving.value = false;
       Utils.toastMassage(error.toString());
     });

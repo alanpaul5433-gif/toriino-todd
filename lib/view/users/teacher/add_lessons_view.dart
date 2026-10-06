@@ -1,10 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:toriino_todd/model/course/lesson_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 
 class CourseContentWidget extends StatefulWidget {
-  const CourseContentWidget({super.key});
+  final LessonModel? lesson;
+  const CourseContentWidget({super.key, this.lesson});
 
   @override
   State<CourseContentWidget> createState() => _CourseContentWidgetState();
@@ -41,7 +43,7 @@ class _CourseContentWidgetState extends State<CourseContentWidget> {
         },
         leading: SvgPicture.asset("assets/icons/Frame menu.svg"),
         title: Text(
-          'UI Explaination',
+          widget.lesson?.title ?? 'UI Explanation',
           style: TextStyle(
             color: Colors.white,
             fontSize: Responsive.textScaleFactor * 12,

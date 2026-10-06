@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
@@ -34,6 +35,22 @@ class _SplashViewState extends State<SplashView> {
       return;
     }
 
+    // Refresh if access token is expired or near expiry (P3-2)
+    if (await AuthService.isAccessTokenExpired()) {
+      final refreshed = await AuthService.refreshSession();
+      if (refreshed == null) {
+        await AuthService.signOut();
+        _goTo(Loginview());
+        return;
+      }
+    }
+
+    // Sync role from JWT to overwrite stale SharedPreferences (P1-2)
+    final jwtRole = await _extractRoleFromJwt();
+    if (jwtRole != null) {
+      await UsersPrefrence().saveUserRole(jwtRole);
+    }
+
     final prefs = UsersPrefrence();
     final role = await prefs.getUserRole();
 
@@ -46,6 +63,20 @@ class _SplashViewState extends State<SplashView> {
     } else {
       // Logged in but no role stored — send to role selection
       _goTo(const RoleSelectionScreen());
+    }
+  }
+
+  Future<String?> _extractRoleFromJwt() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return null;
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      return map['custom:role'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 

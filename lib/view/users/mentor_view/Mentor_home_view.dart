@@ -2,6 +2,7 @@
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/model/session/session_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart';
@@ -10,6 +11,7 @@ import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/student_view/student_public_profile_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
+import 'package:toriino_todd/resources/routes/routes_name.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorHomeView extends StatelessWidget {
@@ -36,23 +38,26 @@ class MentorHomeView extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      GestureDetector(
-                        onTap:
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MentorPrivateProfileView(),
-                              ),
-                            ),
-                        child: Expanded(
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: Responsive.sp(20),
-                                backgroundImage: AssetImage(
-                                  "assets/icons/Ellipse 6 (1).png",
+                      Expanded(
+                        child: GestureDetector(
+                          onTap:
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MentorPrivateProfileView(),
                                 ),
                               ),
+                          child: Row(
+                            children: [
+                              Obx(() {
+                                final avatarUrl = mentorController.rxProfile.value.data?.avatarUrl;
+                                return CircleAvatar(
+                                  radius: Responsive.sp(20),
+                                  backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                      ? NetworkImage(avatarUrl) as ImageProvider
+                                      : const AssetImage("assets/icons/Ellipse 6 (1).png"),
+                                );
+                              }),
                               SizedBox(width: Responsive.wp(1)),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,29 +156,21 @@ class MentorHomeView extends StatelessWidget {
                     ],
                   ),
 
-                  Row(
-                    spacing: 6,
-                    children: [
-                      bloc(
-                        title: "Total Sessions",
-                        value: "26",
-                     
-                      ),
-                      bloc(
-                        title: "Upcoming Sessions",
-                        value: "03",
-                       
-                      ),
-                      bloc(
-                        title: "Average Rating",
-                        value: "4.8",
-                      
-                      ),
-                      // bloc("Total Sessions Taken", "26"),
-                      // bloc("Upcoming Sessions", "03"),
-                      // bloc("Average Rating", "4.8"),
-                    ],
-                  ),
+                  Obx(() {
+                    final sessionsState = mentorController.rxSessions.value;
+                    final sessions = sessionsState.data?.sessions ?? [];
+                    final totalSessions = sessions.length;
+                    final upcoming = sessions.where((s) => s.status == 'scheduled').length;
+                    final hasData = sessionsState.data != null;
+                    return Row(
+                      spacing: 6,
+                      children: [
+                        bloc(title: "Total Sessions", value: hasData ? totalSessions.toString() : '--'),
+                        bloc(title: "Upcoming Sessions", value: hasData ? upcoming.toString() : '--'),
+                        bloc(title: "Average Rating", value: mentorController.rxProfile.value.data?.rating?.toStringAsFixed(1) ?? '--'),
+                      ],
+                    );
+                  }),
                   SizedBox(height: Responsive.hp(2)),
 
                   Container(
@@ -196,15 +193,20 @@ class MentorHomeView extends StatelessWidget {
                                   letterSpacing: -0.20,
                                 ),
                               ),
-                              Text(
-                                '\$540.00',
-                                style: GoogleFonts.dmSans(
-                                  color: AppColor.white,
-                                  fontSize: Responsive.sp(18),
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.30,
-                                ),
-                              ),
+                              Obx(() {
+                                final earningsState = mentorController.rxEarnings.value;
+                                final total = earningsState.data?.totalEarnings;
+                                final label = total != null ? '\$${total.toStringAsFixed(2)}' : '--';
+                                return Text(
+                                  label,
+                                  style: GoogleFonts.dmSans(
+                                    color: AppColor.white,
+                                    fontSize: Responsive.sp(18),
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: -0.30,
+                                  ),
+                                );
+                              }),
                             ],
                           ),
                         ),
@@ -308,16 +310,18 @@ class MentorHomeView extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                'Stand out with a Verified Badge',
-                                style: GoogleFonts.dmSans(
-                                  color: Colors.white,
-                                  fontSize: Responsive.sp(14),
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.30,
+                              Flexible(
+                                child: Text(
+                                  'Stand out with a Verified Badge',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.dmSans(
+                                    color: Colors.white,
+                                    fontSize: Responsive.sp(14),
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.30,
+                                  ),
                                 ),
                               ),
-                              Spacer(),
                               SvgPicture.asset(
                                 "assets/icons/bitcoin-icons_verify-filled.svg",
                               ),
@@ -390,7 +394,14 @@ class MentorHomeView extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: Responsive.hp(2)),
-                  test(context),
+                  Obx(() {
+                    final sessionsState = mentorController.rxSessions.value;
+                    final upcoming = (sessionsState.data?.sessions ?? [])
+                        .where((s) => s.status == 'scheduled')
+                        .toList();
+                    if (upcoming.isEmpty) return const SizedBox.shrink();
+                    return test(context, sessionId: upcoming.first.sessionId ?? '');
+                  }),
                   SizedBox(height: Responsive.hp(2)),
 
                   Row(
@@ -429,14 +440,27 @@ class MentorHomeView extends StatelessWidget {
                   ),
                   SizedBox(height: Responsive.hp(2)),
 
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: 5,
-                    itemBuilder: ((context, index) {
-                      return recentSessionsHistoryCard(context);
-                    }),
-                  ),
+                  Obx(() {
+                    final sessionsState = mentorController.rxSessions.value;
+                    final sessions = sessionsState.data?.sessions ?? [];
+                    if (sessions.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24.0),
+                        child: Center(
+                          child: Text(
+                            sessionsState.data == null ? 'Loading sessions...' : 'No session history yet',
+                            style: GoogleFonts.dmSans(color: Colors.white.withValues(alpha: 0.6)),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: sessions.length,
+                      itemBuilder: (ctx, index) => recentSessionsHistoryCard(ctx, session: sessions[index]),
+                    );
+                  }),
                 ],
               ),
             ],
@@ -447,7 +471,7 @@ class MentorHomeView extends StatelessWidget {
   }
 }
 
-Widget test(BuildContext context) {
+Widget test(BuildContext context, {String sessionId = ''}) {
   return Container(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(18),
@@ -469,7 +493,7 @@ Widget test(BuildContext context) {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundImage: AssetImage("assets/images/michel.png"),
+                    backgroundImage: const AssetImage("assets/icons/Ellipse 6.png"),
                   ),
                   SizedBox(width: 10),
 
@@ -477,7 +501,7 @@ Widget test(BuildContext context) {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Michel",
+                        "Student",
                         style: GoogleFonts.dmSans(
                           color: AppColor.white,
                           fontWeight: FontWeight.w500,
@@ -523,94 +547,109 @@ Widget test(BuildContext context) {
           SizedBox(height: 10),
 
           Row(
-            spacing: 4,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Type",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.bold,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Type",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "Group",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      "Group",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(width: 1, height: 30, color: AppColor.white),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Duration",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.bold,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Duration",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "1hr",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      "1hr",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(width: 1, height: 30, color: AppColor.white),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Seats Left",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.bold,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Seats Left",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "2-5",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      "2-5",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(width: 1, height: 30, color: AppColor.white),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Language",
-                    style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.bold,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Language",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "English / Arabic",
-                    style: GoogleFonts.dmSans(
-                      fontSize: Responsive.textScaleFactor * 12,
-                      color: AppColor.white,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      "English / Arabic",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 12,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -619,31 +658,37 @@ Widget test(BuildContext context) {
           Row(
             children: [
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: AppColor.red,
+                child: GestureDetector(
+                  onTap: () => Get.toNamed(
+                    RoutesName.liveSession,
+                    arguments: {'sessionId': sessionId, 'isMentor': true},
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8.0,
-                      horizontal: 16.0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      color: AppColor.red,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Start Session",
-                          style: GoogleFonts.dmSans(
-                            fontSize: Responsive.textScaleFactor * 14,
-                            color: AppColor.white,
-                            fontWeight: FontWeight.w700,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8.0,
+                        horizontal: 16.0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Start Session",
+                            style: GoogleFonts.dmSans(
+                              fontSize: Responsive.textScaleFactor * 14,
+                              color: AppColor.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: Responsive.wp(2)),
+                          SizedBox(width: Responsive.wp(2)),
 
-                        SvgPicture.asset("assets/icons/arrow.svg"),
-                      ],
+                          SvgPicture.asset("assets/icons/arrow.svg"),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -666,396 +711,13 @@ Widget test(BuildContext context) {
       ),
     ),
   );
-  // return Container(
-  //   padding: const EdgeInsets.all(15),
-  //   decoration: ShapeDecoration(
-  //     color: Colors.white.withValues(alpha: 0.08),
-  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-  //   ),
-  //   child: Column(
-  //     mainAxisSize: MainAxisSize.min,
-  //     mainAxisAlignment: MainAxisAlignment.center,
-  //     crossAxisAlignment: CrossAxisAlignment.center,
-  //     spacing: 10,
-  //     children: [
-  //       Container(
-  //         width: 323,
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           mainAxisAlignment: MainAxisAlignment.start,
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           spacing: 15,
-  //           children: [
-  //             Container(
-  //               width: double.infinity,
-  //               child: Column(
-  //                 mainAxisSize: MainAxisSize.min,
-  //                 mainAxisAlignment: MainAxisAlignment.start,
-  //                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                 spacing: 12,
-  //                 children: [
-  //                   Container(
-  //                     width: double.infinity,
-  //                     child: Row(
-  //                       mainAxisSize: MainAxisSize.min,
-  //                       mainAxisAlignment: MainAxisAlignment.start,
-  //                       crossAxisAlignment: CrossAxisAlignment.center,
-  //                       spacing: 61,
-  //                       children: [
-  //                         GestureDetector(
-  //                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_)=>StudentPublicProfileView())),
-  //                           child: Row(
-  //                             mainAxisSize: MainAxisSize.min,
-  //                             mainAxisAlignment: MainAxisAlignment.start,
-  //                             crossAxisAlignment: CrossAxisAlignment.center,
-  //                             spacing: 10,
-  //                             children: [
-  //                               CircleAvatar(
-  //                                 backgroundImage: AssetImage(
-  //                                   "assets/images/michel.png",
-  //                                 ),
-  //                               ),
-  //                               Column(
-  //                                 mainAxisSize: MainAxisSize.min,
-  //                                 mainAxisAlignment: MainAxisAlignment.start,
-  //                                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                                 children: [
-  //                                   SizedBox(
-  //                                     width: 44,
-  //                                     child: Text(
-  //                                       'Michel',
-  //                                       style: TextStyle(
-  //                                         color: Colors.white,
-  //                                         fontSize: 12,
-  //                                         fontFamily: 'DM Sans',
-  //                                         fontWeight: FontWeight.w700,
-  //                                         letterSpacing: -0.20,
-  //                                       ),
-  //                                     ),
-  //                                   ),
-  //                                   SizedBox(
-  //                                     width: 44,
-  //                                     child: Text(
-  //                                       'Student',
-  //                                       style: TextStyle(
-  //                                         color: Colors.white,
-  //                                         fontSize: 12,
-  //                                         fontFamily: 'DM Sans',
-  //                                         fontWeight: FontWeight.w400,
-  //                                         letterSpacing: -0.20,
-  //                                       ),
-  //                                     ),
-  //                                   ),
-  //                                 ],
-  //                               ),
-  //                             ],
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //                   Container(
-  //                     width: double.infinity,
-  //                     decoration: ShapeDecoration(
-  //                       shape: RoundedRectangleBorder(
-  //                         side: BorderSide(
-  //                           width: 1,
-  //                           strokeAlign: BorderSide.strokeAlignCenter,
-  //                           color: Colors.white.withValues(alpha: 0.20),
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   Column(
-  //                     mainAxisSize: MainAxisSize.min,
-  //                     mainAxisAlignment: MainAxisAlignment.end,
-  //                     crossAxisAlignment: CrossAxisAlignment.start,
-  //                     // spacing: 2,
-  //                     children: [
-  //                       Text(
-  //                         '10 May, 3:00 PM – 4:00 PM',
-  //                         style: GoogleFonts.rethinkSans(
-  //                           color: Colors.white,
-  //                           fontSize: Responsive.textScaleFactor*25,
-  //                           fontWeight: FontWeight.w500,
-  //                           letterSpacing: -0.30,
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                   Container(
-  //                     width: double.infinity,
-  //                     child: Row(
-  //                       mainAxisSize: MainAxisSize.min,
-  //                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                       crossAxisAlignment: CrossAxisAlignment.center,
-  //                       spacing: 19,
-  //                       children: [
-  //                         Column(
-  //                           mainAxisSize: MainAxisSize.min,
-  //                           mainAxisAlignment: MainAxisAlignment.start,
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           spacing: 5,
-  //                           children: [
-  //                             SizedBox(
-  //                               width: 35,
-  //                               child: Text(
-  //                                 'Type',
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize: Responsive.textScaleFactor*12,
-  //                                   fontWeight: FontWeight.w700,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                             SizedBox(
-  //                               width: 35,
-  //                               child: Text(
-  //                                 'Group',
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize: Responsive.textScaleFactor*12,
-  //                                   fontWeight: FontWeight.w400,
-  //                                   letterSpacing: -0.20,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         Container(
-  //                           transform:
-  //                               Matrix4.identity()
-  //                                 ..translate(0.0, 0.0)
-  //                                 ..rotateZ(1.57),
-  //                           width: 35,
-  //                           decoration: ShapeDecoration(
-  //                             shape: RoundedRectangleBorder(
-  //                               side: BorderSide(
-  //                                 width: 1,
-  //                                 strokeAlign: BorderSide.strokeAlignCenter,
-  //                                 color: Colors.white.withValues(alpha: 0.20),
-  //                               ),
-  //                             ),
-  //                           ),
-  //                         ),
-  //                         Column(
-  //                           mainAxisSize: MainAxisSize.min,
-  //                           mainAxisAlignment: MainAxisAlignment.start,
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           spacing: 5,
-  //                           children: [
-  //                             SizedBox(
-  //                               width: 51,
-  //                               child: Text(
-  //                                 'Duration',
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize:Responsive.textScaleFactor* 12,
-  //                                   fontWeight: FontWeight.w700,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                             SizedBox(
-  //                               width: 51,
-  //                               child: Text(
-  //                                 '1hr',
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize: Responsive.textScaleFactor*12,
-  //                                   fontWeight: FontWeight.w400,
-  //                                   letterSpacing: -0.20,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         Container(
-  //                           transform:
-  //                               Matrix4.identity()
-  //                                 ..translate(0.0, 0.0)
-  //                                 ..rotateZ(1.57),
-  //                           width: 35,
-  //                           decoration: ShapeDecoration(
-  //                             shape: RoundedRectangleBorder(
-  //                               side: BorderSide(
-  //                                 width: 1,
-  //                                 strokeAlign: BorderSide.strokeAlignCenter,
-  //                                 color: Colors.white.withValues(alpha: 0.20),
-  //                               ),
-  //                             ),
-  //                           ),
-  //                         ),
-  //                         Column(
-  //                           mainAxisSize: MainAxisSize.min,
-  //                           mainAxisAlignment: MainAxisAlignment.start,
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           spacing: 5,
-  //                           children: [
-  //                             Text(
-  //                               'Seats Left',
-  //                               style: GoogleFonts.dmSans(
-  //                                 color: Colors.white,
-  //                                 fontSize: Responsive.textScaleFactor*12,
-  //                                 fontWeight: FontWeight.w700,
-  //                               ),
-  //                             ),
-  //                             SizedBox(
-  //                               width: 60,
-  //                               child: Text(
-  //                                 '2-5',
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize: Responsive.textScaleFactor*12,
-  //                                   fontWeight: FontWeight.w400,
-  //                                   letterSpacing: -0.20,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         Container(
-  //                           transform:
-  //                               Matrix4.identity()
-  //                                 ..translate(0.0, 0.0)
-  //                                 ..rotateZ(1.57),
-  //                           width: 35,
-  //                           decoration: ShapeDecoration(
-  //                             shape: RoundedRectangleBorder(
-  //                               side: BorderSide(
-  //                                 width: 1,
-  //                                 strokeAlign: BorderSide.strokeAlignCenter,
-  //                                 color: Colors.white.withValues(alpha: 0.20),
-  //                               ),
-  //                             ),
-  //                           ),
-  //                         ),
-  //                         Column(
-  //                           mainAxisSize: MainAxisSize.min,
-  //                           mainAxisAlignment: MainAxisAlignment.start,
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           spacing: 5,
-  //                           children: [
-  //                             Text(
-  //                               'Language',
-  //                               style: GoogleFonts.dmSans(
-  //                                 color: Colors.white,
-  //                                 fontSize: Responsive.textScaleFactor*12,
-  //                                 fontWeight: FontWeight.w700,
-  //                               ),
-  //                             ),
-  //                             Text(
-  //                               'English / Arabic',
-  //                               style: GoogleFonts.dmSans(
-  //                                 color: Colors.white,
-  //                                 fontSize: Responsive.textScaleFactor*12,
-  //                                 fontWeight: FontWeight.w400,
-  //                                 letterSpacing: -0.20,
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //                   Container(
-  //                     width: double.infinity,
-  //                     decoration: ShapeDecoration(
-  //                       shape: RoundedRectangleBorder(
-  //                         side: BorderSide(
-  //                           width: 1,
-  //                           strokeAlign: BorderSide.strokeAlignCenter,
-  //                           color: Colors.white.withValues(alpha: 0.20),
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //             Container(
-  //               width: double.infinity,
-  //               child: Row(
-  //                 mainAxisSize: MainAxisSize.min,
-  //                 mainAxisAlignment: MainAxisAlignment.start,
-  //                 crossAxisAlignment: CrossAxisAlignment.center,
-  //                 spacing: 10,
-  //                 children: [
-  //                   Expanded(
-  //                     child: Container(
-  //                       padding: const EdgeInsets.symmetric(
-  //                         horizontal: 18,
-  //                         vertical: 8,
-  //                       ),
-  //                       decoration: ShapeDecoration(
-  //                         color: AppColor.red,
-  //                         shape: RoundedRectangleBorder(
-  //                           borderRadius: BorderRadius.circular(40),
-  //                         ),
-  //                       ),
-  //                       child: Row(
-  //                         mainAxisSize: MainAxisSize.min,
-  //                         mainAxisAlignment: MainAxisAlignment.center,
-  //                         crossAxisAlignment: CrossAxisAlignment.center,
-  //                         spacing: 8,
-  //                         children: [
-  //                           Row(
-  //                             children: [
-  //                               Text(
-  //                                 'Start Session',
-  //                                 textAlign: TextAlign.center,
-  //                                 style: GoogleFonts.dmSans(
-  //                                   color: Colors.white,
-  //                                   fontSize:Responsive.textScaleFactor* 14,
-  //                                   fontWeight: FontWeight.w500,
-  //                                   letterSpacing: -0.20,
-  //                                 ),
-  //                               ),
-  //                               SizedBox(width: Responsive.wp(2)),
-  //                               SvgPicture.asset("assets/icons/arrow.svg"),
-  //                             ],
-  //                           ),
-  //                           Container(
-  //                             transform:
-  //                                 Matrix4.identity()
-  //                                   ..translate(0.0, 0.0)
-  //                                   ..rotateZ(1.57),
-  //                             height: 18,
-  //                             clipBehavior: Clip.antiAlias,
-  //                             decoration: BoxDecoration(),
-  //                             child: Stack(),
-  //                           ),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   Container(
-  //                     width: 34,
-  //                     height: 34,
-  //                     padding: const EdgeInsets.symmetric(
-  //                       horizontal: 18,
-  //                       vertical: 16,
-  //                     ),
-  //                     clipBehavior: Clip.antiAlias,
-  //                     decoration: ShapeDecoration(
-  //                       color: Colors.white.withValues(alpha: 0.20),
-  //                       shape: RoundedRectangleBorder(
-  //                         borderRadius: BorderRadius.circular(40),
-  //                       ),
-  //                     ),
-  //                     child: SvgPicture.asset("assets/icons/bubble-chat.svg"),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ],
-  //   ),
-  // );
 }
 
-Widget recentSessionsHistoryCard(BuildContext context) {
+Widget recentSessionsHistoryCard(BuildContext context, {SessionModel? session}) {
+  final studentLabel = session?.studentId ?? 'Student';
+  final dateLabel = session?.dateTime ?? '--';
+  final durationLabel = session?.duration != null ? '${session!.duration}min' : '1hr';
+  final statusLabel = session?.status ?? '--';
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 8.0),
     child: Container(
@@ -1095,7 +757,7 @@ Widget recentSessionsHistoryCard(BuildContext context) {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Alfredo Workman",
+                            studentLabel,
                             style: GoogleFonts.dmSans(
                               color: AppColor.white,
                               fontWeight: FontWeight.w500,
@@ -1116,10 +778,10 @@ Widget recentSessionsHistoryCard(BuildContext context) {
                 Row(
                   children: [
                     Text(
-                      '+\$30',
+                      statusLabel,
                       style: GoogleFonts.rethinkSans(
                         color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 25,
+                        fontSize: Responsive.textScaleFactor * 14,
                         fontWeight: FontWeight.w500,
                         letterSpacing: -0.30,
                       ),
@@ -1145,94 +807,109 @@ Widget recentSessionsHistoryCard(BuildContext context) {
             SizedBox(height: 10),
 
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Type",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Date",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "Group",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        dateLabel,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Duration",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Duration",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "1hr",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        durationLabel,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Seats Left",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Seats Left",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "2-5",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "2-5",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(width: 1, height: 30, color: AppColor.white),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Language",
-                      style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Language",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "English / Arabic",
-                      style: GoogleFonts.dmSans(
-                        fontSize: Responsive.textScaleFactor * 12,
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        "English / Arabic",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          fontSize: Responsive.textScaleFactor * 12,
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1243,52 +920,6 @@ Widget recentSessionsHistoryCard(BuildContext context) {
   );
 }
 
-// Widget bloc(String text, String value) {
-//   return Expanded(
-//     child: Padding(
-//       padding: Responsive.padding(left: 1, right: 1, bottom: 1, top: 1),
-//       child: Container(
-//         height: Responsive.hp(12),
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(22),
-//           color: AppColor.white.withValues(alpha: 0.08),
-//         ),
-//         child: Padding(
-//           padding: const EdgeInsets.all(4.0),
-//           child: Column(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Text(
-//                 text,
-//                 style: GoogleFonts.dmSans(
-//                   color: Colors.white,
-//                   fontSize: Responsive.sp(10),
-//                   fontWeight: FontWeight.w400,
-//                   letterSpacing: -0.20,
-//                 ),
-//               ),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.end,
-//                 children: [
-//                   Text(
-//                     value,
-//                     textAlign: TextAlign.right,
-//                     style: GoogleFonts.dmSans(
-//                       color: Colors.white,
-//                       fontSize: Responsive.sp(20),
-//                       fontWeight: FontWeight.bold,
-//                       letterSpacing: -0.30,
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//   );
-// }
 
 Widget bloc({
   required String title,

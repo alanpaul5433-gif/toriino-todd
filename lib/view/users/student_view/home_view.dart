@@ -16,6 +16,9 @@ import 'package:toriino_todd/view/users/student_view/mycourse_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/student_view/student_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/teacher_profile.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
+import 'package:toriino_todd/services/stripe_service.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/viewmodel/controller/student/home_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
@@ -67,9 +70,14 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               );
                             },
-                            child: CircleAvatar(
-                              child: Image.asset("assets/images/michel.png"),
-                            ),
+                            child: Obx(() {
+                              final avatarUrl = homeController.rxProfile.value.data?.avatarUrl;
+                              return CircleAvatar(
+                                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                    ? NetworkImage(avatarUrl)
+                                    : const AssetImage("assets/images/michel.png") as ImageProvider,
+                              );
+                            }),
                           ),
                           SizedBox(width: 10.w),
                           Obx(() {
@@ -204,20 +212,20 @@ class _HomeViewState extends State<HomeView> {
                       ),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => customDrawerController.changeIndex(2),
+                          onTap: () => customDrawerController.changeIndex(1),
                           child: Container(
                             decoration: BoxDecoration(color: AppColor.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(22.r)),
                             child: Padding(
                               padding: Responsive.padding(left: 2, right: 2, top: 1, bottom: 1),
-                              child: Column(
+                              child: Obx(() => Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text("Session\n Booked", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.sp(10))),
                                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                                    Text("04", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
+                                    Text(homeController.rxSessionCount.value.toString().padLeft(2, '0'), style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
                                   ]),
                                 ],
-                              ),
+                              )),
                             ),
                           ),
                         ),
@@ -232,7 +240,7 @@ class _HomeViewState extends State<HomeView> {
                               children: [
                                 Text("Certificates\n Earned", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.sp(10))),
                                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                                  Text("02", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
+                                  Text("--", style: GoogleFonts.dmSans(color: AppColor.secconderyColor, fontSize: Responsive.textScaleFactor * 20)),
                                 ]),
                               ],
                             ),
@@ -288,21 +296,26 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 SizedBox(height: Responsive.h(1)),
 
-                OngoingCourseCard(
-                  courseNo: 01,
-                  headerText: 'Ongoing Course',
-                  courseTitle: 'UI/UX Design Basics',
-                  duration: '2 days ago',
-                  courseStatus: 'completion',
-                  mentorName: 'Chance Calzoni',
-                  rating: 4.8,
-                  continuetocousre: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => MyTakenCousreView()),
-                    );
-                  },
-                ),
+                Obx(() {
+                  final coursesState = homeController.rxCourses.value;
+                  final courses = coursesState.data?.courses ?? [];
+                  final course = courses.isNotEmpty ? courses.first : null;
+                  return OngoingCourseCard(
+                    courseNo: 01,
+                    headerText: 'Ongoing Course',
+                    courseTitle: course?.title ?? '--',
+                    duration: course?.duration ?? '--',
+                    courseStatus: course?.status ?? '--',
+                    mentorName: '--',
+                    rating: course?.rating ?? 0.0,
+                    continuetocousre: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => MyTakenCousreView(course: course)),
+                      );
+                    },
+                  );
+                }),
                 SizedBox(height: Responsive.h(1)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -328,7 +341,7 @@ class _HomeViewState extends State<HomeView> {
                           ); // Navigate to BrowseMentor
                           },
                           child: Text(
-                            "View ALl",
+                            "View All",
                             style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.bold,
                               color: AppColor.white,
@@ -352,13 +365,17 @@ class _HomeViewState extends State<HomeView> {
                       role: (mentor.expertise != null && mentor.expertise!.isNotEmpty) ? mentor.expertise!.first : 'Specialist',
                       rating: mentor.rating ?? 0.0,
                       description: mentor.bio ?? '',
-                      languages: 'English, German',
+                      languages: '--',
                       pricePerHour: '\$${mentor.hourlyRate?.toInt() ?? 0}/hr',
                       onViewProfileTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => MentorPublicProfile()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => MentorPublicProfile(mentor: mentor)));
                       },
                       onBookSessionTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => AvailabilityView()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => AvailabilityView(
+                          mentorId: mentor.userId ?? '',
+                          mentorName: mentor.name ?? 'Mentor',
+                          hourlyRate: mentor.hourlyRate ?? 0.0,
+                        )));
                       },
                     );
                   }
@@ -400,7 +417,7 @@ class _HomeViewState extends State<HomeView> {
                           // ); // Navigate to BrowseMentor
                           },
                           child: Text(
-                            "View ALl",
+                            "View All",
                             style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.bold,
                               color: AppColor.white,
@@ -424,7 +441,7 @@ class _HomeViewState extends State<HomeView> {
                       role: (teacher.expertise != null && teacher.expertise!.isNotEmpty) ? teacher.expertise!.first : 'Expert',
                       rating: teacher.rating ?? 0.0,
                       description: teacher.bio ?? '',
-                      languages: 'English, German',
+                      languages: '--',
                       pricePerHour: '\$${teacher.hourlyRate?.toInt() ?? 0}/hr',
                       onViewProfileTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherProfile()));
@@ -459,7 +476,7 @@ class _HomeViewState extends State<HomeView> {
                           ); 
                           },
                           child: Text(
-                            "View ALl",
+                            "View All",
                             style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.bold,
                               color: AppColor.white,
@@ -520,7 +537,7 @@ class _HomeViewState extends State<HomeView> {
                       child: Row(
                         children: [
                           Text(
-                            "View ALl",
+                            "View All",
                             style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.bold,
                               color: AppColor.white,
@@ -562,7 +579,7 @@ class _HomeViewState extends State<HomeView> {
                                     style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor),
                                   ),
                                 ]),
-                                CustomButton(backgroundColor: AppColor.red, width: Responsive.w(30), text: "Enroll", onTap: () { _enrollBottomSheet(context); }),
+                                CustomButton(backgroundColor: AppColor.red, width: Responsive.w(30), text: "Enroll", onTap: () { _enrollBottomSheet(context, course); }),
                               ],
                             ),
                             Text("Duration: ${course.duration ?? 'N/A'}", style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
@@ -601,7 +618,9 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-void _enrollBottomSheet(BuildContext context) {
+void _enrollBottomSheet(BuildContext context, CourseModel course) {
+  final price = course.price ?? 0;
+  final fee = (price * 0.25).toStringAsFixed(2);
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -609,107 +628,104 @@ void _enrollBottomSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
     ),
     backgroundColor: AppColor.primaryColor,
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: Responsive.w(5),
-          right: Responsive.w(5),
-          top: Responsive.h(3),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "UI/UX Design Basics",
-                  style: TextStyle(
-                    color: AppColor.white,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) {
+        bool paying = false;
+        void pay() {
+          if (paying) return;
+          setSheetState(() => paying = true);
+          StripeService.purchaseCourse(
+            courseId: course.courseId ?? '',
+            courseTitle: course.title ?? 'Course',
+          ).then((result) {
+            if (result['success'] == true) {
+              Navigator.pop(sheetContext);
+              CourseRepo().enrollCourse(course.courseId ?? '').then((_) {
+                _showEnrollSuccessDialog(context, course.title ?? 'Course');
+              }).catchError((_) {
+                _showEnrollSuccessDialog(context, course.title ?? 'Course');
+              });
+            } else {
+              setSheetState(() => paying = false);
+              Utils.toastMassage(result['message'] ?? 'Payment failed');
+            }
+          });
+        }
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            left: Responsive.w(5),
+            right: Responsive.w(5),
+            top: Responsive.h(3),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      course.title ?? 'Course',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColor.white, fontSize: 18.sp, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: Icon(Icons.close, color: AppColor.white),
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppColor.secconderyColor,
-                  child: Icon(Icons.person, color: AppColor.white),
-                ),
-                SizedBox(width: 10.w),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chance Calzoni',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Teacher',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            const Divider(color: Colors.grey),
-            SizedBox(height: Responsive.h(2)),
-            _cousreinfo("Course Category", "Design"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Course Duration", "2–5h"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Language", "English"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Rating", "4.5"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Price Info", "\$19.99"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Platform Fee", "\$4.99"),
-            SizedBox(height: Responsive.h(2)),
-            Text(
-              "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
+                  GestureDetector(
+                    onTap: paying ? null : () => Navigator.pop(sheetContext),
+                    child: Icon(Icons.close, color: AppColor.white),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: Responsive.h(2)),
-            AuthButton(
-              buttontext: "Proceed to Payment",
-              onPress: () {
-                Navigator.pop(context); // Close the bottom sheet
-                _showPaymentAlert(context); // Show the payment alert
-              },
-              loading: false,
-            ),
-            SizedBox(height: Responsive.h(2)),
-          ],
-        ),
-      );
-    },
+              SizedBox(height: Responsive.h(2)),
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: AppColor.red,
+                    child: Icon(Icons.person, color: AppColor.white),
+                  ),
+                  SizedBox(width: 10.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(course.category ?? 'Teacher', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                      Text(course.level ?? '', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400)),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: Responsive.h(2)),
+              const Divider(color: Colors.grey),
+              SizedBox(height: Responsive.h(2)),
+              _cousreinfo("Course Category", course.category ?? '—'),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Course Duration", course.duration ?? '—'),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Level", course.level ?? '—'),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Rating", "${course.rating ?? 0}"),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Price", price == 0 ? "FREE" : "\$${price.toStringAsFixed(2)}"),
+              SizedBox(height: Responsive.h(1)),
+              _cousreinfo("Platform Fee", price == 0 ? "\$0.00" : "\$$fee"),
+              SizedBox(height: Responsive.h(2)),
+              if (course.description != null && course.description!.isNotEmpty)
+                Text(course.description!, maxLines: 3, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400, height: 1.5)),
+              SizedBox(height: Responsive.h(2)),
+              AuthButton(
+                buttontext: "Proceed to Payment",
+                onPress: pay,
+                loading: paying,
+              ),
+              SizedBox(height: Responsive.h(2)),
+            ],
+          ),
+        );
+      },
+    ),
   );
 }
 
@@ -738,11 +754,11 @@ Widget _cousreinfo(String text1, String text2) {
   );
 }
 
-void _showPaymentAlert(BuildContext context) {
+void _showEnrollSuccessDialog(BuildContext context, String courseTitle) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (BuildContext context) {
+    builder: (BuildContext dialogContext) {
       return Dialog(
         backgroundColor: AppColor.primaryColor,
         shape: RoundedRectangleBorder(
@@ -756,25 +772,22 @@ void _showPaymentAlert(BuildContext context) {
               SvgPicture.asset("assets/icons/checkmark-circle-02.svg"),
               SizedBox(height: 15.h),
               Text(
-                "Course Purchased!",
+                "You're Enrolled!",
                 style: TextStyle(
                   color: AppColor.white,
                   fontSize: 20.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 15.h),
-              Text(
-                "It is a long established fact that a reader will be distracted by the readable content of a page.",
-                style: TextStyle(color: AppColor.white, fontSize: 16.sp),
-              ),
               SizedBox(height: 10.h),
-
+              Text(
+                'You now have access to "$courseTitle". Head to My Courses to start learning.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColor.white, fontSize: 14.sp, height: 1.5),
+              ),
+              SizedBox(height: 20.h),
               GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Utils.toastMassage("Successful");
-                },
+                onTap: () => Navigator.of(dialogContext).pop(),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
@@ -791,7 +804,7 @@ void _showPaymentAlert(BuildContext context) {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            "Continue",
+                            "Start Learning",
                             style: GoogleFonts.dmSans(
                               fontSize: 14,
                               color: AppColor.white,

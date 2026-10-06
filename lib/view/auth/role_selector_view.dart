@@ -1,5 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
@@ -32,8 +35,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       await UserRepo().updateProfile({'role': selectedRole});
     } catch (_) {}
 
+    // Sync role to Cognito custom:role attribute (P3-3/GATE-03)
+    final roleResult = await AuthService.setRole(selectedRole!);
+    if (roleResult['success'] != true) {
+      // Non-fatal: log but don't block navigation
+      debugPrint('setRole failed: ${roleResult['message']}');
+    }
+
     if (!mounted) return;
     setState(() => _saving = false);
+
+    // Reset tab index so every role always opens to Home tab
+    try { Get.find<CustomDrawerController>().changeIndex(0); } catch (_) {}
 
     if (selectedRole == "Student") {
       Navigator.pushReplacement(

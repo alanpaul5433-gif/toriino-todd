@@ -7,6 +7,7 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_course_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherCousreView extends StatelessWidget {
@@ -16,6 +17,9 @@ class TeacherCousreView extends StatelessWidget {
   Widget build(BuildContext context) {
     final CustomDrawerController customDrawerController =
         Get.find<CustomDrawerController>();
+    final courseVm = Get.isRegistered<TeacherCourseViewmodel>()
+        ? Get.find<TeacherCourseViewmodel>()
+        : Get.put(TeacherCourseViewmodel());
     Responsive.init(context);
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
@@ -143,14 +147,29 @@ class TeacherCousreView extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: Responsive.h(4)),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: 5,
-                  itemBuilder: ((context, index) {
-                    return recentSessionsHistoryCard(context);
-                  }),
-                ),
+                Obx(() {
+                  final state = courseVm.rxMyCourses.value;
+                  final courses = state.data?.courses ?? [];
+                  if (courses.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24.0),
+                      child: Center(
+                        child: Text(
+                          state.data == null ? 'Loading courses...' : 'No courses yet. Create your first!',
+                          style: GoogleFonts.dmSans(color: Colors.white.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: courses.length,
+                    itemBuilder: (context, index) {
+                      return recentSessionsHistoryCard(context, courses[index]);
+                    },
+                  );
+                }),
               ],
             ),
           ),
