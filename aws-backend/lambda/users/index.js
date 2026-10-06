@@ -88,6 +88,9 @@ async function updateProfile(userId, data) {
     "avatarUrl",
     "dateOfBirth",
     "location",
+    "experience",
+    "language",
+    "hourlyRate",
   ];
 
   const expressionParts = [];

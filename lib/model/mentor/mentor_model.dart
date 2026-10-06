@@ -11,6 +11,8 @@ class MentorModel {
   final int? totalStudents;
   final String? introVideoUrl;
   final String? createdAt;
+  final String? experience;
+  final String? language;
 
   MentorModel({
     this.userId,
@@ -25,6 +27,8 @@ class MentorModel {
     this.totalStudents,
     this.introVideoUrl,
     this.createdAt,
+    this.experience,
+    this.language,
   });
 
   factory MentorModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,8 @@ class MentorModel {
       totalStudents: json['totalStudents'],
       introVideoUrl: json['introVideoUrl'],
       createdAt: json['createdAt'],
+      experience: json['experience'],
+      language: json['language'],
     );
   }
 
@@ -53,6 +59,8 @@ class MentorModel {
     if (expertise != null) data['expertise'] = expertise;
     if (hourlyRate != null) data['hourlyRate'] = hourlyRate;
     if (introVideoUrl != null) data['introVideoUrl'] = introVideoUrl;
+    if (experience != null) data['experience'] = experience;
+    if (language != null) data['language'] = language;
     return data;
   }
 }

@@ -221,9 +221,9 @@ class MentorPrivateProfileView extends StatelessWidget {
                     ),
 
                     Obx(() {
-                      profileVm.rxProfile.value; // reactive trigger
+                      final profile = profileVm.rxProfile.value.data;
                       return Text(
-                        '--',
+                        profile?.experience ?? '--',
                         style: GoogleFonts.dmSans(
                           color: Colors.white,
                           fontSize: Responsive.textScaleFactor * 12,
@@ -280,9 +280,12 @@ class MentorPrivateProfileView extends StatelessWidget {
                     }),
 
                     Obx(() {
-                      profileVm.rxProfile.value; // reactive trigger
+                      final profile = profileVm.rxProfile.value.data;
+                      final rate = profile?.hourlyRate != null
+                          ? '\$${profile!.hourlyRate!.toStringAsFixed(0)}/hr'
+                          : '--';
                       return Text(
-                        '--',
+                        rate,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: Responsive.textScaleFactor * 12,

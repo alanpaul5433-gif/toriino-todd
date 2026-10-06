@@ -12,6 +12,9 @@ class UserProfileModel {
   final double? rating;
   final String? createdAt;
   final String? updatedAt;
+  final String? experience;
+  final String? language;
+  final double? hourlyRate;
 
   UserProfileModel({
     this.userId,
@@ -27,6 +30,9 @@ class UserProfileModel {
     this.rating,
     this.createdAt,
     this.updatedAt,
+    this.experience,
+    this.language,
+    this.hourlyRate,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -46,6 +52,9 @@ class UserProfileModel {
       rating: (json['rating'] as num?)?.toDouble(),
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      experience: json['experience'],
+      language: json['language'],
+      hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
     );
   }
 
@@ -63,6 +72,9 @@ class UserProfileModel {
     if (interests != null) data['interests'] = interests;
     if (createdAt != null) data['createdAt'] = createdAt;
     if (updatedAt != null) data['updatedAt'] = updatedAt;
+    if (experience != null) data['experience'] = experience;
+    if (language != null) data['language'] = language;
+    if (hourlyRate != null) data['hourlyRate'] = hourlyRate;
     return data;
   }
 }
