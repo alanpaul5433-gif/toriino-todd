@@ -320,7 +320,7 @@ Profile build: **FAILED** — insufficient disk space during symbol-stripping st
 | P4 | HIGH | Admin panel not implemented in Flutter. By design — admin is a separate Next.js web application. Mark as WONT-FIX for Flutter. |
 | B1 | LOW | Profile build fails on CI/dev machines with limited disk space during `StripDebugSymbolsRunnable` step for Agora native libs. Free ≥4 GB before profile build. |
 | B2 | LOW | `2.3 Profile edit persists` test not automated — requires manual interaction after P2 fix. |
-| B3 | INFO | Wallet deduction Lambda endpoint (`/wallet/deduct`) not yet deployed to API Gateway. Flutter client code is ready; Lambda deployment is pending. |
+| B3 | RESOLVED | Wallet Lambda (`toriino-wallet`) deployed with code. `toriino-wallet` and `toriino-wallet-events` DynamoDB tables created. Cognito authorizer attached to GET /wallet and POST /wallet/deduct. Fixed PutCommand `.catch()` placement bug. All four wallet tests now pass (see Round 3). |
 
 ### Round 2 Summary
 
@@ -340,3 +340,72 @@ Profile build: **FAILED** — insufficient disk space during symbol-stripping st
 
 **Previously FAIL/PARTIAL now passing: 8 tests** (1.1, 1.2, 1.4, 1.7 + 4 admin tests reclassified as SKIP)  
 **VERDICT: CONTROLLED BETA READY** — all P0/P1/P2/P3/P5 blockers resolved. No source-code FAIL remains. Blocked tests are Stripe-key-dependent (not bugs). Admin panel is Next.js scope.
+
+---
+
+## UAT Round 3 — GATE-02 / GATE-03 Physical Device Verification (2026-10-07)
+
+**Purpose:** Explicitly verify GATE-02 (all roles survive restart without re-login) and GATE-03 (teacher lands on teacher home after restart) on the physical device. In Round 2 these were code-verified only; this round provides device evidence.
+
+**Device:** Samsung SM-A075F (R8VL2015Y6J, Android 13, API 33)  
+**APK:** debug (Firebase disabled locally for build — same build as Round 2)  
+**Method:** adb UIAutomator dump + screencap for each step
+
+### Test Procedure (per role)
+
+1. Cold start app (`am start -n com.torino.todd/.MainActivity`)
+2. Input credentials via `adb shell input text` with `@` and `#` properly escaped
+3. Tap Login → wait 7 s → confirm home screen via UIAutomator dump
+4. `am force-stop com.torino.todd` → wait 2 s
+5. `am start -n com.torino.todd/.MainActivity` → wait 7 s
+6. Confirm same home screen (no login screen) via UIAutomator dump + screencap
+
+### GATE-02 Results — Session Survives Restart
+
+| Role    | Login confirmed | After restart | Gate | Evidence |
+|---------|----------------|---------------|------|----------|
+| Student | "Hi User", "Courses in Progress", "Recommended Mentors" | Same student home | **PASS** | `docs/audit/evidence/student_home_before_restart.png`, `student_gate02_v2.png`, `student_gate02_logcat.txt` |
+| Teacher | "Hi Teacher Teacher", "Create New Course", "Total Courses" | Teacher home (not login, not student home) | **PASS** | `teacher_gate03_before.png`, `teacher_gate03_final.png`, `teacher_gate03_final_logcat.txt` |
+| Mentor  | "Hi Mentor Mentor", "Total Sessions", "Stand out with a Verified Badge" | Same mentor home | **PASS** | `mentor_home_before_restart.png`, `mentor_gate02_v2.png`, `mentor_gate02_logcat.txt` |
+
+**GATE-02: PASS (device-verified, all 3 roles)**
+
+### GATE-03 Results — Teacher Lands on Teacher Home
+
+After teacher login + force-stop + reopen:  
+- UIAutomator dump confirmed: `Create New Course` present, `Recommended Mentors` absent, `Welcome Back` absent  
+- UIAutomator assertion: `isTeacher=True student=False login=False`  
+- Evidence: `docs/audit/evidence/teacher_gate03_final.png` (142,679 bytes)
+
+**GATE-03: PASS (device-verified)**
+
+### Updated Gate Verdicts
+
+| Gate | Definition | Round 2 | Round 3 |
+|------|-----------|---------|---------|
+| GATE-02 | Session survives restart (correct role after kill+reopen) | PASS (code-verified) | **PASS (device-verified)** |
+| GATE-03 | Teacher reaches teacher home after login | PASS (code-verified) | **PASS (device-verified)** |
+
+All other gates (01, 04, 05, 06) carry forward as PASS from Round 2.
+
+---
+
+## Part 3 — Wallet API Deployment & Tests (2026-10-07)
+
+**Problem found:** `toriino-wallet` Lambda existed but had no code deployed (module not found). `toriino-wallet` and `toriino-wallet-events` DynamoDB tables did not exist. GET /wallet and POST /wallet/deduct routes had no Cognito authorizer.
+
+**Actions taken:**
+1. Deployed `aws-backend/lambda/wallet/index.js` to `toriino-wallet` Lambda.
+2. Fixed bug: `.catch()` was chained on `new PutCommand()` (command object, not Promise) — moved to `dynamodb.send(...).catch(...)`.
+3. Created `toriino-wallet` (PK: userId) and `toriino-wallet-events` (PK: userId, SK: eventId) DynamoDB tables.
+4. Attached `CognitoAdminAuth` authorizer to GET /wallet and POST /wallet/deduct.
+5. Redeployed `prod` stage (deployment id: c3nssj).
+
+### Wallet Test Results (API-level)
+
+| ID   | Test                                             | Result | Notes |
+|------|--------------------------------------------------|--------|-------|
+| 10.1 | GET /wallet returns balance                      | PASS   | 200 `{userId, balance: 100}` after seed |
+| 10.2 | Deduct with sufficient balance                   | PASS   | 200 `{balance: 70, deducted: 30}` |
+| 10.3 | Deduct with insufficient balance returns 402     | PASS   | 402 `{error: "insufficient_balance"}` |
+| 10.4 | Same idempotencyKey → no double deduction        | PASS   | 200 `{message: "Already processed", balance: 70}` — balance unchanged |

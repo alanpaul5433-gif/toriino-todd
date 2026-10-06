@@ -1,0 +1,20 @@
+﻿10-07 04:27:16.908  1221  1221 I BufferQueueProducer: [Splash Screen com.torino.todd$_2369#1232](this:0xb4000071db9a9a98,id:-1,api:0,p:-1,c:1221) Splash Screen com.torino.todd$_2369#1232 queueBuffer: fps=0.30 dur=3326.86 max=3326.86 min=3326.86
+10-07 04:27:16.912  1221  1221 D SurfaceFlinger:        DEVICE |           10174777524548 | 00002100 | RGBA_8888    |    0.0    0.0  720.0 1600.0 |    0    0  720 1600 | Splash Screen com.torino.todd$_2369#1232 (2)
+10-07 04:27:16.928  1772  1772 I WALLPAPER_SVC:SemWallpaperManagerService: isHomeActivityVisible : false 
+10-07 04:27:16.928  1772  1772 D WALLPAPER_SVC:WallpaperManagerService: dispatchHomeVisibilityChanged: visible = false, connection = com.android.server.wallpaper.WallpaperManagerService$WallpaperConnection@4dd1d6c, systemWallpaper = WallpaperData@cd80e6e, id: 2, which: 5, file mod: 0, info: null, engine(s): Proxy@35adda6, type = 0, userId = 0, uri= android.resource://com.samsung.android.wallpaper.res/drawable/wallpaper_001.png, allowBackup= true, wallpaperComponent = ComponentInfo{com.android.systemui/com.android.systemui.wallpapers.ImageWallpaper} 
+10-07 04:27:16.965  1772  2368 I WindowManager: Relayout Window{6b14232 u0 Splash Screen com.torino.todd}: viewVisibility=8 req=720x1600 ty=3 d0
+10-07 04:27:16.971  1772  2368 D WindowManager: Starting window removed Window{6b14232 u0 Splash Screen com.torino.todd}
+10-07 04:27:16.972  1772  2368 V WindowManager: Remove Window{6b14232 u0 Splash Screen com.torino.todd}: mSurfaceControl=Surface(name=Splash Screen com.torino.todd$_2369#1232)/@0x64d516f mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=true animating=false app-animation=false callers=com.android.server.wm.Session.remove:15 android.view.IWindowSession$Stub.onTransact:813 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1514 android.os.Binder.execTransact:1454 <bottom of call stack> 
+10-07 04:27:16.985  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{6b14232 Splash Screen com.torino.todd#1231 z=2147483647} 1 children}] reparent to OffscreenRoot
+10-07 04:27:16.985  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{6b14232 Splash Screen com.torino.todd#1231 z=2147483647} 1 children}] RelativeParent to null
+10-07 04:27:16.985  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1232} no children}] reparent to OffscreenRoot
+10-07 04:27:16.985  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1232} no children}] RelativeParent to null
+10-07 04:27:16.986  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1232, name=Splash Screen com.torino.todd$_2369#1232
+10-07 04:27:16.986  1221  1221 I SurfaceFlinger: id=1232 Removed Splash Screen com.torino.todd$_2369#1232 (114)
+10-07 04:27:16.986  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1231, name=6b14232 Splash Screen com.torino.todd#1231
+10-07 04:27:16.986  1221  1221 I SurfaceFlinger: id=1231 Removed 6b14232 Splash Screen com.torino.todd#1231 (114)
+10-07 04:27:16.996  1221  1221 I SurfaceFlinger: destroyed 6b14232 Splash Screen com.torino.todd#1231
+10-07 04:27:16.996  1221  1221 I SurfaceFlinger: destroyed Splash Screen com.torino.todd$_2369#1232
+10-07 04:27:16.997  1221  1221 I SurfaceFlinger: id=1231 Destroyed 6b14232 Splash Screen com.torino.todd#1231
+10-07 04:27:16.997  1221  1221 I SurfaceFlinger: id=1232 Destroyed Splash Screen com.torino.todd$_2369#1232
+10-07 04:27:19.021   881   881 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/sessions?role=teacher

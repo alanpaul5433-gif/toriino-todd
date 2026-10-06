@@ -138,22 +138,24 @@ async function deductBalance(userId, body) {
 
   // Record the event for idempotency and audit
   if (idempotencyKey) {
-    await dynamodb.send(
-      new PutCommand({
-        TableName: WALLET_EVENTS_TABLE,
-        Item: {
-          userId,
-          eventId: idempotencyKey,
-          amount,
-          description,
-          balanceAfter: newBalance,
-          createdAt: new Date().toISOString(),
-        },
-        ConditionExpression: "attribute_not_exists(eventId)",
-      }).catch(() => {
+    await dynamodb
+      .send(
+        new PutCommand({
+          TableName: WALLET_EVENTS_TABLE,
+          Item: {
+            userId,
+            eventId: idempotencyKey,
+            amount,
+            description,
+            balanceAfter: newBalance,
+            createdAt: new Date().toISOString(),
+          },
+          ConditionExpression: "attribute_not_exists(eventId)",
+        })
+      )
+      .catch(() => {
         // Duplicate write race — already processed
-      })
-    );
+      });
   }
 
   return response(200, {
