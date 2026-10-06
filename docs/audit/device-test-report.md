@@ -390,6 +390,26 @@ All other gates (01, 04, 05, 06) carry forward as PASS from Round 2.
 
 ---
 
+## Part 4 — Memory Measurement (2026-10-07)
+
+**Profile build: BLOCKED** — two blockers:
+1. Disk: only 1.66 GB free (profile build with Agora native libs requires ≥4 GB during `StripDebugSymbolsRunnable`).
+2. `android/app/google-services.json` absent; Firebase plugin active in `build.gradle` — Gradle build fails without it.
+
+**Debug memory snapshot (reference)** — teacher home after scroll interaction:
+
+| Metric | Value |
+|--------|-------|
+| PSS Total | **415,594 KB (~406 MB)** |
+| Native Heap | 31,338 KB (~31 MB) |
+| Java Heap | 3,412 KB |
+| EGL mtrack | 10,901 KB (~11 MB) |
+| Total RSS | 354,617 KB (~346 MB) |
+
+Trend across rounds: Round 1 ~445 MB → Round 2 ~467 MB → Round 3 ~406 MB (cold start vs. warm state variation; debug overhead dominates). Profile PSS will be significantly lower due to symbol stripping and removed assertions.
+
+---
+
 ## Part 3 — Wallet API Deployment & Tests (2026-10-07)
 
 **Problem found:** `toriino-wallet` Lambda existed but had no code deployed (module not found). `toriino-wallet` and `toriino-wallet-events` DynamoDB tables did not exist. GET /wallet and POST /wallet/deduct routes had no Cognito authorizer.
