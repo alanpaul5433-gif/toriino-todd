@@ -217,6 +217,25 @@ const NEW_ROUTES = {
     lambda: `${PROJECT_PREFIX}-admin`,
     auth: false,
   },
+
+  // Wallet
+  "/wallet": {
+    methods: ["GET"],
+    lambda: `${PROJECT_PREFIX}-wallet`,
+    auth: true,
+  },
+  "/wallet/deduct": {
+    methods: ["POST"],
+    lambda: `${PROJECT_PREFIX}-wallet`,
+    auth: true,
+  },
+
+  // Student search (used by mentor session scheduler)
+  "/students/search": {
+    methods: ["GET"],
+    lambda: `${PROJECT_PREFIX}-student-search`,
+    auth: true,
+  },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
