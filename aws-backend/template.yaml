@@ -77,6 +77,12 @@ Parameters:
   KnowledgeGraphTable:
     Type: String
     Default: toriino-knowledge-graph
+  WalletTable:
+    Type: String
+    Default: toriino-wallet
+  WalletEventsTable:
+    Type: String
+    Default: toriino-wallet-events
   RecordingsTable:
     Type: String
     Default: toriino-recordings
@@ -425,9 +431,13 @@ Resources:
           ENROLLMENTS_TABLE: !Ref EnrollmentsTable
           MEDIA_BUCKET: !Ref UploadBucket
           USERS_TABLE: !Ref UsersTable
+          SSM_PREFIX: !Ref SsmPrefix
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref CoursesTable }
         - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PLATFORM_FEE_PERCENT
             - Effect: Allow
               Action: dynamodb:BatchGetItem
               Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
@@ -448,8 +458,21 @@ Resources:
       Environment:
         Variables:
           SESSIONS_TABLE: !Ref SessionsTable
+          USERS_TABLE: !Ref UsersTable
+          MENTORS_TABLE: !Ref MentorsTable
+          SSM_PREFIX: !Ref SsmPrefix
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref SessionsTable }
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:BatchGetItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:BatchGetItem]
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MentorsTable}
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PLATFORM_FEE_PERCENT
 
   MentorsFunction:
     Type: AWS::Serverless::Function
@@ -542,14 +565,33 @@ Resources:
         Variables:
           COURSES_TABLE: !Ref CoursesTable
           SESSIONS_TABLE: !Ref SessionsTable
+          MENTORS_TABLE: !Ref MentorsTable
+          WALLET_TABLE: !Ref WalletTable
+          WALLET_EVENTS_TABLE: !Ref WalletEventsTable
+          EARNING_ENTRIES_TABLE: !Ref EarningEntriesTable
           SSM_PREFIX: !Ref SsmPrefix
       Policies:
         - DynamoDBReadPolicy: { TableName: !Ref CoursesTable }
         - DynamoDBReadPolicy: { TableName: !Ref SessionsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref MentorsTable }
         - Statement:
+            # Wallet payment of a session: one transaction across these four writes.
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WalletTable}
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WalletEventsTable}
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${EarningEntriesTable}
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SessionsTable}
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PLATFORM_FEE_PERCENT
             - Effect: Allow
               Action: kms:Decrypt
               Resource: "*"
@@ -586,6 +628,7 @@ Resources:
               Resource:
                 - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
                 - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_WEBHOOK_SECRET
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PLATFORM_FEE_PERCENT
             - Effect: Allow
               Action: kms:Decrypt
               Resource: "*"

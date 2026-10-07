@@ -1,5 +1,20 @@
 # Backend Verification — /prod
 
+## Re-verification, round 5 (2026-10-07, branch `fix/remediation-v1`)
+
+`node scripts/verify-backend.mjs` against deployment `lh7md9`: **20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED, exit 0.** The BLOCKED items are unchanged (Stripe, Agora, Gemini, Firebase).
+
+### New in this round
+| Item | Result |
+|---|---|
+| Platform fee | One value, SSM String `/torino/prod/PLATFORM_FEE_PERCENT` = 25. The server computes `platformFee` and `teacherShare` in integer cents. Course and session responses carry `pricing`, and the new `GET /payments/quote` returns the full quote. Fee and share are fixed into the PaymentIntent metadata; the webhook credits that share, replacing the hardcoded 80% (courses) / 85% (sessions). Without a valid fee, payments return 503. Live: `crs_011` $59.99 → fee $15.00, teacher $44.99 |
+| Double-charge fix | Before this round, the app deducted part of a session from the wallet and then the server charged the full price by card. Now the wallet is all-or-nothing and applied server-side: one DynamoDB transaction covers the wallet debit, wallet event, session marked paid/confirmed and pending mentor earning. Otherwise the full price goes to Stripe and the wallet is untouched |
+| Price tampering | A student booking is priced server-side from the mentor's `hourlyRate × duration`; the client's price is ignored. Only the host can edit a price, and never after payment. Both were possible before this round |
+| `studentName` / `mentorName` | Added to session responses (name-only batched lookups) and shown on session cards. The test users now have display names (set through `PUT /users/profile`); live, the shared test session shows both names |
+| App | No client money math remains except subscriptions (see NEXT). The booking sheet, enroll sheet and earnings screens display server numbers only. The student stats, recommended-teacher card and mentor home header use real data or hide the element |
+
+---
+
 ## Re-verification, round 4 (2026-10-07, branch `fix/remediation-v1`)
 
 `node scripts/verify-backend.mjs` against deployment `bqxbiy`: **20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED, exit 0.** The BLOCKED items are unchanged: Stripe, Agora, Gemini (live 503 "not configured") and the missing Firebase config.

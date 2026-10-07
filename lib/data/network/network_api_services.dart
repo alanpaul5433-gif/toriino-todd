@@ -215,6 +215,8 @@ class NetworkApiServices extends BaseApiServices {
         throw ForbiddenException(serverMsg ?? 'Access denied.');
       case 404:
         throw NotFoundException(serverMsg ?? 'Resource not found');
+      case 409:
+        throw ConflictException(serverMsg ?? 'Conflict');
       case 500:
         throw ServerException(
           serverMsg ?? 'Internal server error. Please try again later.',

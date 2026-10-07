@@ -16,6 +16,7 @@ process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
 process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
 process.env.COURSES_TABLE = 'torino-courses';
 process.env.SESSIONS_TABLE = 'torino-sessions';
+process.env.PLATFORM_FEE_PERCENT = '25'; // one fee for every price split
 
 // ── Mock @aws-sdk ──────────────────────────────────────────────────────────────
 const mockSend = jest.fn();
@@ -187,7 +188,8 @@ describe('stripe-webhook: payment_intent.succeeded — course purchase', () => {
     const earningsCall = mockSend.mock.calls[2][0];
     expect(earningsCall.input.Item.earningId).toBe('course_pi_course_001');
     expect(earningsCall.input.Item.userId).toBe('teacher-456');
-    expect(earningsCall.input.Item.amount).toBeCloseTo(50 * 0.8);
+    // No teacherShareCents in this (older-style) intent → current fee: $50 − 25% = $37.50.
+    expect(earningsCall.input.Item.amount).toBeCloseTo(37.5);
   });
 
 });
@@ -545,4 +547,19 @@ describe('payments Lambda: course purchase — server-authoritative price', () =
     );
   });
 
+});
+
+describe('stripe-webhook: teacher share fixed at purchase time', () => {
+  test('credits metadata.teacherShareCents, not a recomputed share', async () => {
+    mockConstructEvent.mockReturnValue({
+      id: 'evt_share_1', type: 'payment_intent.succeeded',
+      data: { object: { id: 'pi_share_1', amount: 10000, currency: 'usd', metadata: {
+        type: 'course_purchase', courseId: 'c1', studentId: 'stu', teacherId: 't1', teacherShareCents: '7000' } } },
+    });
+    mockSend.mockResolvedValue({});
+    const r = await webhookHandler(makeWebhookEvent());
+    expect(r.statusCode).toBe(200);
+    const earning = mockSend.mock.calls.map((c) => c[0]).find((c) => c.input?.Item?.earningId === 'course_pi_share_1');
+    expect(earning.input.Item.amount).toBe(70);
+  });
 });

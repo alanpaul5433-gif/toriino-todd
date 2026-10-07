@@ -1,3 +1,5 @@
+import 'package:toriino_todd/model/payment/pricing_model.dart';
+
 class SessionModel {
   final String? sessionId;
   final String? studentId;
@@ -16,6 +18,14 @@ class SessionModel {
   final double? price;
   final String? description;
 
+  /// Display names resolved by the server (absent when unknown).
+  final String? studentName;
+  final String? mentorName;
+
+  /// Server pricing breakdown for this session's price (absent when the
+  /// server has no configured fee).
+  final PricingModel? pricing;
+
   SessionModel({
     this.sessionId,
     this.studentId,
@@ -32,7 +42,13 @@ class SessionModel {
     this.maxParticipants,
     this.price,
     this.description,
+    this.studentName,
+    this.mentorName,
+    this.pricing,
   });
+
+  static String? _name(dynamic v) =>
+      v is String && v.trim().isNotEmpty ? v.trim() : null;
 
   bool get isGroup => sessionType == 'group';
 
@@ -53,6 +69,9 @@ class SessionModel {
       maxParticipants: json['maxParticipants'],
       price: json['price'] != null ? (json['price'] as num).toDouble() : null,
       description: json['description'],
+      studentName: _name(json['studentName']),
+      mentorName: _name(json['mentorName']),
+      pricing: PricingModel.tryParse(json['pricing']),
     );
   }
 

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 
 /// Withdrawal bottom sheet — bank payouts are coming soon via Stripe Connect.
 /// Shows the available balance and a locked "coming soon" state.
 Future<void> showWithdrawSheet(
   BuildContext context, {
-  required double availableBalance,
+  required double? availableBalance,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -18,7 +19,8 @@ Future<void> showWithdrawSheet(
 }
 
 class WithdrawSheet extends StatelessWidget {
-  final double availableBalance;
+  /// Server `availableBalance` from GET /earnings; the row is hidden when null.
+  final double? availableBalance;
 
   const WithdrawSheet({super.key, required this.availableBalance});
 
@@ -65,7 +67,8 @@ class WithdrawSheet extends StatelessWidget {
           ),
           SizedBox(height: Responsive.h(0.5)),
 
-          // Available balance
+          // Available balance (server value)
+          if (availableBalance != null) ...[
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: Responsive.w(4),
@@ -86,7 +89,7 @@ class WithdrawSheet extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '\$${availableBalance.toStringAsFixed(2)}',
+                  formatMoney(availableBalance!),
                   style: GoogleFonts.rethinkSans(
                     color: AppColor.white,
                     fontSize: 18,
@@ -96,6 +99,7 @@ class WithdrawSheet extends StatelessWidget {
               ],
             ),
           ),
+          ],
           SizedBox(height: Responsive.h(3)),
 
           // Coming soon notice

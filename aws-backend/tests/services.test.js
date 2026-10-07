@@ -40,7 +40,16 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
   AdminDeleteUserCommand: jest.fn(),
 }), { virtual: true });
 
+const mockSsmSend = jest.fn();
+jest.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: jest.fn().mockImplementation(() => ({ send: mockSsmSend })),
+  GetParameterCommand: jest.fn().mockImplementation((input) => ({ input })),
+}), { virtual: true });
+
 Object.assign(process.env, {
+  PLATFORM_FEE_PERCENT: '25',
+  WALLET_TABLE: 'toriino-wallet',
+  WALLET_EVENTS_TABLE: 'toriino-wallet-events',
   MEDIA_BUCKET: 'torino-app-storage',
   USERS_TABLE: 'torino-users',
   MENTORS_TABLE: 'torino-mentors',
@@ -60,6 +69,7 @@ const courses = require('../lambda/courses/index').handler;
 const reviews = require('../lambda/reviews/index').handler;
 const earnings = require('../lambda/earnings/index').handler;
 const users = require('../lambda/users/index').handler;
+const payments = require('../lambda/payments/index').handler;
 
 function ev(method, path, { sub = 'me', role = 'student', body, qs } = {}) {
   return {
@@ -411,5 +421,89 @@ describe('courses: teacherName', () => {
     expect(json(r).courses[0]).toMatchObject({ courseId: 'c1', teacherName: 'Tia' });
     const bg = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'BatchGet');
     expect(bg.input.RequestItems['torino-users'].ProjectionExpression).toBe('userId, #n');
+  });
+});
+
+describe('payments: server-side fee, quote and wallet', () => {
+  afterEach(() => { process.env.PLATFORM_FEE_PERCENT = '25'; });
+
+  test('course quote: fee and teacher share in cents, parts add up', async () => {
+    mockSend.mockResolvedValueOnce({ Item: { courseId: 'c1', price: 59.99 } });
+    const r = await payments(ev('GET', '/payments/quote', { qs: { courseId: 'c1' } }));
+    expect(r.statusCode).toBe(200);
+    expect(json(r)).toMatchObject({ price: 59.99, platformFeePercent: 25, platformFee: 15, teacherShare: 44.99, amountDue: 59.99 });
+  });
+
+  test('no configured fee → 503, never a guessed fee', async () => {
+    delete process.env.PLATFORM_FEE_PERCENT;
+    mockSsmSend.mockRejectedValueOnce(Object.assign(new Error('nf'), { name: 'ParameterNotFound' }));
+    const r = await payments(ev('GET', '/payments/quote', { qs: { courseId: 'c1' } }));
+    expect(r.statusCode).toBe(503);
+    expect(json(r).error).toBe('Platform fee not configured');
+  });
+
+  test('session fully covered by the wallet: one atomic transaction, mentor gets price − fee', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c._type === 'Get' && c.input.TableName === 'torino-sessions') return { Item: { sessionId: 's1', studentId: 'me', mentorId: 'm1', price: 40 } };
+      if (c._type === 'Get' && c.input.TableName === 'toriino-wallet') return { Item: { userId: 'me', balance: 70 } };
+      return {};
+    });
+    const r = await payments(ev('POST', '/payments/create-intent', { body: { type: 'session_booking', sessionId: 's1' } }));
+    expect(r.statusCode).toBe(200);
+    expect(json(r)).toMatchObject({ paidWithWallet: true, amountCharged: 40, platformFee: 10, teacherShare: 30 });
+    const tx = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'TransactWrite').input.TransactItems;
+    expect(tx).toHaveLength(4);
+    expect(tx[0].Update.ConditionExpression).toBe('balance >= :a');
+    expect(tx[0].Update.ExpressionAttributeValues[':a']).toBe(40);
+    expect(tx[3].Put.Item).toMatchObject({ userId: 'm1', amount: 30, platformFee: 10, status: 'pending' });
+  });
+
+  test('wallet too low and Stripe not configured → 503, wallet untouched (no partial split)', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c.input.TableName === 'torino-sessions') return { Item: { sessionId: 's1', studentId: 'me', mentorId: 'm1', price: 40 } };
+      if (c.input.TableName === 'toriino-wallet') return { Item: { userId: 'me', balance: 10 } };
+      return {};
+    });
+    mockSsmSend.mockResolvedValue({ Parameter: { Value: 'NOT_SET' } });
+    const r = await payments(ev('POST', '/payments/create-intent', { body: { type: 'session_booking', sessionId: 's1' } }));
+    expect(r.statusCode).toBe(503);
+    expect(mockSend.mock.calls.some((c) => c[0]._type === 'TransactWrite' || c[0]._type === 'Update')).toBe(false);
+  });
+
+  test('another student cannot pay for (or quote) someone else’s session', async () => {
+    mockSend.mockResolvedValue({ Item: { sessionId: 's1', studentId: 'other', mentorId: 'm1', price: 40 } });
+    const r = await payments(ev('GET', '/payments/quote', { qs: { sessionId: 's1' } }));
+    expect(r.statusCode).toBe(403);
+  });
+});
+
+describe('sessions: server-set price and display names', () => {
+  test('a student booking ignores the client price and uses hourlyRate × duration', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c._type === 'Get' && c.input.TableName === 'torino-mentors') return { Item: { mentorId: 'm1', hourlyRate: 80, approved: true } };
+      return {};
+    });
+    const r = await sessions(ev('POST', '/sessions', { body: { mentorId: 'm1', dateTime: '2027-02-01T10:00:00Z', duration: 30, price: 0.01 } }));
+    expect(r.statusCode).toBe(201);
+    const put = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'Put');
+    expect(put.input.Item.price).toBe(40);
+    expect(json(r).session.pricing).toMatchObject({ price: 40, platformFee: 10, teacherShare: 30 });
+  });
+
+  test('a student cannot change the price of their session', async () => {
+    mockSend.mockResolvedValueOnce({ Item: { sessionId: 's1', studentId: 'me', mentorId: 'm1', price: 40 } });
+    const r = await sessions(ev('PUT', '/sessions/s1', { body: { price: 1 } }));
+    expect(r.statusCode).toBe(403);
+    expect(mockSend.mock.calls.some((c) => c[0]._type === 'Update')).toBe(false);
+  });
+
+  test('session list carries studentName and mentorName', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c._type === 'Scan') return { Items: [{ sessionId: 's1', studentId: 'stu', mentorId: 'me', price: 20 }] };
+      if (c._type === 'BatchGet' && c.input.RequestItems['torino-users']) return { Responses: { 'torino-users': [{ userId: 'stu', name: 'Sam' }, { userId: 'me', name: 'Mia' }] } };
+      return { Responses: {} };
+    });
+    const r = await sessions(ev('GET', '/sessions', { role: 'mentor', qs: { role: 'mentor' } }));
+    expect(json(r).sessions[0]).toMatchObject({ studentName: 'Sam', mentorName: 'Mia', pricing: { teacherShare: 15 } });
   });
 });

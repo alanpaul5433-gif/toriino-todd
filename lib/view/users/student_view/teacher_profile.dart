@@ -343,8 +343,7 @@ class _TeacherProfileState extends State<TeacherProfile> {
               builder:
                   (_) => AvailabilityView(
                     mentorId: p.userId ?? widget.teacherId,
-                    mentorName: p.name ?? 'Mentor',
-                    hourlyRate: p.hourlyRate ?? 0.0,
+                    mentorName: p.name ?? '',
                   ),
             ),
           ),

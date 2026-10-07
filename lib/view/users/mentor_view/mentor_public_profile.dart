@@ -673,8 +673,7 @@ class _MentorPublicProfileState extends State<MentorPublicProfile> {
                         MaterialPageRoute(
                           builder: (_) => AvailabilityView(
                             mentorId: mentor.userId ?? '',
-                            mentorName: mentor.name ?? 'Mentor',
-                            hourlyRate: mentor.hourlyRate ?? 0.0,
+                            mentorName: mentor.name ?? '',
                           ),
                         ),
                       ),

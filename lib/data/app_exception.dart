@@ -50,3 +50,9 @@ class ForbiddenException extends AppException {
 class NotFoundException extends AppException {
   NotFoundException(String massage) : super(massage, "Not Found");
 }
+
+/// HTTP 409 — conflicts with the current state (e.g. the session is already
+/// paid). Carries the server's own {error} message.
+class ConflictException extends AppException {
+  ConflictException(String massage) : super(massage, "Conflict");
+}

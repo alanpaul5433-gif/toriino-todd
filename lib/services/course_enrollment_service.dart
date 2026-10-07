@@ -71,7 +71,7 @@ class CourseEnrollmentService {
       return const EnrollResult(EnrollOutcome.failed, 'Course not found.');
     }
 
-    if ((course.price ?? 0) <= 0) {
+    if ((course.displayPrice ?? 0) <= 0) {
       onStatus?.call('Enrolling…');
       try {
         await _repo.enrollCourse(courseId);

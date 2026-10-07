@@ -94,7 +94,10 @@ class AppUrl {
 
   // Wallet
   static const String walletBalance = '$baseUrl/wallet';
-  static const String walletDeduct = '$baseUrl/wallet/deduct';
+
+  // Payments — server quotes and Stripe intents (the app never computes money)
+  static const String paymentsQuote = '$baseUrl/payments/quote';
+  static const String paymentsCreateIntent = '$baseUrl/payments/create-intent';
 
   // Student search (mentor 1-on-1 session scheduling)
   static String studentSearch(String query) =>

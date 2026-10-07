@@ -8,7 +8,8 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/student_public_profile_view.dart';
 
 /// A session card for the teacher/mentor home screens, built only from the
-/// real [SessionModel]. Empty fields are hidden.
+/// real [SessionModel]. Empty fields are hidden. Shows the server's
+/// `studentName`; without it a neutral "1-on-1 session" label is used.
 ///
 /// When the session has a `studentId`, tapping the student opens
 /// [StudentPublicProfileView] for that student (GET /users/{studentId}).
@@ -25,6 +26,8 @@ class SessionStudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final studentId = (session.studentId ?? '').trim();
+    // Server-resolved display name; never a placeholder pretending to be one.
+    final studentName = (session.studentName ?? '').trim();
     final topic = (session.topic ?? '').trim();
     final status = (session.status ?? '').trim();
     final parsed = DateTime.tryParse(session.dateTime ?? '');
@@ -54,7 +57,9 @@ class SessionStudentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              session.isGroup ? 'Group session' : 'Student',
+              session.isGroup
+                  ? 'Group session'
+                  : (studentName.isNotEmpty ? studentName : '1-on-1 session'),
               style: GoogleFonts.dmSans(
                 color: AppColor.white,
                 fontWeight: FontWeight.w500,

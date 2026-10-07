@@ -74,6 +74,27 @@ async function getSecret(name) {
   return value;
 }
 
+// Teacher/mentor share: the payments Lambda fixes it into the PaymentIntent metadata
+// (teacherShareCents) at purchase time. Older intents without it fall back to the current
+// PLATFORM_FEE_PERCENT (SSM String); if that is unavailable we throw so Stripe retries.
+let feeCache;
+async function teacherShareDollars(paymentIntent) {
+  const fixed = Number(paymentIntent.metadata?.teacherShareCents);
+  if (paymentIntent.metadata?.teacherShareCents !== undefined && Number.isInteger(fixed) && fixed >= 0 && fixed <= paymentIntent.amount) {
+    return fixed / 100;
+  }
+  let pct = Number(process.env.PLATFORM_FEE_PERCENT);
+  if (!process.env.PLATFORM_FEE_PERCENT) {
+    if (!feeCache || Date.now() - feeCache.at > SECRET_TTL_MS) {
+      const out = await ssm.send(new GetParameterCommand({ Name: `${process.env.SSM_PREFIX}PLATFORM_FEE_PERCENT` }));
+      feeCache = { value: Number(out.Parameter?.Value), at: Date.now() };
+    }
+    pct = feeCache.value;
+  }
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error('Platform fee not configured');
+  return (paymentIntent.amount - Math.round((paymentIntent.amount * pct) / 100)) / 100;
+}
+
 let stripe;
 let stripeKey;
 function stripeFor(key) {
@@ -113,7 +134,6 @@ async function markProcessed(eventId) {
 async function handlePaymentSucceeded(paymentIntent) {
   const { metadata = {}, amount, currency } = paymentIntent;
   const { type, courseId, sessionId, studentId, mentorId, teacherId } = metadata;
-  const amountDecimal = amount / 100;
 
   if (type === 'course_purchase') {
     if (!courseId || !studentId) {
@@ -159,7 +179,7 @@ async function handlePaymentSucceeded(paymentIntent) {
             earningId,
             userId: teacherId,
             type: 'course_sale',
-            amount: amountDecimal * 0.8, // 80% to teacher, 20% platform
+            amount: await teacherShareDollars(paymentIntent), // price − platform fee (server-computed)
             currency,
             referenceId: courseId,
             paymentIntentId: paymentIntent.id,
@@ -182,9 +202,11 @@ async function handlePaymentSucceeded(paymentIntent) {
     await db.send(new UpdateCommand({
       TableName: SESSIONS_TABLE,
       Key: { sessionId },
-      UpdateExpression: 'SET #status = :s, paymentIntentId = :pi, updatedAt = :u',
+      UpdateExpression: 'SET #status = :s, paymentIntentId = :pi, paymentStatus = :paid, paymentMethod = :card, updatedAt = :u',
       ExpressionAttributeNames: { '#status': 'status' },
       ExpressionAttributeValues: {
+        ':paid': 'paid',
+        ':card': 'card',
         ':s': 'confirmed',
         ':pi': paymentIntent.id,
         ':u': new Date().toISOString(),
@@ -201,7 +223,7 @@ async function handlePaymentSucceeded(paymentIntent) {
             earningId,
             userId: mentorId,
             type: 'session',
-            amount: amountDecimal * 0.85, // 85% to mentor
+            amount: await teacherShareDollars(paymentIntent), // price − platform fee (server-computed)
             currency,
             referenceId: sessionId,
             paymentIntentId: paymentIntent.id,

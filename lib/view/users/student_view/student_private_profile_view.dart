@@ -2,9 +2,12 @@
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/model/session/session_model.dart';
 import 'package:toriino_todd/repository/course_repo.dart';
+import 'package:toriino_todd/repository/session_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/student_stats.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/edit_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
@@ -99,11 +102,13 @@ class StudentProfile extends StatelessWidget {
                           children: [
                             Obx(() {
                               final avatarUrl = profileVm.rxProfile.value.data?.avatarUrl;
+                              final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
                               return CircleAvatar(
                                 radius: Responsive.w(10),
-                                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                                    ? NetworkImage(avatarUrl) as ImageProvider
-                                    : const AssetImage("assets/images/michel.png"),
+                                backgroundColor: AppColor.white.withValues(alpha: 0.15),
+                                foregroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                                onForegroundImageError: hasAvatar ? (_, __) {} : null,
+                                child: Icon(Icons.person, color: AppColor.white, size: Responsive.w(10)),
                               );
                             }),
                             SizedBox(width: Responsive.w(2)),
@@ -142,34 +147,28 @@ class StudentProfile extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: Responsive.h(2)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                      children: [
-                        Text(
-                          'Education Level',
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.20,
+                    Obx(() {
+                      final edu = (profileVm.rxProfile.value.data?.educationLevel ?? '').trim();
+                      if (edu.isEmpty) return const SizedBox.shrink();
+                      final style = GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: Responsive.textScaleFactor * 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.20,
+                      );
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Education Level', style: style),
+                          Flexible(
+                            child: Text(edu,
+                                textAlign: TextAlign.right,
+                                overflow: TextOverflow.ellipsis,
+                                style: style),
                           ),
-                        ),
-
-                        Obx(() {
-                          final profile = profileVm.rxProfile.value.data;
-                          return Text(
-                            profile?.location ?? '--',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.20,
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
+                        ],
+                      );
+                    }),
                     SizedBox(height: Responsive.h(2)),
 
                     Obx(() {
@@ -187,30 +186,28 @@ class StudentProfile extends StatelessWidget {
                       );
                     }),
                     SizedBox(height: Responsive.h(2)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            SvgPicture.asset("assets/icons/mic.svg"),
-                            Obx(() {
-                              final profile = profileVm.rxProfile.value.data;
-                              final langs = profile?.interests?.join(', ') ?? '--';
-                              return Text(
-                                langs,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.20,
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ],
-                    ),
+                    Obx(() {
+                      final lang = (profileVm.rxProfile.value.data?.language ?? '').trim();
+                      if (lang.isEmpty) return const SizedBox.shrink();
+                      return Row(
+                        children: [
+                          SvgPicture.asset("assets/icons/mic.svg"),
+                          Flexible(
+                            child: Text(
+                              lang,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontFamily: 'DM Sans',
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: -0.20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
                     SizedBox(height: Responsive.h(2)),
                     GestureDetector(
                       onTap: () {
@@ -248,167 +245,9 @@ class StudentProfile extends StatelessWidget {
                     //Divider
                     const Row(children: [Expanded(child: Divider())]),
                     SizedBox(height: Responsive.h(2)),
-                    Row(
-                      spacing: 5,
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22),
-                              color: AppColor.white.withValues(alpha: 0.08),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Courses in Progress',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 16,
-                                      fontFamily: 'DM Sans',
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: -0.20,
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '--',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize:
-                                              Responsive.textScaleFactor * 25,
-                                          fontFamily: 'Rethink Sans',
-                                          fontWeight: FontWeight.w500,
-                                          letterSpacing: -0.30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22),
-                              color: AppColor.white.withValues(alpha: 0.08),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Sessions Booked',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 16,
-                                      fontFamily: 'DM Sans',
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: -0.20,
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-
-                                    children: [
-                                      Text(
-                                        '--',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize:
-                                              Responsive.textScaleFactor * 25,
-                                          fontFamily: 'Rethink Sans',
-                                          fontWeight: FontWeight.w500,
-                                          letterSpacing: -0.30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22),
-                              color: AppColor.white.withValues(alpha: 0.08),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Certificates Earned',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 16,
-                                      fontFamily: 'DM Sans',
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: -0.20,
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-
-                                    children: [
-                                      Text(
-                                        '--',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize:
-                                              Responsive.textScaleFactor * 25,
-                                          fontFamily: 'Rethink Sans',
-                                          fontWeight: FontWeight.w500,
-                                          letterSpacing: -0.30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    const _StudentStatsRow(),
                     SizedBox(height: Responsive.h(2)),
 
-                    //Skill chips
-                    Text(
-                      'Intro Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontFamily: 'DM Sans',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    //video view
-                    // Container(
-                    //   height: 100,
-                    //   width: double.infinity,
-                    //   color: AppColor.red,
-                    // ),
-                    SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
-                    SizedBox(height: Responsive.h(2)),
 
                     //review and view all
                     Row(
@@ -708,6 +547,99 @@ class _EnrolledCoursesSectionState extends State<_EnrolledCoursesSection> {
                   ],
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Real stat boxes: courses in progress / completed (GET /courses/my-courses,
+/// `enrollment.status`) and sessions booked (GET /sessions?role=student,
+/// excluding cancelled). A box is hidden when its data failed to load.
+class _StudentStatsRow extends StatefulWidget {
+  const _StudentStatsRow();
+
+  @override
+  State<_StudentStatsRow> createState() => _StudentStatsRowState();
+}
+
+class _StudentStatsRowState extends State<_StudentStatsRow> {
+  List<CourseModel>? _courses;
+  List<SessionModel>? _sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    CourseRepo().getMyEnrolledCourses().then((value) {
+      final list = CourseListResponse.fromJson(
+              value is Map<String, dynamic> ? value : <String, dynamic>{})
+          .courses;
+      if (mounted) setState(() => _courses = list);
+    }).catchError((_) {});
+    SessionRepo().getSessions(role: 'student').then((value) {
+      final list = SessionListResponse.fromJson(
+              value is Map<String, dynamic> ? value : <String, dynamic>{})
+          .sessions;
+      if (mounted) setState(() => _sessions = list);
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final courses = _courses;
+    final sessions = _sessions;
+    final boxes = <Widget>[
+      if (courses != null)
+        _box('Courses in Progress', StudentStats.coursesInProgress(courses)),
+      if (sessions != null)
+        _box('Sessions Booked', StudentStats.sessionsBooked(sessions)),
+      if (courses != null)
+        _box('Courses Completed', StudentStats.coursesCompleted(courses)),
+    ];
+    if (boxes.isEmpty) return const SizedBox.shrink();
+    return Row(spacing: 5, children: boxes);
+  }
+
+  Widget _box(String title, int value) {
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: AppColor.white.withValues(alpha: 0.08),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: Responsive.textScaleFactor * 16,
+                  fontFamily: 'DM Sans',
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.20,
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '$value',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 25,
+                      fontFamily: 'Rethink Sans',
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.30,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/viewmodel/controller/teacher/teacher_earnings_viewmodel.dart';
@@ -115,9 +116,7 @@ class TeacherEarinigView extends StatelessWidget {
                     children: [
                       Obx(() {
                         final summary = earningsVm.rxSummary.value.data;
-                        final total = summary?.totalEarnings ?? 0.0;
-                        final withdrawn = summary?.totalWithdrawn ?? 0.0;
-                        final available = (total - withdrawn).clamp(0.0, double.infinity);
+                        final available = summary?.availableBalance;
                         return GestureDetector(
                           onTap: () => showWithdrawSheet(
                             context,
@@ -185,9 +184,10 @@ class TeacherEarinigView extends StatelessWidget {
                                 ),
                                 Obx(() {
                                   final summary = earningsVm.rxSummary.value.data;
-                                  final amount = summary?.currentMonth.amount ?? 0.0;
+                                  final amount = summary?.currentMonth.amount;
+                                  if (amount == null) return const SizedBox.shrink();
                                   return Text(
-                                    '\$${amount.toStringAsFixed(2)}',
+                                    formatMoney(amount),
                                     style: GoogleFonts.rethinkSans(
                                       color: Colors.white,
                                       fontSize: Responsive.textScaleFactor * 25,
@@ -231,9 +231,9 @@ class TeacherEarinigView extends StatelessWidget {
                                 ),
                                 Obx(() {
                                   final summary = earningsVm.rxSummary.value.data;
-                                  final withdrawn = summary?.totalWithdrawn ?? 0.0;
+                                  if (summary == null) return const SizedBox.shrink();
                                   return Text(
-                                    '\$${withdrawn.toStringAsFixed(2)}',
+                                    formatMoney(summary.totalWithdrawn),
                                     style: GoogleFonts.rethinkSans(
                                       color: Colors.white,
                                       fontSize: Responsive.textScaleFactor * 25,
@@ -271,7 +271,7 @@ class TeacherEarinigView extends StatelessWidget {
                                 Column(
                                   children: [
                                     Text(
-                                      'Remaining Balance',
+                                      'Available Balance',
                                       style: GoogleFonts.dmSans(
                                         color: Colors.white,
                                         fontSize:
@@ -282,10 +282,10 @@ class TeacherEarinigView extends StatelessWidget {
                                     ),
                                     Obx(() {
                                       final summary = earningsVm.rxSummary.value.data;
-                                      final total = summary?.totalEarnings ?? 0.0;
-                                      final withdrawn = summary?.totalWithdrawn ?? 0.0;
+                                      final available = summary?.availableBalance;
+                                      if (available == null) return const SizedBox.shrink();
                                       return Text(
-                                        '\$${(total - withdrawn).toStringAsFixed(2)}',
+                                        formatMoney(available),
                                         style: GoogleFonts.rethinkSans(
                                           color: Colors.white,
                                           fontSize: Responsive.textScaleFactor * 25,
@@ -399,8 +399,9 @@ class TeacherEarinigView extends StatelessWidget {
                                           ),
                                         ],
                                       ),
+                                      if (entry.amount != null)
                                       Text(
-                                        '\$${(entry.amount ?? 0).toStringAsFixed(0)}',
+                                        formatMoney(entry.amount!),
                                         textAlign: TextAlign.right,
                                         style: GoogleFonts.rethinkSans(
                                           color: Colors.white,

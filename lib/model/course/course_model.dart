@@ -1,3 +1,5 @@
+import 'package:toriino_todd/model/payment/pricing_model.dart';
+
 class CourseModel {
   final String? courseId;
   final String? teacherId;
@@ -25,6 +27,10 @@ class CourseModel {
   /// Only on GET /courses/my-courses: `course.enrollment.progress` (0-100).
   final int? enrollmentProgress;
 
+  /// Server pricing breakdown (`course.pricing`). Absent when the server has
+  /// no configured platform fee — then only [price] is shown.
+  final PricingModel? pricing;
+
   CourseModel({
     this.courseId,
     this.teacherId,
@@ -44,7 +50,12 @@ class CourseModel {
     this.teacherName,
     this.enrollmentStatus,
     this.enrollmentProgress,
+    this.pricing,
   });
+
+  /// The price the student pays, exactly as the server sent it
+  /// (`pricing.price`, falling back to `price`).
+  double? get displayPrice => pricing?.price ?? price;
 
   bool get isCompleted => enrollmentStatus == 'completed';
 
@@ -68,6 +79,7 @@ class CourseModel {
       teacherName: teacherName,
       enrollmentStatus: enrollmentStatus ?? this.enrollmentStatus,
       enrollmentProgress: enrollmentProgress,
+      pricing: pricing,
     );
   }
 
@@ -101,6 +113,7 @@ class CourseModel {
           enrollment is Map && enrollment['progress'] is num
               ? (enrollment['progress'] as num).round()
               : null,
+      pricing: PricingModel.tryParse(json['pricing']),
     );
   }
 

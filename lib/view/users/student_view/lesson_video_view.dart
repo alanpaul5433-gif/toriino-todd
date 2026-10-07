@@ -177,7 +177,7 @@ class _LessonVideoViewState extends State<LessonVideoView> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: _enroll,
               child: Text(
-                (course.price ?? 0) > 0 ? 'Purchase' : 'Enroll',
+                (course.displayPrice ?? 0) > 0 ? 'Purchase' : 'Enroll',
                 style: const TextStyle(color: Colors.white),
               ),
             ),

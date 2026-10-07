@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -171,13 +172,14 @@ class SessionsView extends StatelessWidget {
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          Text(
-                                            sessions[index].status ?? 'scheduled',
-                                            style: GoogleFonts.dmSans(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
+                                          if ((sessions[index].mentorName ?? '').trim().isNotEmpty)
+                                            Text(
+                                              'with ${sessions[index].mentorName!.trim()}',
+                                              style: GoogleFonts.dmSans(
+                                                color: AppColor.white.withValues(alpha: 0.7),
+                                                fontWeight: FontWeight.w400,
+                                              ),
                                             ),
-                                          ),
                                         ],
                                       ),
                                     ],
@@ -206,7 +208,7 @@ class SessionsView extends StatelessWidget {
                                 ],
                               ),
                               Text(
-                                sessions[index].dateTime ?? '',
+                                _formatDate(sessions[index].dateTime),
                                 style: GoogleFonts.dmSans(
                                   fontSize: Responsive.sp(16),
                                   color: AppColor.white,
@@ -215,116 +217,11 @@ class SessionsView extends StatelessWidget {
                               ),
                               SizedBox(height: 10),
 
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                spacing: 4,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Type",
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        sessions[index].topic ?? '--',
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    width: 1,
-                                    height: 30,
-                                    color: AppColor.white,
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Duration",
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        "${sessions[index].duration ?? 60} min",
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    width: 1,
-                                    height: 30,
-                                    color: AppColor.white,
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Seats Left",
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '--',
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    width: 1,
-                                    height: 30,
-                                    color: AppColor.white,
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Language",
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '--',
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.sp,
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              _infoRow([
+                                MapEntry('Type', sessions[index].isGroup ? 'Group' : '1-on-1'),
+                                if (sessions[index].duration != null)
+                                  MapEntry('Duration', '${sessions[index].duration} min'),
+                              ]),
                               Row(
                                 children: [
                                   Expanded(child: Divider(thickness: 1)),
@@ -452,6 +349,46 @@ class SessionsView extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  static String _formatDate(String? iso) {
+    final d = DateTime.tryParse(iso ?? '');
+    if (d == null) return '';
+    return DateFormat('EEE, d MMM yyyy • h:mm a').format(d.toLocal());
+  }
+
+  Widget _infoRow(List<MapEntry<String, String>> items) {
+    return Row(
+      spacing: 4,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) Container(width: 1, height: 30, color: AppColor.white),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  items[i].key,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12.sp,
+                    color: AppColor.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  items[i].value,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12.sp,
+                    color: AppColor.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -255,9 +255,6 @@ class MentorSessionsView extends StatelessWidget {
   Widget _upcomingCard(
       BuildContext context, SessionModel s, MentorSessionViewmodel vm) {
     final dateLabel = _formatDate(s.dateTime);
-    final initial = s.isGroup
-        ? 'G'
-        : (s.studentId ?? 'S').substring(0, 1).toUpperCase();
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -281,10 +278,7 @@ class MentorSessionsView extends StatelessWidget {
                         backgroundColor: s.isGroup
                             ? Colors.blueAccent.withValues(alpha: 0.6)
                             : AppColor.red,
-                        child: Text(
-                          initial,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                        child: _avatarContent(s),
                       ),
                       const SizedBox(width: 10),
                       Column(
@@ -321,8 +315,10 @@ class MentorSessionsView extends StatelessWidget {
                           ),
                           Text(
                             s.isGroup
-                                ? 'Up to ${s.maxParticipants ?? '—'} participants'
-                                : 'Student',
+                                ? (s.maxParticipants != null
+                                    ? 'Up to ${s.maxParticipants} participants'
+                                    : 'Group session')
+                                : _studentLabel(s),
                             style: GoogleFonts.dmSans(
                               color: AppColor.white.withValues(alpha: 0.6),
                               fontWeight: FontWeight.w400,
@@ -416,9 +412,6 @@ class MentorSessionsView extends StatelessWidget {
   }
 
   Widget _historyCard(SessionModel s) {
-    final initial = s.isGroup
-        ? 'G'
-        : (s.studentId ?? 'S').substring(0, 1).toUpperCase();
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -443,10 +436,7 @@ class MentorSessionsView extends StatelessWidget {
                         backgroundColor: s.isGroup
                             ? Colors.blueAccent.withValues(alpha: 0.4)
                             : AppColor.white.withValues(alpha: 0.2),
-                        child: Text(
-                          initial,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                        child: _avatarContent(s),
                       ),
                       SizedBox(width: Responsive.w(2)),
                       Column(
@@ -481,6 +471,14 @@ class MentorSessionsView extends StatelessWidget {
                               ],
                             ],
                           ),
+                          if (!s.isGroup)
+                            Text(
+                              _studentLabel(s),
+                              style: GoogleFonts.dmSans(
+                                color: AppColor.white.withValues(alpha: 0.6),
+                                fontSize: 12,
+                              ),
+                            ),
                           Text(
                             _formatDate(s.dateTime),
                             style: GoogleFonts.dmSans(
@@ -535,6 +533,24 @@ class MentorSessionsView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Server-resolved `studentName`, else a neutral label (never a fake name).
+  static String _studentLabel(SessionModel s) {
+    final name = (s.studentName ?? '').trim();
+    return name.isNotEmpty ? name : '1-on-1 session';
+  }
+
+  static Widget _avatarContent(SessionModel s) {
+    if (s.isGroup) {
+      return const Text('G',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
+    }
+    final name = (s.studentName ?? '').trim();
+    if (name.isEmpty) return const Icon(Icons.person, color: Colors.white);
+    return Text(name.substring(0, 1).toUpperCase(),
+        style:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
   }
 
   Widget _sessionInfoRow({required String type, required String duration}) {

@@ -6,6 +6,7 @@ import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/services/course_enrollment_service.dart';
+import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
 
@@ -18,7 +19,7 @@ Future<EnrollResult?> runCourseEnrollment(
   CourseEnrollmentService? service,
 }) async {
   final status = ValueNotifier<String>(
-      (course.price ?? 0) > 0 ? 'Opening secure payment…' : 'Enrolling…');
+      (course.displayPrice ?? 0) > 0 ? 'Opening secure payment…' : 'Enrolling…');
   final navigator = Navigator.of(context, rootNavigator: true);
 
   showDialog<void>(
@@ -107,7 +108,7 @@ Future<bool> showEnrollRequiredDialog(
   BuildContext context,
   CourseModel? course,
 ) async {
-  final paid = (course?.price ?? 0) > 0;
+  final paid = (course?.displayPrice ?? 0) > 0;
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -119,7 +120,7 @@ Future<bool> showEnrollRequiredDialog(
         course == null
             ? 'This lesson is part of a paid course. Enroll from the course page to watch it.'
             : paid
-                ? 'This lesson is part of a paid course (\$${course.price!.toStringAsFixed(2)}).'
+                ? 'This lesson is part of a paid course (${formatMoney(course.displayPrice!, course.pricing?.currency)}).'
                 : 'Enroll for free to watch this lesson.',
         style: GoogleFonts.dmSans(color: Colors.white70),
       ),

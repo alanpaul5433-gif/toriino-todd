@@ -18,7 +18,11 @@ class HomeViewmodel extends GetxController {
   final rxProfile = Rx<ApiResponse<UserProfileModel>>(ApiResponse.loading());
   final rxCourses = Rx<ApiResponse<CourseListResponse>>(ApiResponse.loading());
   final rxMentors = Rx<ApiResponse<MentorListResponse>>(ApiResponse.loading());
-  final rxSessionCount = 0.obs;
+  /// GET /courses/my-courses — the student's own enrollments.
+  final rxMyCourses = Rx<ApiResponse<CourseListResponse>>(ApiResponse.loading());
+
+  /// GET /sessions?role=student.
+  final rxSessions = Rx<ApiResponse<SessionListResponse>>(ApiResponse.loading());
 
   String? _lastCourseKey;
   bool get hasMoreCourses => _lastCourseKey != null;
@@ -33,7 +37,8 @@ class HomeViewmodel extends GetxController {
     fetchProfile();
     fetchCourses();
     fetchMentors();
-    fetchSessionCount();
+    fetchMyCourses();
+    fetchSessions();
   }
 
   void fetchProfile() {
@@ -76,10 +81,23 @@ class HomeViewmodel extends GetxController {
     });
   }
 
-  void fetchSessionCount() {
+  void fetchMyCourses() {
+    rxMyCourses.value = ApiResponse.loading();
+    _courseRepo.getMyEnrolledCourses().then((value) {
+      rxMyCourses.value = ApiResponse.success(CourseListResponse.fromJson(
+          value is Map<String, dynamic> ? value : <String, dynamic>{}));
+    }).onError((error, _) {
+      rxMyCourses.value = ApiResponse.error(error.toString());
+    });
+  }
+
+  void fetchSessions() {
+    rxSessions.value = ApiResponse.loading();
     _sessionRepo.getSessions(role: 'student').then((value) {
-      final list = SessionListResponse.fromJson(value);
-      rxSessionCount.value = list.sessions.length;
-    }).catchError((_) {});
+      rxSessions.value = ApiResponse.success(SessionListResponse.fromJson(
+          value is Map<String, dynamic> ? value : <String, dynamic>{}));
+    }).onError((error, _) {
+      rxSessions.value = ApiResponse.error(error.toString());
+    });
   }
 }

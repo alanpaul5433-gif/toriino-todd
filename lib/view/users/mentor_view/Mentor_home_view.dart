@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/model/session/session_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/student_stats.dart';
 import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
@@ -52,11 +54,13 @@ class MentorHomeView extends StatelessWidget {
                             children: [
                               Obx(() {
                                 final avatarUrl = mentorController.rxProfile.value.data?.avatarUrl;
+                                final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
                                 return CircleAvatar(
                                   radius: Responsive.sp(20),
-                                  backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                                      ? NetworkImage(avatarUrl) as ImageProvider
-                                      : const AssetImage("assets/icons/Ellipse 6 (1).png"),
+                                  backgroundColor: AppColor.white.withValues(alpha: 0.15),
+                                  foregroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                                  onForegroundImageError: hasAvatar ? (_, __) {} : null,
+                                  child: Icon(Icons.person, color: AppColor.white),
                                 );
                               }),
                               SizedBox(width: Responsive.wp(1)),
@@ -65,9 +69,9 @@ class MentorHomeView extends StatelessWidget {
                                 children: [
                                   Obx(() {
                                     final profile = mentorController.rxProfile.value;
-                                    final name = profile.status == Status.success ? profile.data?.name ?? 'Mentor' : 'Mentor';
+                                    final name = (profile.data?.name ?? '').trim();
                                     return Text(
-                                    'Hi $name',
+                                    name.isNotEmpty ? 'Hi $name' : 'Hi',
                                     style: GoogleFonts.dmSans(
                                       color: Colors.white,
                                       fontSize: Responsive.sp(10),
@@ -161,139 +165,49 @@ class MentorHomeView extends StatelessWidget {
                     ],
                   ),
 
+                  // Real stats: GET /sessions?role=mentor and the profile
+                  // rating. A box is hidden when its data is unavailable.
                   Obx(() {
                     final sessionsState = mentorController.rxSessions.value;
-                    final sessions = sessionsState.data?.sessions ?? [];
-                    final totalSessions = sessions.length;
-                    final upcoming = sessions.where((s) => s.status == 'scheduled').length;
-                    final hasData = sessionsState.data != null;
-                    return Row(
-                      spacing: 6,
-                      children: [
-                        bloc(title: "Total Sessions", value: hasData ? totalSessions.toString() : '--'),
-                        bloc(title: "Upcoming Sessions", value: hasData ? upcoming.toString() : '--'),
-                        bloc(title: "Average Rating", value: mentorController.rxProfile.value.data?.rating?.toStringAsFixed(1) ?? '--'),
+                    final sessions = sessionsState.status == Status.success
+                        ? sessionsState.data?.sessions
+                        : null;
+                    final rating = mentorController.rxProfile.value.data?.rating;
+                    final boxes = <Widget>[
+                      if (sessions != null) ...[
+                        bloc(title: "Total Sessions", value: StudentStats.sessionsBooked(sessions).toString()),
+                        bloc(title: "Upcoming Sessions", value: StudentStats.upcoming(sessions).length.toString()),
                       ],
-                    );
+                      if (rating != null)
+                        bloc(title: "Average Rating", value: rating.toStringAsFixed(1)),
+                    ];
+                    if (boxes.isEmpty) return const SizedBox.shrink();
+                    return Row(spacing: 6, children: boxes);
                   }),
                   SizedBox(height: Responsive.hp(2)),
 
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColor.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Text(
-                                'Total Earnings',
-                                style: GoogleFonts.dmSans(
-                                  color: AppColor.white,
-                                  fontSize: Responsive.sp(10),
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.20,
-                                ),
-                              ),
-                              Obx(() {
-                                final earningsState = mentorController.rxEarnings.value;
-                                final total = earningsState.data?.totalEarnings;
-                                final label = total != null ? '\$${total.toStringAsFixed(2)}' : '--';
-                                return Text(
-                                  label,
-                                  style: GoogleFonts.dmSans(
-                                    color: AppColor.white,
-                                    fontSize: Responsive.sp(18),
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                        SizedBox(
-                          width: 178,
-                          height: 43,
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                left: 122,
-                                top: 10.75,
-                                child: Container(
-                                  width: 11,
-                                  height: 11,
-                                  decoration: ShapeDecoration(
-                                    color: const Color(0xFFE73121),
-                                    shape: RoundedRectangleBorder(
-                                      side: BorderSide(
-                                        width: 1.50,
-                                        color: Colors.white,
-                                      ),
-                                      borderRadius: BorderRadius.circular(39),
-                                    ),
-                                    shadows: [
-                                      BoxShadow(
-                                        color: Color(0x7FE73121),
-                                        blurRadius: 7.10,
-                                        offset: Offset(0, 1),
-                                        spreadRadius: 0,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                left: 143.42,
-                                top: 0,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  spacing: 3,
-                                  children: [
-                                    Text(
-                                      'Month',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontFamily: 'DM Sans',
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 3,
-                                top: 0,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  spacing: 3,
-                                  children: [
-                                    Text(
-                                      '+1.5 ',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontFamily: 'DM Sans',
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Earnings exactly as GET /earnings returned them.
+                  Obx(() {
+                    final earningsState = mentorController.rxEarnings.value;
+                    final e = earningsState.status == Status.success
+                        ? earningsState.data
+                        : null;
+                    if (e == null) return const SizedBox.shrink();
+                    final cells = <Widget>[
+                      _earningsCell('Total Earnings', formatMoney(e.totalEarnings)),
+                      if (e.availableBalance != null)
+                        _earningsCell('Available Balance', formatMoney(e.availableBalance!)),
+                    ];
+                    return Container(
+                      width: double.infinity,
+                      padding: Responsive.padding(left: 2, right: 2, top: 1.5, bottom: 1.5),
+                      decoration: BoxDecoration(
+                        color: AppColor.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(children: cells),
+                    );
+                  }),
                   SizedBox(height: Responsive.hp(2)),
 
                   Container(
@@ -401,9 +315,8 @@ class MentorHomeView extends StatelessWidget {
                   SizedBox(height: Responsive.hp(2)),
                   Obx(() {
                     final sessionsState = mentorController.rxSessions.value;
-                    final upcoming = (sessionsState.data?.sessions ?? [])
-                        .where((s) => s.status == 'scheduled')
-                        .toList();
+                    final upcoming =
+                        StudentStats.upcoming(sessionsState.data?.sessions ?? const []);
                     if (upcoming.isEmpty) return const SizedBox.shrink();
                     final next = upcoming.first;
                     final nextId = next.sessionId ?? '';
@@ -458,12 +371,21 @@ class MentorHomeView extends StatelessWidget {
                   Obx(() {
                     final sessionsState = mentorController.rxSessions.value;
                     final sessions = sessionsState.data?.sessions ?? [];
+                    if (sessionsState.status == Status.loading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    if (sessionsState.status == Status.error) {
+                      return const SizedBox.shrink();
+                    }
                     if (sessions.isEmpty) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24.0),
                         child: Center(
                           child: Text(
-                            sessionsState.data == null ? 'Loading sessions...' : 'No session history yet',
+                            'No session history yet',
                             style: GoogleFonts.dmSans(color: Colors.white.withValues(alpha: 0.6)),
                           ),
                         ),
@@ -484,6 +406,36 @@ class MentorHomeView extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _earningsCell(String label, String value) {
+  return Expanded(
+    child: Column(
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.dmSans(
+            color: AppColor.white,
+            fontSize: Responsive.sp(10),
+            fontWeight: FontWeight.w400,
+            letterSpacing: -0.20,
+          ),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: GoogleFonts.dmSans(
+              color: AppColor.white,
+              fontSize: Responsive.sp(18),
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.30,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 Widget recentSessionsHistoryCard(BuildContext context, {SessionModel? session}) {

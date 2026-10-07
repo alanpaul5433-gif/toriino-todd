@@ -4,12 +4,15 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
-import 'package:toriino_todd/view/users/student_view/course_enroll_flow.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_filter.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
-import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/utils/money.dart';
+import 'package:toriino_todd/view/widgets/course_enroll_sheet.dart';
+
+export 'package:toriino_todd/view/widgets/course_enroll_sheet.dart'
+    show showCourseEnrollSheet;
 import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
 
@@ -204,9 +207,11 @@ class CourseView extends StatelessWidget {
                                       ),
                                       SizedBox(width: 10.w),
                                       Text(
-                                        (courses[index].price ?? 0) > 0
-                                            ? "\$${courses[index].price!.toStringAsFixed(2)}"
-                                            : 'Free',
+                                        courses[index].displayPrice == null
+                                            ? ''
+                                            : courses[index].displayPrice! > 0
+                                                ? formatMoney(courses[index].displayPrice!, courses[index].pricing?.currency)
+                                                : 'Free',
                                         style: TextStyle(
                                           color: AppColor.white,
                                           fontWeight: FontWeight.w500,
@@ -217,7 +222,7 @@ class CourseView extends StatelessWidget {
                                   ),
                                   GestureDetector(
                                     onTap: () {
-                                      _enrollBottomSheet(context, courses[index]);
+                                      showCourseEnrollSheet(context, courses[index]);
                                     },
                                     child: Container(
                                       decoration: BoxDecoration(
@@ -378,158 +383,6 @@ Widget _courseMetaRow(CourseModel course) {
           ),
       ],
     ),
-  );
-}
-
-/// The catalog's course detail / enroll sheet. Also opened from a teacher's
-/// public profile (TeacherProfile).
-void showCourseEnrollSheet(BuildContext context, CourseModel course) =>
-    _enrollBottomSheet(context, course);
-
-void _enrollBottomSheet(BuildContext context, CourseModel course) {
-  final price = course.price ?? 0;
-  final fee = (price * 0.25).toStringAsFixed(2);
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-    ),
-    backgroundColor: AppColor.primaryColor,
-    builder: (sheetContext) => StatefulBuilder(
-      builder: (sheetContext, setSheetState) {
-        // Free course -> enroll; paid course -> Stripe PaymentSheet, then wait
-        // for the webhook to enroll (see CourseEnrollmentService).
-        void pay() {
-          Navigator.pop(sheetContext);
-          runCourseEnrollment(context, course);
-        }
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-            left: Responsive.w(5),
-            right: Responsive.w(5),
-            top: Responsive.h(3),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      course.title ?? 'Course',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColor.white,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(sheetContext),
-                    child: Icon(Icons.close, color: AppColor.white),
-                  ),
-                ],
-              ),
-              SizedBox(height: Responsive.h(2)),
-              if ((course.teacherName ?? '').isNotEmpty)
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppColor.red,
-                      child: Icon(Icons.person, color: AppColor.white),
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            course.teacherName!,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            'Instructor',
-                            style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              SizedBox(height: Responsive.h(2)),
-              const Divider(color: Colors.grey),
-              SizedBox(height: Responsive.h(2)),
-              if ((course.category ?? '').isNotEmpty) ...[
-                _cousreinfo("Course Category", course.category!),
-                SizedBox(height: Responsive.h(1)),
-              ],
-              if ((course.duration ?? '').isNotEmpty) ...[
-                _cousreinfo("Course Duration", course.duration!),
-                SizedBox(height: Responsive.h(1)),
-              ],
-              if ((course.level ?? '').isNotEmpty) ...[
-                _cousreinfo("Level", course.level!),
-                SizedBox(height: Responsive.h(1)),
-              ],
-              if ((course.rating ?? 0) > 0) ...[
-                _cousreinfo("Rating", course.rating!.toStringAsFixed(1)),
-                SizedBox(height: Responsive.h(1)),
-              ],
-              _cousreinfo("Price", price == 0 ? "FREE" : "\$${price.toStringAsFixed(2)}"),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Platform Fee", price == 0 ? "\$0.00" : "\$$fee"),
-              SizedBox(height: Responsive.h(2)),
-              if (course.description != null && course.description!.isNotEmpty)
-                Text(
-                  course.description!,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400, height: 1.5),
-                ),
-              SizedBox(height: Responsive.h(2)),
-              AuthButton(
-                buttontext: price > 0 ? "Proceed to Payment" : "Enroll for Free",
-                onPress: pay,
-                loading: false,
-              ),
-              SizedBox(height: Responsive.h(2)),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-}
-
-Widget _cousreinfo(String text1, String text2) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        text1,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-      Text(
-        text2,
-        textAlign: TextAlign.right,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
   );
 }
 

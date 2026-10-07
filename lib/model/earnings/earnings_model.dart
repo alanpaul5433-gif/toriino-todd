@@ -33,11 +33,24 @@ class EarningsSummaryResponse {
   final double totalWithdrawn;
   final List<EarningsModel> monthlyBreakdown;
 
+  /// Server-computed balance that can be withdrawn. Null when the server did
+  /// not send it — never derived on the client.
+  final double? availableBalance;
+
+  /// Server-reported earnings not yet settled.
+  final double? pendingEarnings;
+
+  /// Server-reported withdrawals still in progress.
+  final double? pendingWithdrawals;
+
   EarningsSummaryResponse({
     required this.currentMonth,
     required this.totalEarnings,
     required this.totalWithdrawn,
     required this.monthlyBreakdown,
+    this.availableBalance,
+    this.pendingEarnings,
+    this.pendingWithdrawals,
   });
 
   factory EarningsSummaryResponse.fromJson(Map<String, dynamic> json) {
@@ -49,6 +62,9 @@ class EarningsSummaryResponse {
       monthlyBreakdown: (json['monthlyBreakdown'] as List? ?? [])
           .map((e) => EarningsModel.fromJson(e as Map<String, dynamic>))
           .toList(),
+      availableBalance: (json['availableBalance'] as num?)?.toDouble(),
+      pendingEarnings: (json['pendingEarnings'] as num?)?.toDouble(),
+      pendingWithdrawals: (json['pendingWithdrawals'] as num?)?.toDouble(),
     );
   }
 }

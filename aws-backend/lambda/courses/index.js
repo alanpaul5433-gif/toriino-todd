@@ -31,7 +31,9 @@
  *      MEDIA_BUCKET (private bucket holding lessons/ and course-materials/ objects),
  *      USERS_TABLE (read-only, to add teacherName to course responses)
  *
- * Every course in a response carries `teacherName` (the owner's display name) when known.
+ * Every course in a response carries `teacherName` (the owner's display name) when known and
+ * `pricing` { currency, price, platformFeePercent, platformFee, teacherShare } computed here from
+ * PLATFORM_FEE_PERCENT (SSM String under SSM_PREFIX). The app displays these; it never computes money.
  */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
@@ -54,6 +56,8 @@ const LESSONS_TABLE = process.env.LESSONS_TABLE;
 const ENROLLMENTS_TABLE = process.env.ENROLLMENTS_TABLE;
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
 const USERS_TABLE = process.env.USERS_TABLE; // read-only: teacher display names
+const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
+const ssm = new SSMClient({ region: REGION });
 const MEDIA_URL_TTL = 300; // seconds
 
 const s3 = new S3Client({ region: REGION });
@@ -110,9 +114,33 @@ async function scanAll(params, max = Infinity) {
   return items;
 }
 
-// Adds teacherName (display name only) from the users table, one batched read per response.
+// ── Pricing (same rule as the payments Lambda: integer cents, teacher gets the remainder) ──
+let feeCache;
+async function platformFeePercent() {
+  if (process.env.PLATFORM_FEE_PERCENT) return Number(process.env.PLATFORM_FEE_PERCENT);
+  if (feeCache && Date.now() - feeCache.at < 5 * 60 * 1000) return feeCache.value;
+  const out = await ssm.send(new GetParameterCommand({ Name: `${process.env.SSM_PREFIX}PLATFORM_FEE_PERCENT` }));
+  const pct = Number(out.Parameter?.Value);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error("invalid PLATFORM_FEE_PERCENT");
+  feeCache = { value: pct, at: Date.now() };
+  return pct;
+}
+function pricingFor(course, pct) {
+  const priceCents = Math.round((Number(course.price) || 0) * 100);
+  const feeCents = Math.round((priceCents * pct) / 100);
+  return { currency: "usd", price: priceCents / 100, platformFeePercent: pct, platformFee: feeCents / 100, teacherShare: (priceCents - feeCents) / 100 };
+}
+
+// Adds teacherName and pricing to every course in a response.
 async function withTeacherNames(courses) {
-  if (!USERS_TABLE || courses.length === 0) return courses;
+  if (courses.length === 0) return courses;
+  let pct = null;
+  try { pct = await platformFeePercent(); } catch (err) {
+    // Without a configured fee we show no breakdown rather than a guessed one.
+    log("WARN", "Platform fee unavailable — pricing omitted", { error: err.message });
+  }
+  if (pct !== null) courses = courses.map((c) => ({ ...c, pricing: pricingFor(c, pct) }));
+  if (!USERS_TABLE) return courses;
   const ids = [...new Set(courses.map((c) => c.teacherId || c.mentorId).filter(Boolean))];
   const names = {};
   try {

@@ -72,6 +72,33 @@ migrated, change that one parameter and redeploy.
 - **Test fixture**: draft course `verify-test-course-paid` + lesson `verify-test-lesson`
   (`scripts/seed-verify-test-lesson.mjs`) for the paid lesson-media check. Delete before beta.
 
+### Money (server-only; the app never calculates money)
+
+- **One fee value:** SSM String `/torino/prod/PLATFORM_FEE_PERCENT` (default **25** until the client
+  confirms). Every Lambda that prices anything reads it, with a 5-minute cache. If it is missing or invalid,
+  payments return **503 "Platform fee not configured"**. Course and session responses then omit `pricing`
+  rather than guess.
+- **Split:** the student pays the listed `price`. In integer cents, `platformFee = round(price × % / 100)` and
+  `teacherShare = price − platformFee`, so the parts always add up.
+- **Where the numbers come from:**
+  - Course and session responses carry `pricing { currency, price, platformFeePercent, platformFee, teacherShare }`.
+  - `GET /payments/quote?courseId= | sessionId= | mentorId=&duration=` adds `walletBalance`, `walletApplied`
+    and `amountDue`.
+- **Fixed at purchase:** fee and share are written into the PaymentIntent metadata (`platformFeeCents`,
+  `teacherShareCents`). The Stripe webhook credits exactly that share, so a later fee change never alters a
+  payment already made.
+- **Session price:** a student booking is priced by the server as mentor `hourlyRate × duration / 60`; any
+  client price is ignored. Only the host can change a price, and never after payment.
+- **Wallet:** all or nothing. If the wallet covers the full session price, `POST /payments/create-intent`
+  (`session_booking`) pays from it in **one DynamoDB transaction**:
+  - wallet debit (conditional on the balance)
+  - wallet event
+  - session confirmed and paid
+  - pending mentor earning
+
+  Otherwise the full price goes to Stripe and the wallet is untouched. There are no partial splits, so
+  nothing is ever reserved for an abandoned card payment.
+
 ### Files (S3 `torino-app-storage`, private, Block Public Access on)
 
 - Uploads: `GET /upload-url` returns a pre-signed PUT scoped to `<folder>/<cognito sub>/…`.
