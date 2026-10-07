@@ -1,7 +1,8 @@
 /**
  * courses Lambda — /courses/*  (Cognito authorizer on every route)
  *
- *   GET    /courses?category=&limit=&lastKey=   paginated list (soft-deleted courses hidden)
+ *   GET    /courses?category=&limit=&lastKey=   paginated public catalog (deleted and draft courses hidden;
+ *                                               owners see their drafts under /courses/my-created)
  *   POST   /courses                             create (teacher/mentor/admin)
  *   GET    /courses/my-courses                  caller's enrolled courses
  *   GET    /courses/my-created                  caller's own courses
@@ -17,6 +18,7 @@
  *                                               5-minute pre-signed GET URLs for the lesson's
  *                                               private S3 objects; paid courses require an
  *                                               active enrollment (402 otherwise)
+ *   POST   /courses/{id}/complete               marks the caller's own active enrollment completed
  *   POST   /courses/{id}/enroll                 FREE courses only (idempotent per student);
  *                                               paid courses → 402 "payment required": only the
  *                                               Stripe webhook enrolls a student in a paid course
@@ -70,6 +72,7 @@ function log(level, message, extra = {}) {
 }
 
 const DELETED = "deleted";
+const DRAFT = "draft"; // unpublished: not in the public catalog
 const COURSE_FIELDS = [
   "title", "description", "category", "duration", "price", "thumbnail", "imageUrl",
   "level", "language", "tags", "materials", "totalDuration", "totalLessons", "status",
@@ -153,6 +156,7 @@ exports.handler = async (event) => {
       if (method === "DELETE") return await deleteLesson(userId, claims, courseId, lessonId);
     }
     if (seg.length === 3 && sub === "enroll" && method === "POST") return await enroll(userId, courseId);
+    if (seg.length === 3 && sub === "complete" && method === "POST") return await completeCourse(userId, courseId);
     return response(404, { error: "Route not found" });
   } catch (error) {
     log("ERROR", "Courses handler error", { error: error.message, path: event.path, method });
@@ -171,8 +175,8 @@ async function listCourses({ category, limit, lastKey }) {
   }
 
   const names = { "#s": "status" };
-  const values = { ":deleted": DELETED };
-  let filter = "(attribute_not_exists(#s) OR #s <> :deleted)";
+  const values = { ":deleted": DELETED, ":draft": DRAFT };
+  let filter = "(attribute_not_exists(#s) OR (#s <> :deleted AND #s <> :draft))";
   if (category) {
     filter += " AND category = :cat";
     values[":cat"] = category;
@@ -517,6 +521,33 @@ async function enroll(userId, courseId) {
 
   log("INFO", "Student enrolled", { userId, courseId });
   return response(201, { message: "Enrolled", ...enrollment });
+}
+
+// Idempotent: a completed enrollment stays completed. There is no certificate system.
+async function completeCourse(userId, courseId) {
+  const course = await getCourseItem(courseId);
+  if (!course) return response(404, { error: "Course not found" });
+
+  const rows = await findEnrollments(
+    "courseId = :c AND (userId = :u OR studentId = :u)",
+    { ":c": courseId, ":u": userId },
+  );
+  const enrollment = rows.find((e) => !INACTIVE_ENROLLMENT.has(e.status));
+  if (!enrollment) return response(404, { error: "You are not enrolled in this course" });
+
+  const completedAt = enrollment.completedAt || new Date().toISOString();
+  if (enrollment.status !== "completed") {
+    await dynamodb.send(new UpdateCommand({
+      TableName: ENROLLMENTS_TABLE,
+      Key: { enrollmentId: enrollment.enrollmentId },
+      UpdateExpression: "SET #s = :c, completedAt = :at, progress = :p, updatedAt = :now",
+      ConditionExpression: "attribute_exists(enrollmentId)",
+      ExpressionAttributeNames: { "#s": "status" },
+      ExpressionAttributeValues: { ":c": "completed", ":at": completedAt, ":p": 100, ":now": new Date().toISOString() },
+    }));
+    log("INFO", "Course completed", { userId, courseId });
+  }
+  return response(200, { message: "Course marked as completed", courseId, status: "completed", completedAt });
 }
 
 async function myEnrolledCourses(userId) {

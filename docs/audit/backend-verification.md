@@ -1,5 +1,23 @@
 # Backend Verification — /prod
 
+## Re-verification, round 3 (2026-10-07, branch `fix/remediation-v1`)
+
+`node scripts/verify-backend.mjs`, using the checker's script from commit `938f18f`, which adds live "not configured" probes for Agora and Gemini. Run against deployment `wnqx6x`. Full output: [verify-after-remediation.txt](verify-after-remediation.txt).
+
+**Result: 20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED. Exit code 0 (PASS).** All 7 BLOCKED are genuine missing values, each confirmed by a live 503 "not configured": Stripe (payment intent, webhook), Agora recording, Gemini (summary, chat, twins/memory). The seventh is FCM, which has no `google-services.json`.
+
+### Changes in this round
+| Item | Result |
+|---|---|
+| "Mark As Completed" | New `POST /courses/{id}/complete` sets the caller's own active enrollment to `completed` (idempotent; 404 if not enrolled or refunded). The app calls it and shows "Course marked as completed" only on 200. The certificate wording is gone, since there is no certificate system |
+| Student profile | `student_public_profile_view.dart` shows real data (profile, my-courses, session count). The fake enroll sheet and the ~700-line commented copy are removed. **Note:** this screen was only opened by teachers/mentors tapping a student, and there is no API to read another user's profile, so those entry points were removed. The screen is currently reachable from nowhere (see NEXT) |
+| S3 avatar links | The 2 `torino-users` records were backed up to [pre-deploy/torino-users-s3-avatar-records.json](pre-deploy/torino-users-s3-avatar-records.json). `avatarUrl` was rewritten to the CloudFront URL, conditional on the old value; both URLs return 200 image/png |
+| Lesson materials | Open with `url_launcher` (`^6.3.2`, external app) using a freshly fetched pre-signed link. If opening fails, the copy-link dialog is shown. Link-type lessons also open |
+| `AGORA_APP_CERTIFICATE` → SSM | **Not done (owner decision).** The checker still requires it as a plain env var on `torino-api` and `toriino-agora-recording`; that waits for the checker update |
+| Paid-media test fixture | Draft course `verify-test-course-paid` (`crs_102ca36b-e81c-4c55-a3ca-d3dbcff76771`, $9.99, owned by the test teacher) with lesson `verify-test-lesson` (`les_c0778b9e-ef5c-4abb-90e1-b523442134e7`). The 4.5 KB 2-second MPEG-4 video was uploaded through `/upload-url` to `lessons/`. Created through the API by `scripts/seed-verify-test-lesson.mjs` (idempotent). Live: unenrolled student → 402, owner → 200 with a 300 s signed URL that downloads the video. The course is not in the public catalog: `GET /courses` now hides `draft` courses (no live course is a draft) |
+
+---
+
 ## Re-verification, round 2 (2026-10-07, branch `fix/remediation-v1`)
 
 `node scripts/verify-backend.mjs` (the checker's updated script, commit `381876f`) against deployment `t76glk`. Full output: [verify-after-remediation.txt](verify-after-remediation.txt).

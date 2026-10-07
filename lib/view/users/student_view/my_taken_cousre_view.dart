@@ -20,6 +20,38 @@ class MyTakenCousreView extends StatefulWidget {
 }
 
 class _MyTakenCousreViewState extends State<MyTakenCousreView> {
+  late final Future<dynamic> _lessonsFuture;
+
+  /// Initially from GET /courses/my-courses (`course.enrollment.status`).
+  late bool _completed = widget.course?.isCompleted ?? false;
+  bool _completing = false;
+
+  String get _courseId => widget.course?.courseId ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _lessonsFuture = CourseRepo().getLessons(_courseId);
+  }
+
+  /// POST /courses/{id}/complete. Success is shown only on a 200; any error
+  /// (e.g. 404 "You are not enrolled in this course") is shown as-is.
+  Future<void> _markCompleted() async {
+    if (_completing || _completed || _courseId.isEmpty) return;
+    setState(() => _completing = true);
+    try {
+      await CourseRepo().completeCourse(_courseId);
+      if (!mounted) return;
+      setState(() => _completed = true);
+      Utils.toastMassage('Course marked as completed');
+      _courseCompleteAlert(context, _courseId);
+    } catch (e) {
+      Utils.toastMassage(Utils.errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _completing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Responsive.init(context);
@@ -60,7 +92,7 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
                   ],
                 ),
                 FutureBuilder<dynamic>(
-                  future: CourseRepo().getLessons(widget.course?.courseId ?? ''),
+                  future: _lessonsFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -88,39 +120,63 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
                   },
                 ),
                 GestureDetector(
-                  onTap: () => _courseCompleteAlert(
-                      context, widget.course?.courseId ?? ''),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
-                    ),
-                    decoration: ShapeDecoration(
-                      color: AppColor.red,
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: Colors.red),
-                        borderRadius: BorderRadius.circular(40),
+                  onTap: (_completed || _completing || _courseId.isEmpty)
+                      ? null
+                      : _markCompleted,
+                  child: Opacity(
+                    opacity: (_completing || _courseId.isEmpty) ? 0.6 : 1,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 8,
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      spacing: 8,
-                      children: [
-                        Text(
-                          'Mark As Completed',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.dmSans(
-                            color: AppColor.white,
-                            fontSize: Responsive.textScaleFactor * 14,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.20,
+                      decoration: ShapeDecoration(
+                        color: _completed
+                            ? AppColor.white.withValues(alpha: 0.12)
+                            : AppColor.red,
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                            width: 1,
+                            color: _completed
+                                ? AppColor.white.withValues(alpha: 0.2)
+                                : Colors.red,
                           ),
+                          borderRadius: BorderRadius.circular(40),
                         ),
-                        SvgPicture.asset("assets/icons/vector.svg"),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        spacing: 8,
+                        children: [
+                          Text(
+                            _completed ? 'Completed' : 'Mark As Completed',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.dmSans(
+                              color: AppColor.white,
+                              fontSize: Responsive.textScaleFactor * 14,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.20,
+                            ),
+                          ),
+                          if (_completing)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          else if (_completed)
+                            const Icon(Icons.check_circle,
+                                color: Colors.white, size: 18)
+                          else
+                            SvgPicture.asset("assets/icons/vector.svg"),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -133,6 +189,7 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
   }
 }
 
+/// Shown only after the server confirmed the completion (200).
 void _courseCompleteAlert(BuildContext context, String courseId) {
   showDialog(
     context: context,
@@ -151,7 +208,7 @@ void _courseCompleteAlert(BuildContext context, String courseId) {
               SvgPicture.asset("assets/icons/checkmark-circle-02.svg"),
               SizedBox(height: Responsive.h(1)),
               Text(
-                "Congratulations!",
+                "Course completed",
                 style: TextStyle(
                   color: AppColor.white,
                   fontSize: Responsive.textScaleFactor * 20,
@@ -160,7 +217,7 @@ void _courseCompleteAlert(BuildContext context, String courseId) {
               ),
               SizedBox(height: Responsive.h(1)),
               Text(
-                "You've made great progress. Your certificate is ready for download and you can now showcase your achievement!",
+                "Nice work finishing this course. Would you like to leave a review?",
                 style: TextStyle(
                   color: AppColor.white,
                   fontSize: Responsive.textScaleFactor * 16,
@@ -212,8 +269,6 @@ void _courseCompleteAlert(BuildContext context, String courseId) {
               GestureDetector(
                 onTap: () {
                   Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pop();
-                  Utils.toastMassage("Course completed! Certificate earned.");
                 },
                 child: Container(
                   width: double.infinity,

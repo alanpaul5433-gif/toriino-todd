@@ -106,6 +106,19 @@ class CourseRepo {
     );
   }
 
+  /// POST /courses/{id}/complete (no body) -> 200
+  /// {message, courseId, status: 'completed', completedAt}; idempotent.
+  /// 404 {error} when the course does not exist or the caller has no active
+  /// enrollment (refunded/cancelled enrollments count as not enrolled).
+  Future<dynamic> completeCourse(String courseId) async {
+    final headers = await AuthInterceptor.getAuthHeaders();
+    return await _apiServices.getPostApiResponse(
+      AppUrl.completeCourse(courseId),
+      {},
+      headers,
+    );
+  }
+
   Future<dynamic> getMyEnrolledCourses() async {
     final headers = await AuthInterceptor.getAuthHeaders();
     return await _apiServices.getGetApiResponse(

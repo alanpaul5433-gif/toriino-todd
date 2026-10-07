@@ -281,3 +281,26 @@ describe('users: introVideoUrl', () => {
     expect(mirror.input.Key).toEqual({ mentorId: 'me' });
   });
 });
+
+describe('courses: POST /courses/{id}/complete', () => {
+  test('marks the caller’s active enrollment completed', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c1', price: 0 } })
+      .mockResolvedValueOnce({ Items: [{ enrollmentId: 'enr_c1_me', status: 'active' }] })
+      .mockResolvedValue({});
+    const r = await courses(ev('POST', '/courses/c1/complete'));
+    expect(r.statusCode).toBe(200);
+    const upd = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'Update');
+    expect(upd.input.Key).toEqual({ enrollmentId: 'enr_c1_me' });
+    expect(upd.input.ExpressionAttributeValues[':c']).toBe('completed');
+  });
+
+  test('not enrolled (or refunded) → 404, nothing written', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c1', price: 0 } })
+      .mockResolvedValueOnce({ Items: [{ enrollmentId: 'e', status: 'refunded' }] });
+    const r = await courses(ev('POST', '/courses/c1/complete'));
+    expect(r.statusCode).toBe(404);
+    expect(mockSend.mock.calls.some((c) => c[0]._type === 'Update')).toBe(false);
+  });
+});

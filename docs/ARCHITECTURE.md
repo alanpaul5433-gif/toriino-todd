@@ -63,10 +63,14 @@ migrated, change that one parameter and redeploy.
 
 ### Payments and enrollment
 
+- **Catalog**: `GET /courses` hides `deleted` and `draft` courses; owners see their drafts in `GET /courses/my-created`.
 - **Free course** (`price` 0): `POST /courses/{id}/enroll` enrolls directly (201).
 - **Paid course**: `POST /courses/{id}/enroll` returns **402 "payment required"**. The app creates a
   PaymentIntent (`POST /payments/create-intent`, price read server-side) and only the Stripe webhook
   (`payment_intent.succeeded`) writes the enrollment. A refund marks it `refunded`.
+- **Completion**: `POST /courses/{id}/complete` marks the caller's active enrollment `completed` (no certificates).
+- **Test fixture**: draft course `verify-test-course-paid` + lesson `verify-test-lesson`
+  (`scripts/seed-verify-test-lesson.mjs`) for the paid lesson-media check. Delete before beta.
 
 ### Files (S3 `torino-app-storage`, private, Block Public Access on)
 

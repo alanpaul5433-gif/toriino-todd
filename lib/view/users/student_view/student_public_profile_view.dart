@@ -1,58 +1,103 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/model/session/session_model.dart';
+import 'package:toriino_todd/model/user/user_profile_model.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
+import 'package:toriino_todd/repository/session_repo.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 
-class StudentPublicProfileView extends StatelessWidget {
+/// Profile of the signed-in student, built only from real API data:
+/// GET /users/profile, GET /courses/my-courses and GET /sessions?role=student.
+/// Empty fields are hidden rather than shown as placeholders.
+class StudentPublicProfileView extends StatefulWidget {
   const StudentPublicProfileView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final CustomDrawerController customDrawerController =
-        Get.find<CustomDrawerController>();
+  State<StudentPublicProfileView> createState() =>
+      _StudentPublicProfileViewState();
+}
 
+class _StudentPublicProfileViewState extends State<StudentPublicProfileView> {
+  late Future<UserProfileModel> _profileFuture;
+  late Future<List<CourseModel>> _coursesFuture;
+  late Future<List<SessionModel>> _sessionsFuture;
+  late Future<List<dynamic>> _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    _profileFuture = UserRepo().getProfile().then(
+          (value) => UserProfileModel.fromJson(
+              value is Map<String, dynamic> ? value : <String, dynamic>{}),
+        );
+    _coursesFuture = CourseRepo().getMyEnrolledCourses().then(
+          (value) => CourseListResponse.fromJson(
+                  value is Map<String, dynamic> ? value : <String, dynamic>{})
+              .courses,
+        );
+    _sessionsFuture = SessionRepo().getSessions(role: 'student').then(
+          (value) => SessionListResponse.fromJson(
+                  value is Map<String, dynamic> ? value : <String, dynamic>{})
+              .sessions,
+        );
+    _statsFuture = Future.wait<dynamic>([_coursesFuture, _sessionsFuture]);
+  }
+
+  Future<void> _refresh() async {
+    setState(_load);
+    await Future.wait<dynamic>([
+      _profileFuture.catchError((_) => UserProfileModel()),
+      _coursesFuture.catchError((_) => <CourseModel>[]),
+      _sessionsFuture.catchError((_) => <SessionModel>[]),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     Responsive.init(context);
 
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(Responsive.w(2)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAppBar(customDrawerController, context),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildProfileHeader(),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildEducationLevel(),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildBio(),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildLanguages(),
-                    SizedBox(height: Responsive.h(2)),
-                    const Divider(color: Colors.grey),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildStatsRow(),
-                    SizedBox(height: Responsive.h(2)),
-                    _buildCourseList(context),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            padding: EdgeInsets.all(Responsive.w(2)),
+            children: [
+              _buildAppBar(context),
+              SizedBox(height: Responsive.h(2)),
+              _buildProfileSection(),
+              SizedBox(height: Responsive.h(2)),
+              const Divider(color: Colors.grey),
+              SizedBox(height: Responsive.h(2)),
+              _buildStatsRow(),
+              SizedBox(height: Responsive.h(2)),
+              _buildCourseList(context),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildAppBar(CustomDrawerController controller, BuildContext context) {
+  // ── App bar ──────────────────────────────────────────
+
+  Widget _buildAppBar(BuildContext context) {
+    final drawer = Get.isRegistered<CustomDrawerController>()
+        ? Get.find<CustomDrawerController>()
+        : null;
     return Row(
       children: [
         Expanded(
@@ -75,156 +120,177 @@ class StudentPublicProfileView extends StatelessWidget {
             ),
           ),
         ),
-        _buildIconButton(icon: 'assets/icons/notification.svg', onTap: () {}),
-        SizedBox(width: Responsive.w(2)),
-        _buildIconButton(
-          icon: 'assets/icons/menu.svg',
-          onTap: () => controller.toggleDrawer(),
-        ),
+        if (drawer != null)
+          GestureDetector(
+            onTap: drawer.toggleDrawer,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColor.backGroundColor.withValues(alpha: 0.1),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SvgPicture.asset('assets/icons/menu.svg'),
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildIconButton({required String icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColor.backGroundColor.withValues(alpha:0.1),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: SvgPicture.asset(icon),
-        ),
-      ),
-    );
-  }
+  // ── Profile ──────────────────────────────────────────
 
-  Widget _buildProfileHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
+  Widget _buildProfileSection() {
+    return FutureBuilder<UserProfileModel>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return _errorBox(Utils.errorMessage(snapshot.error));
+        }
+        final p = snapshot.data ?? UserProfileModel();
+        final name = (p.name ?? '').trim();
+        final avatar = (p.avatarUrl ?? '').trim();
+        final education = (p.educationLevel ?? '').trim();
+        final bio = (p.bio ?? '').trim();
+        final language = (p.language ?? '').trim();
+
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: Responsive.w(10),
-              backgroundImage: const AssetImage(
-                "assets/icons/Ellipse 6 (1).png",
-              ),
-            ),
-            SizedBox(width: Responsive.w(2)),
-            Column(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  '--',
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white,
-                    fontSize: Responsive.textScaleFactor * 18,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.20,
-                  ),
+                CircleAvatar(
+                  radius: Responsive.w(10),
+                  backgroundColor: AppColor.secconderyColor,
+                  backgroundImage:
+                      avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty
+                      ? Icon(Icons.person,
+                          color: AppColor.white, size: Responsive.w(10))
+                      : null,
                 ),
+                SizedBox(width: Responsive.w(3)),
+                if (name.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: Responsive.textScaleFactor * 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.20,
+                      ),
+                    ),
+                  ),
               ],
             ),
+            if (education.isNotEmpty) ...[
+              SizedBox(height: Responsive.h(2)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Education Level', style: _labelStyle()),
+                  Flexible(
+                    child: Text(education,
+                        textAlign: TextAlign.end, style: _labelStyle()),
+                  ),
+                ],
+              ),
+            ],
+            if (bio.isNotEmpty) ...[
+              SizedBox(height: Responsive.h(2)),
+              Text(
+                bio,
+                style: GoogleFonts.dmSans(
+                  color: Colors.white,
+                  fontSize: Responsive.textScaleFactor * 12,
+                  fontWeight: FontWeight.w400,
+                  height: 1.50,
+                ),
+              ),
+            ],
+            if (language.isNotEmpty) ...[
+              SizedBox(height: Responsive.h(2)),
+              Row(
+                children: [
+                  SvgPicture.asset("assets/icons/mic.svg"),
+                  SizedBox(width: Responsive.w(1)),
+                  Flexible(
+                    child: Text(
+                      language,
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: Responsive.textScaleFactor * 10,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ),
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColor.white.withValues(alpha:0.08),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SvgPicture.asset('assets/icons/share.svg'),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildEducationLevel() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Education Level',
-          style: GoogleFonts.dmSans(
-            color: Colors.white,
-            fontSize: Responsive.textScaleFactor * 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.20,
-          ),
-        ),
-        Text(
-          'College',
-          style: GoogleFonts.dmSans(
-            color: Colors.white,
-            fontSize: Responsive.textScaleFactor * 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.20,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBio() {
-    return Text(
-      "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-      style: GoogleFonts.dmSans(
+  TextStyle _labelStyle() => GoogleFonts.dmSans(
         color: Colors.white,
         fontSize: Responsive.textScaleFactor * 12,
-        fontWeight: FontWeight.w400,
-        height: 1.50,
-      ),
-    );
-  }
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.20,
+      );
 
-  Widget _buildLanguages() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            SvgPicture.asset("assets/icons/mic.svg"),
-            SizedBox(width: Responsive.w(1)),
-            Text(
-              'English, German',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: Responsive.textScaleFactor * 10,
-                fontFamily: 'DM Sans',
-                fontWeight: FontWeight.w400,
-                letterSpacing: -0.20,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  // ── Stats ────────────────────────────────────────────
 
   Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildStatCard('Courses in Progress', '03')),
-        SizedBox(width: Responsive.w(2)),
-        Expanded(child: _buildStatCard('Sessions Booked', '02')),
-        SizedBox(width: Responsive.w(2)),
-        Expanded(child: _buildStatCard('Certificates Earned', '01')),
-      ],
+    return FutureBuilder<List<dynamic>>(
+      future: _statsFuture,
+      builder: (context, snapshot) {
+        String inProgress = '…', booked = '…', completed = '…';
+        if (snapshot.connectionState != ConnectionState.waiting) {
+          if (snapshot.hasError) {
+            inProgress = booked = completed = '–';
+          } else {
+            final courses = snapshot.data![0] as List<CourseModel>;
+            final sessions = snapshot.data![1] as List<SessionModel>;
+            final done = courses.where((c) => c.isCompleted).length;
+            inProgress = _twoDigits(courses.length - done);
+            completed = _twoDigits(done);
+            booked = _twoDigits(sessions
+                .where((s) => !const {'cancelled', 'canceled'}
+                    .contains((s.status ?? '').toLowerCase()))
+                .length);
+          }
+        }
+        return Row(
+          children: [
+            Expanded(child: _buildStatCard('Courses in Progress', inProgress)),
+            SizedBox(width: Responsive.w(2)),
+            Expanded(child: _buildStatCard('Sessions Booked', booked)),
+            SizedBox(width: Responsive.w(2)),
+            Expanded(child: _buildStatCard('Courses Completed', completed)),
+          ],
+        );
+      },
     );
   }
+
+  String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
   Widget _buildStatCard(String title, String value) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        color: AppColor.white.withValues(alpha:0.08),
+        color: AppColor.white.withValues(alpha: 0.08),
       ),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -233,10 +299,9 @@ class StudentPublicProfileView extends StatelessWidget {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: GoogleFonts.dmSans(
                 color: Colors.white,
                 fontSize: Responsive.textScaleFactor * 14,
-                fontFamily: 'DM Sans',
                 fontWeight: FontWeight.w400,
                 letterSpacing: -0.20,
               ),
@@ -246,10 +311,9 @@ class StudentPublicProfileView extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: Text(
                 value,
-                style: TextStyle(
+                style: GoogleFonts.rethinkSans(
                   color: Colors.white,
                   fontSize: Responsive.textScaleFactor * 25,
-                  fontFamily: 'Rethink Sans',
                   fontWeight: FontWeight.w500,
                   letterSpacing: -0.30,
                 ),
@@ -261,24 +325,53 @@ class StudentPublicProfileView extends StatelessWidget {
     );
   }
 
+  // ── Courses ──────────────────────────────────────────
+
   Widget _buildCourseList(BuildContext context) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 4,
-      itemBuilder:
-          (context, index) => Padding(
-            padding: EdgeInsets.only(bottom: Responsive.h(2)),
-            child: _buildCourseCard(context),
-          ),
+    return FutureBuilder<List<CourseModel>>(
+      future: _coursesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return _errorBox(Utils.errorMessage(snapshot.error));
+        }
+        final courses = snapshot.data ?? const <CourseModel>[];
+        if (courses.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No courses yet',
+                  style: TextStyle(color: Colors.white70)),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final course in courses)
+              Padding(
+                padding: EdgeInsets.only(bottom: Responsive.h(2)),
+                child: _buildCourseCard(context, course),
+              ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildCourseCard(BuildContext context) {
+  Widget _buildCourseCard(BuildContext context, CourseModel course) {
+    final title = (course.title ?? '').trim();
+    final duration = (course.duration ?? '').trim();
+    final teacher = (course.teacherName ?? '').trim();
+    final rating = course.rating;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        color: AppColor.white.withValues(alpha:0.08),
+        color: AppColor.white.withValues(alpha: 0.08),
       ),
       child: Padding(
         padding: EdgeInsets.all(Responsive.w(2.5)),
@@ -291,26 +384,32 @@ class StudentPublicProfileView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    SvgPicture.asset(
-                      "assets/icons/Frame 1000002079.svg",
-                      colorFilter: ColorFilter.mode(
-                        AppColor.white,
-                        BlendMode.srcIn,
+                    if (course.price != null) ...[
+                      SvgPicture.asset(
+                        "assets/icons/Frame 1000002079.svg",
+                        colorFilter: ColorFilter.mode(
+                          AppColor.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: Responsive.w(1)),
-                    Text(
-                      "\$19.99",
-                      style: TextStyle(
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: Responsive.textScaleFactor * 14,
+                      SizedBox(width: Responsive.w(1)),
+                      Text(
+                        _priceLabel(course.price!),
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: Responsive.textScaleFactor * 14,
+                        ),
                       ),
-                    ),
+                    ],
+                    if (course.isCompleted) ...[
+                      SizedBox(width: Responsive.w(2)),
+                      _chip('Completed'),
+                    ],
                   ],
                 ),
                 GestureDetector(
-                  onTap: () => _enrollBottomSheet(context),
+                  onTap: () => _courseDetailsSheet(context, course),
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(28),
@@ -346,86 +445,140 @@ class StudentPublicProfileView extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: Responsive.h(1)),
-            Text(
-              "Duration: 2–5h",
-              style: TextStyle(
-                color: AppColor.white,
-                fontWeight: FontWeight.w500,
-                fontSize: Responsive.textScaleFactor * 14,
+            if (duration.isNotEmpty) ...[
+              SizedBox(height: Responsive.h(1)),
+              Text(
+                "Duration: $duration",
+                style: TextStyle(
+                  color: AppColor.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: Responsive.textScaleFactor * 14,
+                ),
               ),
-            ),
-            SizedBox(height: Responsive.h(1)),
-            Text(
-              "UI/UX Design Basics",
-              style: TextStyle(
-                fontSize: Responsive.textScaleFactor * 20,
-                color: AppColor.white,
-                fontWeight: FontWeight.bold,
+            ],
+            if (title.isNotEmpty) ...[
+              SizedBox(height: Responsive.h(1)),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: Responsive.textScaleFactor * 20,
+                  color: AppColor.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            SizedBox(height: Responsive.h(1)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: Responsive.sp(22),
-                      backgroundColor: AppColor.secconderyColor,
-                      child: Icon(Icons.person, color: AppColor.white),
-                    ),
-                    SizedBox(width: Responsive.w(2)),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+            if (teacher.isNotEmpty || (rating != null && rating > 0)) ...[
+              SizedBox(height: Responsive.h(1)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (teacher.isNotEmpty)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: Responsive.sp(22),
+                            backgroundColor: AppColor.secconderyColor,
+                            child: Icon(Icons.person, color: AppColor.white),
+                          ),
+                          SizedBox(width: Responsive.w(2)),
+                          Flexible(
+                            child: Text(
+                              teacher,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColor.white,
+                                fontWeight: FontWeight.w500,
+                                fontSize: Responsive.textScaleFactor * 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  if (rating != null && rating > 0)
+                    Row(
                       children: [
+                        Icon(
+                          Icons.star,
+                          color: AppColor.white,
+                          size: Responsive.sp(16),
+                        ),
+                        SizedBox(width: Responsive.w(1)),
                         Text(
-                          '--',
+                          rating.toStringAsFixed(1),
                           style: TextStyle(
                             color: AppColor.white,
                             fontWeight: FontWeight.w500,
                             fontSize: Responsive.textScaleFactor * 14,
                           ),
                         ),
-                        Text(
-                          "Mentor",
-                          style: TextStyle(
-                            color: AppColor.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: Responsive.textScaleFactor * 12,
-                          ),
-                        ),
                       ],
                     ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.star,
-                      color: AppColor.white,
-                      size: Responsive.sp(16),
-                    ),
-                    SizedBox(width: Responsive.w(1)),
-                    Text(
-                      "4.8",
-                      style: TextStyle(
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: Responsive.textScaleFactor * 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  void _enrollBottomSheet(BuildContext context) {
+  String _priceLabel(double price) =>
+      price <= 0 ? 'Free' : '\$${price.toStringAsFixed(2)}';
+
+  Widget _chip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: AppColor.white.withValues(alpha: 0.15),
+      ),
+      child: Text(text,
+          style: const TextStyle(color: Colors.white, fontSize: 11)),
+    );
+  }
+
+  Widget _errorBox(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        children: [
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70)),
+          TextButton(
+            onPressed: () => setState(_load),
+            child: const Text('Retry', style: TextStyle(color: AppColor.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Real details of a course the student is already enrolled in, with an
+  /// action that opens the course's lessons.
+  void _courseDetailsSheet(BuildContext context, CourseModel course) {
+    final rows = <MapEntry<String, String>>[
+      if ((course.teacherName ?? '').isNotEmpty)
+        MapEntry('Teacher', course.teacherName!),
+      if ((course.category ?? '').isNotEmpty)
+        MapEntry('Course Category', course.category!),
+      if ((course.level ?? '').isNotEmpty) MapEntry('Level', course.level!),
+      if ((course.duration ?? '').isNotEmpty)
+        MapEntry('Course Duration', course.duration!),
+      if ((course.language ?? '').isNotEmpty)
+        MapEntry('Language', course.language!),
+      if (course.rating != null && course.rating! > 0)
+        MapEntry('Rating', course.rating!.toStringAsFixed(1)),
+      if (course.price != null) MapEntry('Price', _priceLabel(course.price!)),
+      if ((course.enrollmentStatus ?? '').isNotEmpty)
+        MapEntry('Status', course.isCompleted ? 'Completed' : 'In progress'),
+    ];
+    final description = (course.description ?? '').trim();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -433,92 +586,90 @@ class StudentPublicProfileView extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       backgroundColor: AppColor.primaryColor,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: Responsive.w(5),
-            right: Responsive.w(5),
-            top: Responsive.h(3),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: Responsive.w(5),
+              right: Responsive.w(5),
+              top: Responsive.h(3),
+              bottom: Responsive.h(2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (course.title ?? '').trim().isNotEmpty
+                            ? course.title!.trim()
+                            : 'Course details',
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontSize: Responsive.textScaleFactor * 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(sheetContext),
+                      child: Icon(Icons.close, color: AppColor.white),
+                    ),
+                  ],
+                ),
+                if (rows.isNotEmpty) ...[
+                  SizedBox(height: Responsive.h(1)),
+                  const Divider(color: Colors.grey),
+                  for (final row in rows) ...[
+                    SizedBox(height: Responsive.h(1)),
+                    _buildCourseInfoRow(row.key, row.value),
+                  ],
+                ],
+                if (description.isNotEmpty) ...[
+                  SizedBox(height: Responsive.h(2)),
                   Text(
-                    "UI/UX Design Basics",
+                    description,
                     style: TextStyle(
-                      color: AppColor.white,
-                      fontSize: Responsive.textScaleFactor * 18,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.close, color: AppColor.white),
-                  ),
                 ],
-              ),
-              SizedBox(height: Responsive.h(2)),
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppColor.secconderyColor,
-                    child: Icon(Icons.person, color: AppColor.white),
-                  ),
-                  SizedBox(width: Responsive.w(2)),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '--',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: Responsive.textScaleFactor * 12,
-                          fontWeight: FontWeight.w700,
-                        ),
+                SizedBox(height: Responsive.h(3)),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColor.red,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
                       ),
-                      Text(
-                        'Teacher',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: Responsive.textScaleFactor * 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                    ),
+                    onPressed: (course.courseId ?? '').isEmpty
+                        ? null
+                        : () async {
+                            Navigator.pop(sheetContext);
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    MyTakenCousreView(course: course),
+                              ),
+                            );
+                            // The course may have been marked completed.
+                            if (mounted) setState(_load);
+                          },
+                    child: const Text('Open course'),
                   ),
-                ],
-              ),
-              SizedBox(height: Responsive.h(2)),
-              const Divider(color: Colors.grey),
-              SizedBox(height: Responsive.h(2)),
-              _buildCourseInfoRow("Course Category", "Design"),
-              SizedBox(height: Responsive.h(1)),
-              _buildCourseInfoRow("Course Duration", "2–5h"),
-              SizedBox(height: Responsive.h(1)),
-              _buildCourseInfoRow("Language", "English"),
-              SizedBox(height: Responsive.h(1)),
-              _buildCourseInfoRow("Rating", "4.5"),
-              SizedBox(height: Responsive.h(1)),
-              _buildCourseInfoRow("Price Info", "\$19.99"),
-              SizedBox(height: Responsive.h(1)),
-              _buildCourseInfoRow("Platform Fee", "\$4.99"),
-              SizedBox(height: Responsive.h(2)),
-              Text(
-                "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: Responsive.textScaleFactor * 12,
-                  fontWeight: FontWeight.w400,
-                  height: 1.5,
                 ),
-              ),
-              SizedBox(height: Responsive.h(2)),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -537,713 +688,19 @@ class StudentPublicProfileView extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: Responsive.textScaleFactor * 12,
-            fontWeight: FontWeight.w700,
+        SizedBox(width: Responsive.w(2)),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: Responsive.textScaleFactor * 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
     );
   }
 }
-
-// import 'package:flutter/material.dart';
-// import 'package:flutter_svg/svg.dart';
-// import 'package:get/get.dart';
-// import 'package:toriino_todd/getx_controllers/advanceddrawercontroller%20.dart';
-// import 'package:toriino_todd/resources/colors/app_colors.dart';
-// import 'package:toriino_todd/utils/responsive.dart';
-// import 'package:toriino_todd/view/users/student_view/review.dart';
-// import 'package:google_fonts/google_fonts.dart';
-
-// class StudentPublicProfileView extends StatelessWidget {
-//   StudentPublicProfileView({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final CustomDrawerController customDrawerController =
-//         Get.find<CustomDrawerController>();
-
-//     Responsive.init(context);
-//     return Scaffold(
-//       backgroundColor: AppColor.primaryColor,
-//       body: SafeArea(
-//         child: CustomScrollView(
-//           slivers: [
-//             ListView(
-//               children: [
-//                 Padding(
-//                   padding: const EdgeInsets.all(8.0),
-//                   child: Column(
-//                     mainAxisAlignment: MainAxisAlignment.start,
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Row(
-//                         children: [
-//                           Expanded(
-//                             child: Row(
-//                               children: [
-//                                 SvgPicture.asset(
-//                                   "assets/icons/Arrow - Right 3 (1).svg",
-//                                 ),
-//                                 SizedBox(width: Responsive.w(2)),
-//                                 Text(
-//                                   'Student Profile',
-//                                   style: GoogleFonts.rethinkSans(
-//                                     color: AppColor.white,
-//                                     fontSize: Responsive.textScaleFactor * 18,
-//                                     fontWeight: FontWeight.w600,
-//                                     letterSpacing: -0.20,
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-
-//                           Container(
-//                             decoration: BoxDecoration(
-//                               shape: BoxShape.circle,
-//                               color: AppColor.backGroundColor.withValues(alpha:0.1),
-//                             ),
-//                             child: Padding(
-//                               padding: const EdgeInsets.all(8.0),
-//                               child: SvgPicture.asset(
-//                                 'assets/icons/notification.svg',
-//                               ),
-//                             ),
-//                           ),
-//                           SizedBox(width: Responsive.w(2)),
-//                           GestureDetector(
-//                             onTap: () {
-//                               return customDrawerController.toggleDrawer();
-//                             },
-
-//                             child: Container(
-//                               decoration: BoxDecoration(
-//                                 shape: BoxShape.circle,
-//                                 color: AppColor.backGroundColor.withValues(alpha:
-//                                   0.1,
-//                                 ),
-//                               ),
-//                               child: Padding(
-//                                 padding: const EdgeInsets.all(8.0),
-//                                 child: SvgPicture.asset(
-//                                   'assets/icons/menu.svg',
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                       //Profile Pic Name Domain and Share Icon
-//                       SizedBox(height: Responsive.h(2)),
-
-//                       Row(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                         children: [
-//                           Row(
-//                             crossAxisAlignment: CrossAxisAlignment.start,
-//                             children: [
-//                               CircleAvatar(
-//                                 radius: Responsive.w(10),
-//                                 backgroundImage: const AssetImage(
-//                                   "assets/icons/Ellipse 6 (1).png",
-//                                 ),
-//                               ),
-//                               SizedBox(width: Responsive.w(2)),
-
-//                               Column(
-//                                 crossAxisAlignment: CrossAxisAlignment.center,
-//                                 children: [
-//                                   Text(
-//                                     '--',
-//                                     style: GoogleFonts.dmSans(
-//                                       color: Colors.white,
-//                                       fontSize: Responsive.textScaleFactor * 18,
-//                                       fontWeight: FontWeight.w600,
-//                                       letterSpacing: -0.20,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ],
-//                           ),
-
-//                           Container(
-//                             decoration: BoxDecoration(
-//                               shape: BoxShape.circle,
-//                               color: AppColor.white.withValues(alpha: 0.08),
-//                             ),
-//                             child: Padding(
-//                               padding: const EdgeInsets.all(8.0),
-//                               child: SvgPicture.asset('assets/icons/share.svg'),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                       SizedBox(height: Responsive.h(2)),
-//                       Row(
-//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-//                         children: [
-//                           Text(
-//                             'Education Level',
-//                             style: GoogleFonts.dmSans(
-//                               color: Colors.white,
-//                               fontSize: Responsive.textScaleFactor * 12,
-//                               fontWeight: FontWeight.w700,
-//                               letterSpacing: -0.20,
-//                             ),
-//                           ),
-
-//                           Text(
-//                             'College',
-//                             style: GoogleFonts.dmSans(
-//                               color: Colors.white,
-//                               fontSize: Responsive.textScaleFactor * 12,
-//                               fontWeight: FontWeight.w700,
-//                               letterSpacing: -0.20,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                       SizedBox(height: Responsive.h(2)),
-
-//                       Text(
-//                         "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-//                         style: GoogleFonts.dmSans(
-//                           color: Colors.white,
-//                           fontSize: Responsive.textScaleFactor * 12,
-//                           fontWeight: FontWeight.w400,
-//                           height: 1.50,
-//                         ),
-//                       ),
-//                       SizedBox(height: Responsive.h(2)),
-//                       Row(
-//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                         children: [
-//                           Row(
-//                             children: [
-//                               SvgPicture.asset("assets/icons/mic.svg"),
-//                               Text(
-//                                 'English, German',
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: Responsive.textScaleFactor * 10,
-//                                   fontFamily: 'DM Sans',
-//                                   fontWeight: FontWeight.w400,
-//                                   letterSpacing: -0.20,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ],
-//                       ),
-
-//                       SizedBox(height: Responsive.h(2)),
-//                       //Divider
-//                       const Row(children: [Expanded(child: Divider())]),
-//                       SizedBox(height: Responsive.h(2)),
-//                       Row(
-//                         spacing: 5,
-//                         children: [
-//                           Expanded(
-//                             child: Container(
-//                               decoration: BoxDecoration(
-//                                 borderRadius: BorderRadius.circular(22),
-//                                 color: AppColor.white.withValues(alpha: 0.08),
-//                               ),
-//                               child: Padding(
-//                                 padding: const EdgeInsets.all(8.0),
-//                                 child: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       'Courses in Progress',
-//                                       style: TextStyle(
-//                                         color: Colors.white,
-//                                         fontSize:
-//                                             Responsive.textScaleFactor * 16,
-//                                         fontFamily: 'DM Sans',
-//                                         fontWeight: FontWeight.w400,
-//                                         letterSpacing: -0.20,
-//                                       ),
-//                                     ),
-//                                     Row(
-//                                       mainAxisAlignment: MainAxisAlignment.end,
-//                                       children: [
-//                                         Text(
-//                                           '03',
-//                                           textAlign: TextAlign.right,
-//                                           style: TextStyle(
-//                                             color: Colors.white,
-//                                             fontSize:
-//                                                 Responsive.textScaleFactor * 25,
-//                                             fontFamily: 'Rethink Sans',
-//                                             fontWeight: FontWeight.w500,
-//                                             letterSpacing: -0.30,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-//                           Expanded(
-//                             child: Container(
-//                               decoration: BoxDecoration(
-//                                 borderRadius: BorderRadius.circular(22),
-//                                 color: AppColor.white.withValues(alpha: 0.08),
-//                               ),
-//                               child: Padding(
-//                                 padding: const EdgeInsets.all(8.0),
-//                                 child: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       'Sessions Booked',
-//                                       style: TextStyle(
-//                                         color: Colors.white,
-//                                         fontSize:
-//                                             Responsive.textScaleFactor * 16,
-//                                         fontFamily: 'DM Sans',
-//                                         fontWeight: FontWeight.w400,
-//                                         letterSpacing: -0.20,
-//                                       ),
-//                                     ),
-//                                     Row(
-//                                       mainAxisAlignment: MainAxisAlignment.end,
-
-//                                       children: [
-//                                         Text(
-//                                           '02',
-//                                           textAlign: TextAlign.right,
-//                                           style: TextStyle(
-//                                             color: Colors.white,
-//                                             fontSize:
-//                                                 Responsive.textScaleFactor * 25,
-//                                             fontFamily: 'Rethink Sans',
-//                                             fontWeight: FontWeight.w500,
-//                                             letterSpacing: -0.30,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-//                           Expanded(
-//                             child: Container(
-//                               decoration: BoxDecoration(
-//                                 borderRadius: BorderRadius.circular(22),
-//                                 color: AppColor.white.withValues(alpha: 0.08),
-//                               ),
-//                               child: Padding(
-//                                 padding: const EdgeInsets.all(8.0),
-//                                 child: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       'Certificates Earned',
-//                                       style: TextStyle(
-//                                         color: Colors.white,
-//                                         fontSize:
-//                                             Responsive.textScaleFactor * 16,
-//                                         fontFamily: 'DM Sans',
-//                                         fontWeight: FontWeight.w400,
-//                                         letterSpacing: -0.20,
-//                                       ),
-//                                     ),
-//                                     Row(
-//                                       mainAxisAlignment: MainAxisAlignment.end,
-
-//                                       children: [
-//                                         Text(
-//                                           '01',
-//                                           textAlign: TextAlign.right,
-//                                           style: TextStyle(
-//                                             color: Colors.white,
-//                                             fontSize:
-//                                                 Responsive.textScaleFactor * 25,
-//                                             fontFamily: 'Rethink Sans',
-//                                             fontWeight: FontWeight.w500,
-//                                             letterSpacing: -0.30,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                       SizedBox(height: Responsive.h(2)),
-//                       //video view
-//                       ListView.builder(
-//                         shrinkWrap: true,
-//                         scrollDirection: NeverScrollableScrollPhysics(),
-//                         itemCount: 4,
-//                         itemBuilder:
-//                             (context, index) => Padding(
-//                               padding: Responsive.padding(
-//                                 left: 1,
-//                                 right: 1,
-//                                 bottom: 1,
-//                                 top: 1,
-//                               ),
-//                               child: Container(
-//                                 decoration: BoxDecoration(
-//                                   borderRadius: BorderRadius.circular(28),
-//                                   color: AppColor.white.withValues(alpha:0.08),
-//                                 ),
-//                                 child: Padding(
-//                                   padding: Responsive.padding(
-//                                     left: 2.5,
-//                                     right: 2.5,
-//                                     bottom: 2,
-//                                     top: 2,
-//                                   ),
-//                                   child: Column(
-//                                     crossAxisAlignment:
-//                                         CrossAxisAlignment.start,
-//                                     children: [
-//                                       SizedBox(height: Responsive.h(1)),
-//                                       Row(
-//                                         mainAxisAlignment:
-//                                             MainAxisAlignment.spaceBetween,
-//                                         children: [
-//                                           Row(
-//                                             children: [
-//                                               SvgPicture.asset(
-//                                                 "assets/icons/Frame 1000002079.svg",
-//                                                 // Using a placeholder icon
-//                                                 colorFilter: ColorFilter.mode(
-//                                                   AppColor.white,
-//                                                   BlendMode.srcIn,
-//                                                 ),
-//                                               ),
-//                                               SizedBox(width: Responsive.w(1)),
-//                                               Text(
-//                                                 "\$19.99",
-//                                                 style: TextStyle(
-//                                                   color: AppColor.white,
-//                                                   fontWeight: FontWeight.w500,
-//                                                   fontSize:
-//                                                       Responsive
-//                                                           .textScaleFactor *
-//                                                       14,
-//                                                 ),
-//                                               ),
-//                                             ],
-//                                           ),
-//                                           GestureDetector(
-//                                             onTap: () {
-//                                               _enrollBottomSheet(context);
-//                                             },
-//                                             child: Container(
-//                                               decoration: BoxDecoration(
-//                                                 borderRadius:
-//                                                     BorderRadius.circular(28),
-//                                                 color: AppColor.red,
-//                                               ),
-//                                               child: Padding(
-//                                                 padding: Responsive.padding(
-//                                                   left: 3,
-//                                                   right: 3,
-//                                                   bottom: 1,
-//                                                   top: 1,
-//                                                 ),
-//                                                 child: Row(
-//                                                   children: [
-//                                                     Text(
-//                                                       "Details",
-//                                                       style: TextStyle(
-//                                                         fontSize:
-//                                                             Responsive
-//                                                                 .textScaleFactor *
-//                                                             14,
-//                                                         color: AppColor.white,
-//                                                         fontWeight:
-//                                                             FontWeight.w700,
-//                                                       ),
-//                                                     ),
-//                                                     SizedBox(
-//                                                       width: Responsive.w(1),
-//                                                     ),
-//                                                     SvgPicture.asset(
-//                                                       "assets/icons/arrow.svg",
-//                                                       // Using a placeholder icon
-//                                                       colorFilter:
-//                                                           const ColorFilter.mode(
-//                                                             Colors.white,
-//                                                             BlendMode.srcIn,
-//                                                           ),
-//                                                     ),
-//                                                   ],
-//                                                 ),
-//                                               ),
-//                                             ),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       SizedBox(height: Responsive.h(1)),
-//                                       Text(
-//                                         "Duration: 2–5h",
-//                                         style: TextStyle(
-//                                           color: AppColor.white,
-//                                           fontWeight: FontWeight.w500,
-//                                           fontSize:
-//                                               Responsive.textScaleFactor * 14,
-//                                         ),
-//                                       ),
-//                                       SizedBox(height: 10),
-//                                       Row(
-//                                         mainAxisAlignment:
-//                                             MainAxisAlignment.spaceBetween,
-//                                         crossAxisAlignment:
-//                                             CrossAxisAlignment.end,
-//                                         children: [
-//                                           Text(
-//                                             "UI/UX Design Basics",
-//                                             style: TextStyle(
-//                                               fontSize:
-//                                                   Responsive.textScaleFactor *
-//                                                   20,
-//                                               color: AppColor.white,
-//                                               fontWeight: FontWeight.bold,
-//                                             ),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       SizedBox(height: Responsive.h(1)),
-//                                       Row(
-//                                         mainAxisAlignment:
-//                                             MainAxisAlignment.spaceBetween,
-//                                         crossAxisAlignment:
-//                                             CrossAxisAlignment.end,
-//                                         children: [
-//                                           Row(
-//                                             children: [
-//                                               CircleAvatar(
-//                                                 radius: Responsive.sp(22),
-//                                                 backgroundColor:
-//                                                     AppColor.secconderyColor,
-//                                                 child: Icon(
-//                                                   Icons.person,
-//                                                   color: AppColor.white,
-//                                                 ),
-//                                               ),
-//                                               SizedBox(width: Responsive.w(2)),
-//                                               Column(
-//                                                 crossAxisAlignment:
-//                                                     CrossAxisAlignment.start,
-//                                                 children: [
-//                                                   Text(
-//                                                     '--',
-//                                                     style: TextStyle(
-//                                                       color: AppColor.white,
-//                                                       fontWeight:
-//                                                           FontWeight.w500,
-//                                                       fontSize:
-//                                                           Responsive
-//                                                               .textScaleFactor *
-//                                                           14,
-//                                                     ),
-//                                                   ),
-//                                                   Text(
-//                                                     "Mentor",
-//                                                     style: TextStyle(
-//                                                       color: AppColor.white,
-//                                                       fontWeight:
-//                                                           FontWeight.w500,
-//                                                       fontSize:
-//                                                           Responsive
-//                                                               .textScaleFactor *
-//                                                           12,
-//                                                     ),
-//                                                   ),
-//                                                 ],
-//                                               ),
-//                                             ],
-//                                           ),
-//                                           Row(
-//                                             children: [
-//                                               Icon(
-//                                                 Icons.star,
-//                                                 color: AppColor.white,
-//                                                 size: Responsive.sp(16),
-//                                               ),
-//                                               SizedBox(width: Responsive.w(2)),
-//                                               Text(
-//                                                 "4.8",
-//                                                 style: TextStyle(
-//                                                   color: AppColor.white,
-//                                                   fontWeight: FontWeight.w500,
-//                                                   fontSize:
-//                                                       Responsive
-//                                                           .textScaleFactor *
-//                                                       14,
-//                                                 ),
-//                                               ),
-//                                             ],
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       SizedBox(height: Responsive.h(1)),
-//                                     ],
-//                                   ),
-//                                 ),
-//                               ),
-//                             ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// void _enrollBottomSheet(BuildContext context) {
-//   showModalBottomSheet(
-//     context: context,
-//     isScrollControlled: true,
-//     shape: const RoundedRectangleBorder(
-//       borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-//     ),
-//     backgroundColor: AppColor.primaryColor,
-//     builder: (context) {
-//       return Padding(
-//         padding: EdgeInsets.only(
-//           bottom: MediaQuery.of(context).viewInsets.bottom,
-//           left: Responsive.w(5),
-//           right: Responsive.w(5),
-//           top: Responsive.h(3),
-//         ),
-//         child: Column(
-//           mainAxisAlignment: MainAxisAlignment.start,
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             Row(
-//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//               children: [
-//                 Text(
-//                   "UI/UX Design Basics",
-//                   style: TextStyle(
-//                     color: AppColor.white,
-//                     fontSize: Responsive.textScaleFactor * 18,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//                 GestureDetector(
-//                   onTap: () {
-//                     Navigator.pop(context);
-//                   },
-//                   child: Icon(Icons.close, color: AppColor.white),
-//                 ),
-//               ],
-//             ),
-//             SizedBox(height: Responsive.h(2)),
-//             Row(
-//               children: [
-//                 CircleAvatar(
-//                   backgroundColor: AppColor.secconderyColor,
-//                   child: Icon(Icons.person, color: AppColor.white),
-//                 ),
-//                 SizedBox(width: Responsive.w(2)),
-//                 Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       '--',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: Responsive.textScaleFactor * 12,
-//                         fontWeight: FontWeight.w700,
-//                       ),
-//                     ),
-//                     Text(
-//                       'Teacher',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: Responsive.textScaleFactor * 12,
-//                         fontWeight: FontWeight.w400,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//             SizedBox(height: Responsive.h(2)),
-//             const Divider(color: Colors.grey),
-//             SizedBox(height: Responsive.h(2)),
-//             _cousreinfo("Course Category", "Design"),
-//             SizedBox(height: Responsive.h(1)),
-//             _cousreinfo("Course Duration", "2–5h"),
-//             SizedBox(height: Responsive.h(1)),
-//             _cousreinfo("Language", "English"),
-//             SizedBox(height: Responsive.h(1)),
-//             _cousreinfo("Rating", "4.5"),
-//             SizedBox(height: Responsive.h(1)),
-//             _cousreinfo("Price Info", "\$19.99"),
-//             SizedBox(height: Responsive.h(1)),
-//             _cousreinfo("Platform Fee", "\$4.99"),
-//             SizedBox(height: Responsive.h(2)),
-//             Text(
-//               "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: Responsive.textScaleFactor * 12,
-//                 fontWeight: FontWeight.w400,
-//                 height: 1.5,
-//               ),
-//             ),
-//           ],
-//         ),
-//       );
-//     },
-//   );
-// }
-
-// Widget _cousreinfo(String text1, String text2) {
-//   return Row(
-//     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//     children: [
-//       Text(
-//         text1,
-//         style: TextStyle(
-//           color: Colors.white,
-//           fontSize: Responsive.textScaleFactor * 12,
-//           fontWeight: FontWeight.w400,
-//         ),
-//       ),
-//       Text(
-//         text2,
-//         textAlign: TextAlign.right,
-//         style: TextStyle(
-//           color: Colors.white,
-//           fontSize: Responsive.textScaleFactor * 12,
-//           fontWeight: FontWeight.w700,
-//         ),
-//       ),
-//     ],
-//   );
-// }

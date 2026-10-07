@@ -24,6 +24,7 @@
     { "path": "/courses/{id}/lessons/{lessonId}", "methods": ["PUT", "DELETE"], "lambda": "toriino-courses" },
     { "path": "/courses/{id}/lessons/{lessonId}/media", "methods": ["GET"], "lambda": "toriino-courses" },
     { "path": "/courses/{id}/enroll", "methods": ["POST"], "lambda": "toriino-courses" },
+    { "path": "/courses/{id}/complete", "methods": ["POST"], "lambda": "toriino-courses" },
 
     { "path": "/sessions", "methods": ["GET", "POST"], "lambda": "toriino-sessions" },
     { "path": "/sessions/token", "methods": ["POST"], "lambda": "torino-api" },

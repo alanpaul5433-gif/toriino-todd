@@ -15,6 +15,13 @@ class CourseModel {
   final String? createdAt;
   final String? updatedAt;
 
+  /// Display name of the teacher, when the API includes one.
+  final String? teacherName;
+
+  /// Only on GET /courses/my-courses: the caller's own enrollment status
+  /// (`course.enrollment.status`, e.g. 'active' or 'completed').
+  final String? enrollmentStatus;
+
   CourseModel({
     this.courseId,
     this.teacherId,
@@ -31,16 +38,44 @@ class CourseModel {
     this.status,
     this.createdAt,
     this.updatedAt,
+    this.teacherName,
+    this.enrollmentStatus,
   });
 
+  bool get isCompleted => enrollmentStatus == 'completed';
+
+  CourseModel copyWith({String? enrollmentStatus}) {
+    return CourseModel(
+      courseId: courseId,
+      teacherId: teacherId,
+      title: title,
+      description: description,
+      category: category,
+      duration: duration,
+      price: price,
+      imageUrl: imageUrl,
+      level: level,
+      language: language,
+      rating: rating,
+      enrollmentCount: enrollmentCount,
+      status: status,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      teacherName: teacherName,
+      enrollmentStatus: enrollmentStatus ?? this.enrollmentStatus,
+    );
+  }
+
   factory CourseModel.fromJson(Map<String, dynamic> json) {
+    final enrollment = json['enrollment'];
+    final teacherName = json['teacherName'] ?? json['instructorName'];
     return CourseModel(
       courseId: json['courseId'],
       teacherId: json['teacherId'],
       title: json['title'],
       description: json['description'],
       category: json['category'],
-      duration: json['duration'],
+      duration: json['duration']?.toString(),
       price: (json['price'] as num?)?.toDouble(),
       imageUrl: json['imageUrl'],
       level: json['level'],
@@ -50,6 +85,13 @@ class CourseModel {
       status: json['status'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      teacherName: teacherName is String && teacherName.isNotEmpty
+          ? teacherName
+          : null,
+      enrollmentStatus:
+          enrollment is Map && enrollment['status'] is String
+              ? enrollment['status'] as String
+              : null,
     );
   }
 

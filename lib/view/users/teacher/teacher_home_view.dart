@@ -6,7 +6,6 @@ import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
-import 'package:toriino_todd/view/users/student_view/student_public_profile_view.dart';
 import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/edit_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_subcribption.dart';
@@ -686,13 +685,6 @@ Widget test(BuildContext context) {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 GestureDetector(
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StudentPublicProfileView(),
-                        ),
-                      ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,

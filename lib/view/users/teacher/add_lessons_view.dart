@@ -10,6 +10,7 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/course_enroll_flow.dart';
 import 'package:toriino_todd/view/users/student_view/lesson_video_view.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// One lesson row of a course. Lesson media is private: the video/material
 /// URL is fetched from GET /courses/{courseId}/lessons/{lessonId}/media right
@@ -57,13 +58,15 @@ class _CourseContentWidgetState extends State<CourseContentWidget> {
     final lesson = widget.lesson;
     if (lesson == null || !lesson.hasMaterial || _openingMaterial) return;
 
+    // Legacy lesson: a plain materialUrl stored before media became private.
     if (!lesson.hasMaterialKey) {
-      _showMaterialLink(lesson.materialUrl!, expires: false);
+      await _openExternal(lesson.materialUrl!, expires: false);
       return;
     }
 
     setState(() => _openingMaterial = true);
     try {
+      // Always fetch a fresh pre-signed link right before opening it.
       final res =
           await CourseRepo().getLessonMedia(_courseId, lesson.lessonId ?? '');
       final media = LessonMediaModel.fromJson(
@@ -73,7 +76,7 @@ class _CourseContentWidgetState extends State<CourseContentWidget> {
       if (url == null) {
         Utils.toastMassage('This lesson has no material.');
       } else {
-        _showMaterialLink(url, expires: true, expiresIn: media.expiresIn);
+        await _openExternal(url, expires: true, expiresIn: media.expiresIn);
       }
     } on PaymentRequiredException {
       if (mounted) await showEnrollRequiredDialog(context, widget.course);
@@ -84,8 +87,33 @@ class _CourseContentWidgetState extends State<CourseContentWidget> {
     }
   }
 
-  /// The app has no in-app document viewer / URL launcher, so the material's
-  /// (short-lived) link is shown for the user to copy and open.
+  /// Link-type lesson: opens its external https page.
+  Future<void> _openLink() async {
+    final link = widget.lesson?.url;
+    if (link == null || link.isEmpty) return;
+    await _openExternal(link, expires: false);
+  }
+
+  /// Opens [url] in an external app/browser. If that is not possible, shows
+  /// an error and falls back to the copy-link dialog.
+  Future<void> _openExternal(String url,
+      {required bool expires, int expiresIn = 300}) async {
+    final uri = Uri.tryParse(url);
+    var opened = false;
+    if (uri != null && uri.hasScheme) {
+      try {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
+    }
+    if (opened || !mounted) return;
+    Utils.toastMassage('Could not open the link on this device.');
+    _showMaterialLink(url, expires: expires, expiresIn: expiresIn);
+  }
+
+  /// Fallback when no app can open the link: the (possibly short-lived) link
+  /// is shown for the user to copy and open.
   void _showMaterialLink(String url, {required bool expires, int expiresIn = 300}) {
     showDialog<void>(
       context: context,
@@ -218,12 +246,40 @@ class _CourseContentWidgetState extends State<CourseContentWidget> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.download, color: Colors.blue),
+                        : const Icon(Icons.open_in_new, color: Colors.blue),
                   ],
                 ),
               ),
             ),
-          if (!(lesson?.hasVideo ?? false) && !(lesson?.hasMaterial ?? false))
+          // Link-type lesson: an external https page.
+          if (lesson?.hasLink ?? false)
+            GestureDetector(
+              onTap: _openLink,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.link, color: Colors.blue, size: 32),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Open lesson link',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Icon(Icons.open_in_new, color: Colors.blue),
+                  ],
+                ),
+              ),
+            ),
+          if (!(lesson?.hasVideo ?? false) &&
+              !(lesson?.hasMaterial ?? false) &&
+              !(lesson?.hasLink ?? false))
             const Padding(
               padding: EdgeInsets.all(12),
               child: Text('No media for this lesson.',

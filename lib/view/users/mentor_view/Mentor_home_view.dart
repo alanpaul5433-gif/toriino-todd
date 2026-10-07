@@ -8,7 +8,6 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
-import 'package:toriino_todd/view/users/student_view/student_public_profile_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
 import 'package:toriino_todd/resources/routes/routes_name.dart';
@@ -741,13 +740,6 @@ Widget recentSessionsHistoryCard(BuildContext context, {SessionModel? session}) 
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 GestureDetector(
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StudentPublicProfileView(),
-                        ),
-                      ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,

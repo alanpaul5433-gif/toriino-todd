@@ -19,6 +19,9 @@ class LessonModel {
   /// is absent.
   final String? materialUrl;
 
+  /// Link-type lessons only: an external https page (not private media).
+  final String? url;
+
   final String? materialType;
   final String? duration;
   final int? order;
@@ -33,6 +36,7 @@ class LessonModel {
     this.materialKey,
     this.videoUrl,
     this.materialUrl,
+    this.url,
     this.materialType,
     this.duration,
     this.order,
@@ -49,6 +53,7 @@ class LessonModel {
       materialKey: json['materialKey'],
       videoUrl: json['videoUrl'],
       materialUrl: json['materialUrl'],
+      url: json['url'] is String ? json['url'] as String : null,
       materialType: json['materialType'],
       duration: json['duration']?.toString(),
       order: json['order'] is num
@@ -67,12 +72,16 @@ class LessonModel {
   /// True when the lesson has a material to open (private key or legacy URL).
   bool get hasMaterial => hasMaterialKey || (materialUrl ?? '').isNotEmpty;
 
+  /// True for a link-type lesson that points at an external page.
+  bool get hasLink => (url ?? '').isNotEmpty;
+
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{};
     if (title != null) data['title'] = title;
     if (description != null) data['description'] = description;
     if (videoKey != null) data['videoKey'] = videoKey;
     if (materialKey != null) data['materialKey'] = materialKey;
+    if (url != null) data['url'] = url;
     if (materialType != null) data['materialType'] = materialType;
     if (duration != null) data['duration'] = duration;
     if (order != null) data['order'] = order;

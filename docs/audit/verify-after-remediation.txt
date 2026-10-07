@@ -1,4 +1,4 @@
-Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T17:58:41.332Z
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T19:00:06.891Z
 
  1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
       ok   Cognito login student ok, custom:role=student
@@ -105,7 +105,7 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda torino-api: env AGORA_APP_CERTIFICATE is set
       ok   POST /sessions/token → 200
 
-17. [WORKS] Session recording
+17. [BLOCKED] Session recording
       ok   route GET /sessions/x/recording (GET /sessions/{id}/recording → toriino-agora-recording) has Cognito authorizer
       ok   route POST /sessions/x/recording/start (POST /sessions/{id}/recording/start → toriino-agora-recording) has Cognito authorizer
       ok   route POST /sessions/x/recording/stop (POST /sessions/{id}/recording/stop → toriino-agora-recording) has Cognito authorizer
@@ -118,8 +118,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_SECRET is an SSM parameter (value not read)
       ok   table toriino-recordings exists
       ok   GET /sessions/{none}/recording → 404 "Recording not found"
+      FAIL (blocker) POST /sessions/verify-backend-test-session-probe/recording/start (bogus token) → 503 "Agora cloud recording not configured"
 
-18. [WORKS] Transcript / summary
+18. [BLOCKED] Transcript / summary
       ok   route GET /sessions/x/transcript (GET /sessions/{id}/transcript → toriino-ai-transcripts) has Cognito authorizer
       ok   route GET /sessions/x/summary (GET /sessions/{id}/summary → toriino-ai-summaries) has Cognito authorizer
       ok   Lambda toriino-ai-transcripts: handler file index.js present
@@ -131,9 +132,10 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   table toriino-session-summaries exists
       ok   GET /sessions/{none}/transcript → 404 "Transcript not found"
       ok   GET /sessions/{none}/summary → 404 "Summary not found"
+      FAIL (blocker) POST /sessions/verify-backend-test-session-probe/summary → 503 "Gemini not configured"
       ok   app: transcript segments are recorded (addSegment called)
 
-19. [WORKS] AI Tutor chat (P2-1)
+19. [BLOCKED] AI Tutor chat (P2-1)
       ok   route GET /ai/chat/x (GET /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
       ok   route POST /ai/chat/x (POST /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
       ok   Lambda toriino-ai-chat: handler file index.js present
@@ -141,8 +143,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   table toriino-ai-chat exists
       ok   GET /ai/chat/{self} → 200
       ok   GET /ai/chat/{other user} (expect 403) → 403 "Forbidden"
+      FAIL (blocker) POST /ai/chat/{self} → 503 "Gemini not configured"
 
-20. [WORKS] AI Twins / Memory
+20. [BLOCKED] AI Twins / Memory
       ok   route GET /ai/twins/x (GET /ai/twins/{userId} → toriino-ai-twins) has Cognito authorizer
       ok   route GET /ai/memory/x (GET /ai/memory/{userId} → toriino-ai-memory) has Cognito authorizer
       ok   Lambda toriino-ai-twins: handler file index.js present
@@ -155,6 +158,8 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /ai/twins/{self} → 404 "AI Twin not found"
       ok   GET /ai/memory/{self} → 200
       ok   GET /ai/memory/{self}/graph → 200
+      FAIL (blocker) POST /ai/memory/{self}/recommend → 503 "Gemini not configured"
+      FAIL (blocker) POST /ai/twins/{self} → 503 "Gemini not configured"
       note (note) app: no screen uses AI Twins / Memory
 
 21. [WORKS] Wallet (P5-3)
@@ -254,10 +259,10 @@ Summary
   14. WORKS        Mentor availability (P7-1)
   15. WORKS        Sessions list (P7-2)
   16. WORKS        Live-session Agora token
-  17. WORKS        Session recording
-  18. WORKS        Transcript / summary
-  19. WORKS        AI Tutor chat (P2-1)
-  20. WORKS        AI Twins / Memory
+  17. BLOCKED      Session recording
+  18. BLOCKED      Transcript / summary
+  19. BLOCKED      AI Tutor chat (P2-1)
+  20. BLOCKED      AI Twins / Memory
   21. WORKS        Wallet (P5-3)
   22. WORKS        Student search (P7-2)
   23. WORKS        Earnings (P5-4)
@@ -266,5 +271,5 @@ Summary
   26. WORKS        Reviews + one-per-student rule (P2-5)
   27. WORKS        Admin panel (P10-7, P1-2)
 
-TOTAL: 24 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 3 BLOCKED  (of 27)
+TOTAL: 20 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 7 BLOCKED  (of 27)
 RESULT: PASS (every feature WORKS or BLOCKED)
