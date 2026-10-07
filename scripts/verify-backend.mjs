@@ -514,6 +514,130 @@ async function probeTwin(c, U) {
   }
 }
 
+// ── GET /users/{id}: access rule + no contact details ──────
+// Rule (users Lambda): teacher/mentor profiles are public; a student profile is visible
+// only to the student, or to a teacher/mentor sharing a session or an active enrollment
+// in one of their courses. Contact details (email, phone) are never returned.
+const CONTACT_KEY = /^(email|e-?mail|phone|phone_?number|mobile|contactEmail|contactPhone)$/i;
+function contactLeaks(json, text, targetItem, extraEmail) {
+  const leaks = [];
+  (function walk(o, p) {
+    if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) {
+      if (CONTACT_KEY.test(k)) leaks.push(`${p}${k}`);
+      walk(v, `${p}${k}.`);
+    }
+  })(json, '');
+  // Values from the target's own record must not appear anywhere in the body (not printed).
+  const values = [targetItem?.email?.S, targetItem?.phone?.S, targetItem?.phoneNumber?.S, extraEmail].filter(v => v && v.length > 3);
+  if (values.some(v => text.includes(v))) leaks.push('contact value in body');
+  return leaks;
+}
+function relatedPerData(educatorId, studentId) {
+  const sess = aws(['dynamodb', 'scan', '--table-name', 'torino-sessions', '--filter-expression', 'studentId = :s AND (mentorId = :c OR teacherId = :c)',
+    '--expression-attribute-values', JSON.stringify({ ':s': { S: studentId }, ':c': { S: educatorId } }), '--select', 'COUNT']).Count;
+  const courses = (aws(['dynamodb', 'scan', '--table-name', 'torino-courses', '--filter-expression', 'teacherId = :c OR mentorId = :c',
+    '--expression-attribute-values', JSON.stringify({ ':c': { S: educatorId } }), '--projection-expression', 'courseId']).Items || []).map(i => i.courseId.S);
+  const enrolled = courses.some(cid => scanFor('toriino-enrollments', 'courseId', cid).some(e => [e.userId?.S, e.studentId?.S].includes(studentId)));
+  return sess > 0 || enrolled;
+}
+async function checkUserById(c, U) {
+  c.route('GET', '/users/x', { lambda: 'toriino-users' });
+  const userItem = id => aws(['dynamodb', 'get-item', '--table-name', 'torino-users', '--key', JSON.stringify({ userId: { S: id } })])?.Item;
+  const view = async (label, caller, targetId, expect, targetEmail) => {
+    const raw = await fetch(`${BASE}/users/${targetId}`, { headers: { Authorization: `Bearer ${caller.id}` } });
+    const text = await raw.text(); let json = null; try { json = JSON.parse(text); } catch { }
+    const res = { status: raw.status, msg: String(json?.error || json?.message || '') };
+    c.check(res.status === expect, 'defect', `GET /users/{id} ${label} → ${res.status}`,
+      `GET /users/{id} ${label} → ${res.status}${res.msg ? ` "${res.msg}"` : ''}, expected ${expect}`);
+    const leaks = contactLeaks(json, text, userItem(targetId), targetEmail);
+    c.check(leaks.length === 0, 'defect', `GET /users/{id} ${label}: no email/phone in the response`,
+      `GET /users/{id} ${label}: response exposes ${leaks.join(', ')}`);
+  };
+  const S = U.STUDENT, T = U.TEACHER, M = U.MENTOR;
+  // Refusals: an unrelated teacher, and another student.
+  if (!relatedPerData(T.sub, S.sub)) await view('unrelated teacher → test student', T, S.sub, 403, S.email);
+  else c.fail('defect', 'GET /users/{id}: test teacher is related to the test student, so the unrelated-educator case cannot be checked');
+  const other = (aws(['dynamodb', 'scan', '--table-name', 'torino-users', '--filter-expression', '#r IN (:a, :b)',
+    '--expression-attribute-names', '{"#r":"role"}', '--expression-attribute-values', '{":a":{"S":"student"},":b":{"S":"Student"}}',
+    '--projection-expression', 'userId']).Items || []).map(i => i.userId.S).filter(id => id !== S.sub).sort()[0];
+  if (other) await view('test student → another student', S, other, 403);
+  else c.fail('defect', 'GET /users/{id}: no other student record to check the student → student refusal');
+  // Allowed views must still carry no contact details.
+  if (relatedPerData(M.sub, S.sub)) await view('related mentor → test student', M, S.sub, 200, S.email);
+  else c.fail('note', 'GET /users/{id}: no mentor shares a session with the test student; related-educator view not checked');
+  await view('student → test teacher (public profile)', S, T.sub, 200, T.email);
+  await view('test student → self', S, S.sub, 200);
+}
+
+// ── GET /payments/quote: server fee split matches PLATFORM_FEE_PERCENT ─
+async function checkQuote(c, U) {
+  c.route('GET', '/payments/quote', { lambda: 'toriino-payments' });
+  const prefix = (await lambdaInfo('toriino-payments')).env?.SSM_PREFIX;
+  const p = prefix && awsTry(['ssm', 'get-parameter', '--name', `${prefix}PLATFORM_FEE_PERCENT`]); // SSM String, not a secret
+  const pct = p?.ok ? Number(p.data.Parameter.Value) : NaN;
+  if (!c.check(Number.isFinite(pct) && pct >= 0 && pct <= 100, 'defect', `PLATFORM_FEE_PERCENT = ${pct}%`,
+    'PLATFORM_FEE_PERCENT is missing or not a number 0–100')) return;
+  const expect = priceDollars => {
+    const priceCents = Math.round(priceDollars * 100), fee = Math.round(priceCents * pct / 100);
+    return { price: priceCents / 100, platformFee: fee / 100, teacherShare: (priceCents - fee) / 100 };
+  };
+  const compare = (label, res, priceDollars) => {
+    if (!is2xx(res)) return c.live(label, res, () => false);
+    const e = expect(priceDollars), q = res.json || {};
+    const diffs = ['price', 'platformFee', 'teacherShare'].filter(k => q[k] !== e[k]);
+    if (q.platformFeePercent !== pct) diffs.push('platformFeePercent');
+    c.check(diffs.length === 0, 'defect',
+      `${label} → price ${q.price}, fee ${q.platformFee} (${q.platformFeePercent}%), teacher ${q.teacherShare} — matches`,
+      `${label} → ${JSON.stringify(Object.fromEntries(['price', 'platformFeePercent', 'platformFee', 'teacherShare'].map(k => [k, q[k]])))}, expected ${JSON.stringify({ ...e, platformFeePercent: pct })}`);
+  };
+  const course = (aws(['dynamodb', 'scan', '--table-name', 'torino-courses', '--filter-expression', 'price > :z AND (attribute_not_exists(#s) OR #s <> :d)',
+    '--expression-attribute-names', '{"#s":"status"}', '--expression-attribute-values', '{":z":{"N":"0"},":d":{"S":"deleted"}}',
+    '--projection-expression', 'courseId,price']).Items || []).map(i => ({ id: i.courseId.S, price: Number(i.price.N) })).sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (course) compare(`GET /payments/quote?courseId=${course.id}`, await api('GET', `/payments/quote?courseId=${course.id}`, U.STUDENT), course.price);
+  const mentor = approvedMentor();
+  if (mentor) compare(`GET /payments/quote?mentorId=…&duration=45 (hourlyRate ${mentor.rate})`,
+    await api('GET', `/payments/quote?mentorId=${mentor.id}&duration=45`, U.STUDENT), mentor.rate * 45 / 60);
+}
+function approvedMentor() {
+  return (aws(['dynamodb', 'scan', '--table-name', 'torino-mentors', '--filter-expression', 'hourlyRate > :z AND (attribute_not_exists(approved) OR approved = :t)',
+    '--expression-attribute-values', '{":z":{"N":"0"},":t":{"BOOL":true}}', '--projection-expression', 'mentorId,hourlyRate']).Items || [])
+    .map(i => ({ id: i.mentorId.S, rate: Number(i.hourlyRate.N) })).sort((a, b) => a.id.localeCompare(b.id))[0];
+}
+
+// ── Booking: a client-sent price must be ignored or rejected ─
+// Write test: the student books a real mentor sending price 1 / currency eur. Passes if
+// the booking is refused (4xx) or the stored session has the server price
+// (hourlyRate × duration, usd). The session row is deleted afterwards.
+async function checkBookingPrice(c, U) {
+  const mentor = approvedMentor();
+  if (!mentor) return c.fail('defect', 'booking price test: no approved mentor with an hourlyRate');
+  const minutes = 30, serverPrice = Math.round(mentor.rate * minutes / 60 * 100) / 100;
+  const marker = `${TEST_MARKER} (booking price)`;
+  const findMine = () => (aws(['dynamodb', 'scan', '--table-name', 'torino-sessions', '--filter-expression', '#t = :t',
+    '--expression-attribute-names', '{"#t":"title"}', '--expression-attribute-values', JSON.stringify({ ':t': { S: marker } })]).Items || []);
+  let res;
+  try {
+    res = await api('POST', '/sessions', U.STUDENT, {
+      mentorId: mentor.id, duration: minutes, price: 1, currency: 'eur', title: marker,
+      dateTime: new Date(Date.now() + 365 * 864e5).toISOString(),
+    });
+    if (res.status >= 400 && res.status < 500) c.pass(`booking with a client price → ${res.status} (rejected)`);
+    else if (res.status === 201) {
+      const stored = findMine()[0];
+      const price = Number(stored?.price?.N), cur = stored?.currency?.S;
+      c.check(price === serverPrice && cur === 'usd', 'defect',
+        `booking with client price 1 eur → stored ${price} ${cur} = server price (hourlyRate ${mentor.rate} × ${minutes} min)`,
+        `booking with client price 1 eur → stored ${price} ${cur}, expected server price ${serverPrice} usd`);
+      const p = res.json?.session?.pricing;
+      if (p) c.check(p.price === serverPrice, 'defect', `booking response pricing.price = ${p.price}`, `booking response pricing.price = ${p.price}, expected ${serverPrice}`);
+    } else c.live('POST /sessions (booking with a client price)', res, () => false);
+  } finally {
+    const rows = findMine();
+    for (const r of rows) aws(['dynamodb', 'delete-item', '--table-name', 'torino-sessions', '--key', JSON.stringify({ sessionId: r.sessionId })]);
+    if (rows.length) c.pass(`write test cleanup: deleted ${rows.length} test session(s)`);
+  }
+}
+
 // ── Features (same 27 as docs/audit/backend-verification.md) ─
 const FEATURES = [
   ['Sign-up / login / OTP (P3-5, P3-6)', async (c, U) => {
@@ -532,6 +656,7 @@ const FEATURES = [
     await c.lambda('toriino-users');
     await c.envTable('toriino-users', 'USERS_TABLE');
     for (const r of ['STUDENT', 'TEACHER', 'MENTOR']) c.live(`GET /users/profile as ${r.toLowerCase()}`, await api('GET', '/users/profile', U[r]), is2xx);
+    await checkUserById(c, U);
   }],
   ['Profile edit / change password / delete account', async (c) => {
     for (const f of ['lib/view/users/student_view/edit_profile_view.dart', 'lib/view/users/mentor_view/edit_mentor_profile_view.dart', 'lib/view/users/teacher/teacher_profile_edit_view.dart'])
@@ -588,6 +713,7 @@ const FEATURES = [
     const label = 'POST /payments/create-intent with an empty body';
     if (res.status === 503 && /Stripe not configured/i.test(res.msg)) c.fail('blocker', `${label} → 503 "${res.msg}"`);
     else c.live(label, res, x => x.status === 400);
+    await checkQuote(c, U);
   }],
   ['Stripe webhook (P1-3)', async (c) => {
     const names = ['stripe-webhook', 'toriino-stripe-webhook'];
@@ -656,10 +782,13 @@ const FEATURES = [
       c.check(foreign === 0, 'defect', `GET /sessions?role=${r.toLowerCase()} → ${items.length} session(s), all the caller's`,
         `GET /sessions?role=${r.toLowerCase()} → ${foreign} of ${items.length} sessions belong to other users (data leak)`);
     }
+    await checkBookingPrice(c, U);
   }],
   ['Live-session Agora token', async (c, U) => {
     c.route('POST', '/sessions/token');
-    await c.envVars(MONOLITH, ['AGORA_APP_ID', 'AGORA_APP_CERTIFICATE']);
+    await c.envVars(MONOLITH, ['AGORA_APP_ID']);
+    // Plain env var or SSM parameter under the Lambda's SSM_PREFIX; not an allowed blocker.
+    await c.secret(MONOLITH, 'AGORA_APP_CERTIFICATE', 'defect');
     c.live('POST /sessions/token', await api('POST', '/sessions/token', U.STUDENT, { channelName: 'verify-backend-probe', uid: 0 }),
       r => is2xx(r) && typeof r.json?.token === 'string');
   }],
@@ -667,7 +796,8 @@ const FEATURES = [
     for (const [m, p] of [['GET', '/sessions/x/recording'], ['POST', '/sessions/x/recording/start'], ['POST', '/sessions/x/recording/stop']])
       c.route(m, p, { lambda: 'toriino-agora-recording' });
     await c.lambda('toriino-agora-recording');
-    await c.envVars('toriino-agora-recording', ['AGORA_APP_ID', 'AGORA_APP_CERTIFICATE', 'RECORDING_TABLE', 'RECORDING_S3_BUCKET']);
+    await c.envVars('toriino-agora-recording', ['AGORA_APP_ID', 'RECORDING_TABLE', 'RECORDING_S3_BUCKET']);
+    await c.secret('toriino-agora-recording', 'AGORA_APP_CERTIFICATE', 'defect');
     for (const v of ['AGORA_CUSTOMER_ID', 'AGORA_CUSTOMER_SECRET']) await c.secret('toriino-agora-recording', v);
     c.tables('toriino-recordings');
     c.live('GET /sessions/{none}/recording', await api('GET', '/sessions/verify-backend-none/recording', U.STUDENT), not5xx);
