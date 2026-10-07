@@ -306,10 +306,18 @@ Resources:
         Variables:
           USERS_TABLE: !Ref UsersTable
           MENTORS_TABLE: !Ref MentorsTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          COURSES_TABLE: !Ref CoursesTable
+          ENROLLMENTS_TABLE: !Ref EnrollmentsTable
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
           CDN_BASE: !Sub https://${MediaDistribution.DomainName}
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref UsersTable }
+        # GET /users/{id}: read-only access to decide what a caller may see
+        - DynamoDBReadPolicy: { TableName: !Ref MentorsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref SessionsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref CoursesTable }
+        - DynamoDBReadPolicy: { TableName: !Ref EnrollmentsTable }
         - Statement:
             - Effect: Allow
               Action: dynamodb:UpdateItem
@@ -416,8 +424,13 @@ Resources:
           LESSONS_TABLE: !Ref LessonsTable
           ENROLLMENTS_TABLE: !Ref EnrollmentsTable
           MEDIA_BUCKET: !Ref UploadBucket
+          USERS_TABLE: !Ref UsersTable
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref CoursesTable }
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:BatchGetItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
         - DynamoDBCrudPolicy: { TableName: !Ref LessonsTable }
         - DynamoDBCrudPolicy: { TableName: !Ref EnrollmentsTable }
         - Statement:

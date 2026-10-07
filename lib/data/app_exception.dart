@@ -38,3 +38,15 @@ class PaymentRequiredException extends AppException {
   PaymentRequiredException(String massage, {this.price})
       : super(massage, "Payment Required");
 }
+
+/// HTTP 403 — the caller is signed in but not allowed to see this resource.
+/// Carries the server's own {error} message.
+class ForbiddenException extends AppException {
+  ForbiddenException(String massage) : super(massage, "Forbidden");
+}
+
+/// HTTP 404 — the requested resource does not exist.
+/// Carries the server's own {error} message.
+class NotFoundException extends AppException {
+  NotFoundException(String massage) : super(massage, "Not Found");
+}

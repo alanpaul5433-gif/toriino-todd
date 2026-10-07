@@ -28,7 +28,10 @@
  * Env: COURSES_TABLE (PK courseId) — torino-courses, the table holding the live courses
  *      (see docs/ARCHITECTURE.md), LESSONS_TABLE (PK courseId, SK lessonId),
  *      ENROLLMENTS_TABLE (PK enrollmentId; userId, courseId attributes),
- *      MEDIA_BUCKET (private bucket holding lessons/ and course-materials/ objects)
+ *      MEDIA_BUCKET (private bucket holding lessons/ and course-materials/ objects),
+ *      USERS_TABLE (read-only, to add teacherName to course responses)
+ *
+ * Every course in a response carries `teacherName` (the owner's display name) when known.
  */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
@@ -50,6 +53,7 @@ const COURSES_TABLE = process.env.COURSES_TABLE;
 const LESSONS_TABLE = process.env.LESSONS_TABLE;
 const ENROLLMENTS_TABLE = process.env.ENROLLMENTS_TABLE;
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+const USERS_TABLE = process.env.USERS_TABLE; // read-only: teacher display names
 const MEDIA_URL_TTL = 300; // seconds
 
 const s3 = new S3Client({ region: REGION });
@@ -104,6 +108,31 @@ async function scanAll(params, max = Infinity) {
     ExclusiveStartKey = page.LastEvaluatedKey;
   } while (ExclusiveStartKey && items.length < max);
   return items;
+}
+
+// Adds teacherName (display name only) from the users table, one batched read per response.
+async function withTeacherNames(courses) {
+  if (!USERS_TABLE || courses.length === 0) return courses;
+  const ids = [...new Set(courses.map((c) => c.teacherId || c.mentorId).filter(Boolean))];
+  const names = {};
+  try {
+    for (let i = 0; i < ids.length; i += 100) {
+      let request = { [USERS_TABLE]: { Keys: ids.slice(i, i + 100).map((userId) => ({ userId })), ProjectionExpression: "userId, #n", ExpressionAttributeNames: { "#n": "name" } } };
+      for (let attempt = 0; request && Object.keys(request).length && attempt < 5; attempt++) {
+        const r = await dynamodb.send(new BatchGetCommand({ RequestItems: request }));
+        for (const u of r.Responses?.[USERS_TABLE] || []) if (u.name) names[u.userId] = u.name;
+        request = r.UnprocessedKeys;
+      }
+    }
+  } catch (err) {
+    // Names are cosmetic: never fail a course response because of them.
+    log("WARN", "Teacher name lookup failed", { error: err.message });
+    return courses;
+  }
+  return courses.map((c) => {
+    const name = c.teacherName || names[c.teacherId || c.mentorId];
+    return name ? { ...c, teacherName: name } : c;
+  });
 }
 
 async function getCourseItem(courseId) {
@@ -198,7 +227,7 @@ async function listCourses({ category, limit, lastKey }) {
   } while (ExclusiveStartKey && courses.length < pageSize);
 
   return response(200, {
-    courses,
+    courses: await withTeacherNames(courses),
     count: courses.length,
     lastKey: ExclusiveStartKey ? encodeURIComponent(JSON.stringify(ExclusiveStartKey)) : null,
   });
@@ -206,7 +235,7 @@ async function listCourses({ category, limit, lastKey }) {
 
 async function getCourse(courseId) {
   const course = await getCourseItem(courseId);
-  return course ? response(200, course) : response(404, { error: "Course not found" });
+  return course ? response(200, (await withTeacherNames([course]))[0]) : response(404, { error: "Course not found" });
 }
 
 async function createCourse(userId, claims, data) {
@@ -570,7 +599,7 @@ async function myEnrolledCourses(userId) {
     .filter((e) => byId[e.courseId] && byId[e.courseId].status !== DELETED)
     .filter((e) => !seen.has(e.courseId) && seen.add(e.courseId))
     .map((e) => ({ ...byId[e.courseId], enrollment: e }));
-  return response(200, { courses, count: courses.length });
+  return response(200, { courses: await withTeacherNames(courses), count: courses.length });
 }
 
 async function myCreatedCourses(userId) {
@@ -580,5 +609,5 @@ async function myCreatedCourses(userId) {
     ExpressionAttributeNames: { "#s": "status" },
     ExpressionAttributeValues: { ":u": userId, ":d": DELETED },
   });
-  return response(200, { courses, count: courses.length });
+  return response(200, { courses: await withTeacherNames(courses), count: courses.length });
 }

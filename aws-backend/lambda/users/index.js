@@ -7,10 +7,18 @@
  *   POST   /users/avatar    legacy: pre-signed avatar upload (app now uses GET /upload-url)
  *   DELETE /users/account   delete the Cognito user, then the profile record
  *
+ *   GET    /users/{id}      another user's profile, safe fields only:
+ *            - teacher/mentor: public profile (name, avatar, bio, title, expertise, rating,
+ *              intro video, published courses) for any signed-in user
+ *            - student: only for a teacher/mentor who shares a session with them or teaches
+ *              a course they are enrolled in (403 otherwise); returns name, avatar, bio and
+ *              the shared courses/sessions. Never email, phone, wallet, earnings, tokens…
+ *
  * Profile field introVideoUrl must be a CloudFront URL from an upload to folder
  * intro-videos (GET /upload-url); for mentors it is mirrored onto the mentor record.
  *
- * Env: USERS_TABLE, MENTORS_TABLE, COGNITO_USER_POOL_ID, CDN_BASE
+ * Env: USERS_TABLE, MENTORS_TABLE, SESSIONS_TABLE, COURSES_TABLE, ENROLLMENTS_TABLE,
+ *      COGNITO_USER_POOL_ID, CDN_BASE
  */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
@@ -19,6 +27,7 @@ const {
   PutCommand,
   UpdateCommand,
   DeleteCommand,
+  ScanCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const {
   CognitoIdentityProviderClient,
@@ -30,6 +39,9 @@ const TABLE = process.env.USERS_TABLE;
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
 const MENTORS_TABLE = process.env.MENTORS_TABLE;
 const CDN_BASE = process.env.CDN_BASE || "";
+const SESSIONS_TABLE = process.env.SESSIONS_TABLE;
+const COURSES_TABLE = process.env.COURSES_TABLE;
+const ENROLLMENTS_TABLE = process.env.ENROLLMENTS_TABLE;
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
@@ -86,6 +98,12 @@ exports.handler = async (event) => {
       return response(410, { error: "Use GET /upload-url?folder=profiles to upload an avatar" });
     }
     if (path === "/users/account" && method === "DELETE") return await deleteAccount(userId, claims);
+    const other = path.match(/^\/users\/([^/]+)$/);
+    if (other && method === "GET") {
+      let targetId = other[1];
+      try { targetId = decodeURIComponent(targetId); } catch { /* keep raw */ }
+      return await viewProfile(userId, claims, targetId);
+    }
     return response(404, { error: "Route not found" });
   } catch (error) {
     log("ERROR", "Users handler error", { error: error.message, path, method });
@@ -204,4 +222,111 @@ async function deleteAccount(userId, claims) {
   }
   log("INFO", "Account deleted", { userId });
   return response(200, { message: "Account deleted" });
+}
+
+// ── View another user's profile (GET /users/{id}) ──────────
+// Whitelists only: a stored field is returned only if it is listed here.
+const PUBLIC_TEACHER_FIELDS = ["name", "avatarUrl", "bio", "title", "expertise", "specialties", "language", "introVideoUrl"];
+const STUDENT_FIELDS = ["name", "avatarUrl", "bio"];
+const INACTIVE_ENROLLMENT = new Set(["refunded", "cancelled"]);
+const HIDDEN_COURSE = new Set(["deleted", "draft"]);
+const pick = (obj, fields) => Object.fromEntries(fields.filter((f) => obj?.[f] !== undefined).map((f) => [f, obj[f]]));
+
+async function scanAll(params) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const page = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey }));
+    items.push(...(page.Items || []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+async function viewProfile(callerId, claims, targetId) {
+  if (!MENTORS_TABLE || !SESSIONS_TABLE || !COURSES_TABLE || !ENROLLMENTS_TABLE) {
+    return response(503, { error: "Profile view not configured" });
+  }
+  const [userRes, mentorRes] = await Promise.all([
+    dynamodb.send(new GetCommand({ TableName: TABLE, Key: { userId: targetId } })),
+    dynamodb.send(new GetCommand({ TableName: MENTORS_TABLE, Key: { mentorId: targetId } })),
+  ]);
+  const user = userRes.Item;
+  const mentor = mentorRes.Item;
+  const role = String(user?.role || (mentor ? "mentor" : "")).toLowerCase();
+  if (!user && !mentor) return response(404, { error: "User not found" });
+
+  if (role === "teacher" || role === "mentor") {
+    if (mentor && mentor.approved === false && callerId !== targetId) return response(404, { error: "User not found" });
+    return response(200, await teacherPublicProfile(targetId, role, user, mentor));
+  }
+  if (role === "student") return await studentProfileForEducator(callerId, claims, targetId, user);
+  return response(404, { error: "User not found" });
+}
+
+async function teacherPublicProfile(targetId, role, user, mentor) {
+  const courses = (await scanAll({
+    TableName: COURSES_TABLE,
+    FilterExpression: "teacherId = :t OR mentorId = :t",
+    ExpressionAttributeValues: { ":t": targetId },
+  }))
+    .filter((c) => !HIDDEN_COURSE.has(c.status))
+    .map((c) => pick(c, ["courseId", "title", "price", "thumbnail", "rating", "category", "level", "duration"]));
+  return {
+    userId: targetId,
+    role: role === "mentor" ? "Mentor" : "Teacher",
+    // Prefer the profile; fall back to the mentor listing (some mentors have no profile row).
+    ...pick(mentor, [...PUBLIC_TEACHER_FIELDS, "rating", "reviewCount", "hourlyRate", "totalSessions"]),
+    ...pick(user, PUBLIC_TEACHER_FIELDS),
+    courses,
+  };
+}
+
+// Allowed only for a teacher/mentor who shares a session with the student, or whose course
+// the student is (actively) enrolled in. Anything else is 403 — including other students.
+async function studentProfileForEducator(callerId, claims, studentId, student) {
+  const callerRole = String(claims["custom:role"] || "").toLowerCase();
+  if (callerId === studentId) return response(200, { userId: studentId, role: "Student", ...pick(student, STUDENT_FIELDS), sharedCourses: [], sharedSessions: [] });
+  if (!["teacher", "mentor"].includes(callerRole)) {
+    return response(403, { error: "Only teachers and mentors can view a student's profile" });
+  }
+
+  const [sessions, myCourses, enrollments] = await Promise.all([
+    scanAll({
+      TableName: SESSIONS_TABLE,
+      FilterExpression: "studentId = :s AND (mentorId = :c OR teacherId = :c)",
+      ExpressionAttributeValues: { ":s": studentId, ":c": callerId },
+    }),
+    scanAll({
+      TableName: COURSES_TABLE,
+      FilterExpression: "teacherId = :c OR mentorId = :c",
+      ExpressionAttributeValues: { ":c": callerId },
+    }),
+    scanAll({
+      TableName: ENROLLMENTS_TABLE,
+      FilterExpression: "userId = :s OR studentId = :s",
+      ExpressionAttributeValues: { ":s": studentId },
+    }),
+  ]);
+
+  const mine = new Map(myCourses.filter((c) => c.status !== "deleted").map((c) => [c.courseId, c]));
+  const seen = new Set();
+  const sharedCourses = enrollments
+    .filter((e) => mine.has(e.courseId) && !INACTIVE_ENROLLMENT.has(e.status))
+    .filter((e) => !seen.has(e.courseId) && seen.add(e.courseId))
+    .map((e) => ({
+      ...pick(mine.get(e.courseId), ["courseId", "title", "thumbnail"]),
+      enrollmentStatus: e.status || "active",
+      progress: Number(e.progress) || 0,
+      enrolledAt: e.enrolledAt,
+    }));
+  const sharedSessions = sessions
+    .map((x) => pick(x, ["sessionId", "title", "topic", "dateTime", "duration", "status", "sessionType"]))
+    .sort((a, b) => String(b.dateTime || "").localeCompare(String(a.dateTime || "")));
+
+  if (sharedCourses.length === 0 && sharedSessions.length === 0) {
+    log("WARN", "Student profile view refused", { callerId, studentId });
+    return response(403, { error: "You can only view students you teach or have a session with" });
+  }
+  return response(200, { userId: studentId, role: "Student", ...pick(student, STUDENT_FIELDS), sharedCourses, sharedSessions });
 }

@@ -17,6 +17,8 @@ import 'package:toriino_todd/data/response/status.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:toriino_todd/resources/routes/routes_name.dart';
+import 'package:toriino_todd/widgets/session_student_card.dart';
 
 class TeacherHomeView extends StatelessWidget {
   TeacherHomeView({super.key});
@@ -447,7 +449,44 @@ class TeacherHomeView extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: Responsive.hp(2)),
-                  test(context),
+                  Obx(() {
+                    final sessionsState = teacherController.rxSessions.value;
+                    if (sessionsState.data == null) {
+                      if (sessionsState.status == Status.error) {
+                        return Text(
+                          sessionsState.massage ?? 'Could not load sessions',
+                          style: GoogleFonts.dmSans(color: AppColor.white.withValues(alpha: 0.6)),
+                        );
+                      }
+                      return Text(
+                        'Loading sessions...',
+                        style: GoogleFonts.dmSans(color: AppColor.white.withValues(alpha: 0.6)),
+                      );
+                    }
+                    final upcoming = (sessionsState.data?.sessions ?? [])
+                        .where((s) => s.status == 'scheduled')
+                        .toList();
+                    if (upcoming.isEmpty) {
+                      return Text(
+                        'No upcoming sessions',
+                        style: GoogleFonts.dmSans(color: AppColor.white.withValues(alpha: 0.6)),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final session in upcoming.take(3))
+                          SessionStudentCard(
+                            session: session,
+                            onStart: (session.sessionId ?? '').isEmpty
+                                ? null
+                                : () => Get.toNamed(
+                                      RoutesName.liveSession,
+                                      arguments: {'sessionId': session.sessionId, 'isMentor': true},
+                                    ),
+                          ),
+                      ],
+                    );
+                  }),
                   SizedBox(height: Responsive.hp(2)),
 
                   Row(
@@ -662,251 +701,6 @@ void _courseCompleteAlert(BuildContext context, [CourseModel? course]) {
         },
       );
     },
-  );
-}
-
-Widget test(BuildContext context) {
-  // Responsive.init(context);
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8.0),
-    child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: AppColor.white.withValues(alpha: 0.08),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundImage: const AssetImage("assets/icons/Ellipse 6 (1).png"),
-                      ),
-                      SizedBox(width: 10),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "--",
-                            style: GoogleFonts.dmSans(
-                              fontSize: Responsive.sp(10),
-                              color: AppColor.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            "Student",
-                            style: GoogleFonts.dmSans(
-                              fontSize: Responsive.sp(10),
-
-                              color: AppColor.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    SvgPicture.asset(
-                      "assets/icons/material-symbols_star (1).svg",
-                    ),
-                    Text(
-                      "--",
-                      style: GoogleFonts.dmSans(
-                        color: AppColor.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(children: [Expanded(child: Divider(thickness: 1))]),
-            Text(
-              "14 May, 3:00 PM – 4:00 PM",
-              style: GoogleFonts.dmSans(
-                fontSize: Responsive.sp(18),
-                color: AppColor.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 10),
-
-            Row(
-              children: [
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Type",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "Group",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, height: 30, color: AppColor.white),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Duration",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "1hr",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, height: 30, color: AppColor.white),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Seats Left",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "2-5",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, height: 30, color: AppColor.white),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Language",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "English / Arabic",
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: Responsive.sp(10),
-                          color: AppColor.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            Row(children: [Expanded(child: Divider(thickness: 1))]),
-            SizedBox(height: Responsive.hp(1)),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      color: AppColor.red,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8.0,
-                        horizontal: 16.0,
-                      ),
-                      child: Row(
-                        spacing: 2,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Start Session",
-                            style: GoogleFonts.dmSans(
-                              fontSize: Responsive.sp(12),
-                              color: AppColor.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SvgPicture.asset("assets/icons/arrow.svg"),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: Responsive.wp(2)),
-                // assets/icons/bubble-chat.svg
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: AppColor.white.withValues(alpha: 0.20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: SvgPicture.asset("assets/icons/bubble-chat.svg"),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.hp(1)),
-          ],
-        ),
-      ),
-    ),
   );
 }
 

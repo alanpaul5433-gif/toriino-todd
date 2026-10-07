@@ -204,7 +204,9 @@ class CourseView extends StatelessWidget {
                                       ),
                                       SizedBox(width: 10.w),
                                       Text(
-                                        "\$${courses[index].price?.toStringAsFixed(2) ?? '0.00'}",
+                                        (courses[index].price ?? 0) > 0
+                                            ? "\$${courses[index].price!.toStringAsFixed(2)}"
+                                            : 'Free',
                                         style: TextStyle(
                                           color: AppColor.white,
                                           fontWeight: FontWeight.w500,
@@ -254,15 +256,17 @@ class CourseView extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 10.h),
-                              Text(
-                                "Duration: ${courses[index].duration ?? 'N/A'}",
-                                style: TextStyle(
-                                  color: AppColor.white,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14.sp,
+                              if ((courses[index].duration ?? '').isNotEmpty) ...[
+                                SizedBox(height: 10.h),
+                                Text(
+                                  "Duration: ${courses[index].duration}",
+                                  style: TextStyle(
+                                    color: AppColor.white,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14.sp,
+                                  ),
                                 ),
-                              ),
+                              ],
                               SizedBox(height: 10.h),
                               Row(
                                 mainAxisAlignment:
@@ -279,67 +283,7 @@ class CourseView extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 10.h),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        backgroundImage: AssetImage(
-                                          "assets/images/mentor.png",
-                                        ),
-                                        radius: 20.r,
-                                        backgroundColor:
-                                            AppColor.secconderyColor,
-                                      ),
-                                      SizedBox(width: 10.w),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            courses[index].category ?? 'Category',
-                                            style: TextStyle(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 14.sp,
-                                            ),
-                                          ),
-                                          Text(
-                                            courses[index].level ?? 'Level',
-                                            style: TextStyle(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 12.sp,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.star,
-                                        color: AppColor.white,
-                                        size: 16.sp,
-                                      ),
-                                      SizedBox(width: 5.w),
-                                      Text(
-                                        "${courses[index].rating ?? 0}",
-                                        style: TextStyle(
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 14.sp,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              _courseMetaRow(courses[index]),
                               SizedBox(height: 10.h),
                             ],
                           ),
@@ -357,6 +301,90 @@ class CourseView extends StatelessWidget {
     );
   }
 }
+
+/// Bottom row of a catalog course card: the teacher (when the API sent a
+/// `teacherName`), category / level, and the rating when there is one.
+Widget _courseMetaRow(CourseModel course) {
+  final teacher = (course.teacherName ?? '').trim();
+  final sub = [
+    if ((course.category ?? '').isNotEmpty) course.category!,
+    if ((course.level ?? '').isNotEmpty) course.level!,
+  ].join(' · ');
+  final rating = course.rating ?? 0;
+  if (teacher.isEmpty && sub.isEmpty && rating <= 0) {
+    return SizedBox(height: 10.h);
+  }
+  return Padding(
+    padding: EdgeInsets.symmetric(vertical: 10.h),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              if (teacher.isNotEmpty) ...[
+                CircleAvatar(
+                  radius: 20.r,
+                  backgroundColor: AppColor.secconderyColor,
+                  child: Icon(Icons.person, color: AppColor.white),
+                ),
+                SizedBox(width: 10.w),
+              ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (teacher.isNotEmpty)
+                      Text(
+                        teacher,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                    if (sub.isNotEmpty)
+                      Text(
+                        sub,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (rating > 0)
+          Row(
+            children: [
+              Icon(Icons.star, color: AppColor.white, size: 16.sp),
+              SizedBox(width: 5.w),
+              Text(
+                rating.toStringAsFixed(1),
+                style: TextStyle(
+                  color: AppColor.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
+
+/// The catalog's course detail / enroll sheet. Also opened from a teacher's
+/// public profile (TeacherProfile).
+void showCourseEnrollSheet(BuildContext context, CourseModel course) =>
+    _enrollBottomSheet(context, course);
 
 void _enrollBottomSheet(BuildContext context, CourseModel course) {
   final price = course.price ?? 0;
@@ -409,39 +437,51 @@ void _enrollBottomSheet(BuildContext context, CourseModel course) {
                 ],
               ),
               SizedBox(height: Responsive.h(2)),
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppColor.red,
-                    child: Icon(Icons.person, color: AppColor.white),
-                  ),
-                  SizedBox(width: 10.w),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        course.category ?? 'Teacher',
-                        style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700),
+              if ((course.teacherName ?? '').isNotEmpty)
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: AppColor.red,
+                      child: Icon(Icons.person, color: AppColor.white),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            course.teacherName!,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            'Instructor',
+                            style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400),
+                          ),
+                        ],
                       ),
-                      Text(
-                        course.level ?? '',
-                        style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
               SizedBox(height: Responsive.h(2)),
               const Divider(color: Colors.grey),
               SizedBox(height: Responsive.h(2)),
-              _cousreinfo("Course Category", course.category ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Course Duration", course.duration ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Level", course.level ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Rating", "${course.rating ?? 0}"),
-              SizedBox(height: Responsive.h(1)),
+              if ((course.category ?? '').isNotEmpty) ...[
+                _cousreinfo("Course Category", course.category!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.duration ?? '').isNotEmpty) ...[
+                _cousreinfo("Course Duration", course.duration!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.level ?? '').isNotEmpty) ...[
+                _cousreinfo("Level", course.level!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.rating ?? 0) > 0) ...[
+                _cousreinfo("Rating", course.rating!.toStringAsFixed(1)),
+                SizedBox(height: Responsive.h(1)),
+              ],
               _cousreinfo("Price", price == 0 ? "FREE" : "\$${price.toStringAsFixed(2)}"),
               SizedBox(height: Responsive.h(1)),
               _cousreinfo("Platform Fee", price == 0 ? "\$0.00" : "\$$fee"),

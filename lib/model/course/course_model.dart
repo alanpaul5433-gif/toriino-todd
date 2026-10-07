@@ -22,6 +22,9 @@ class CourseModel {
   /// (`course.enrollment.status`, e.g. 'active' or 'completed').
   final String? enrollmentStatus;
 
+  /// Only on GET /courses/my-courses: `course.enrollment.progress` (0-100).
+  final int? enrollmentProgress;
+
   CourseModel({
     this.courseId,
     this.teacherId,
@@ -40,6 +43,7 @@ class CourseModel {
     this.updatedAt,
     this.teacherName,
     this.enrollmentStatus,
+    this.enrollmentProgress,
   });
 
   bool get isCompleted => enrollmentStatus == 'completed';
@@ -63,6 +67,7 @@ class CourseModel {
       updatedAt: updatedAt,
       teacherName: teacherName,
       enrollmentStatus: enrollmentStatus ?? this.enrollmentStatus,
+      enrollmentProgress: enrollmentProgress,
     );
   }
 
@@ -91,6 +96,10 @@ class CourseModel {
       enrollmentStatus:
           enrollment is Map && enrollment['status'] is String
               ? enrollment['status'] as String
+              : null,
+      enrollmentProgress:
+          enrollment is Map && enrollment['progress'] is num
+              ? (enrollment['progress'] as num).round()
               : null,
     );
   }

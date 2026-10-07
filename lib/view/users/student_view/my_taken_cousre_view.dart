@@ -91,6 +91,21 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
                     circularIcon("assets/icons/robotic.svg"),
                   ],
                 ),
+                if ((widget.course?.teacherName ?? '').isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          left: Responsive.w(8), top: 2, bottom: 6),
+                      child: Text(
+                        'By ${widget.course!.teacherName!}',
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white70,
+                          fontSize: Responsive.textScaleFactor * 12,
+                        ),
+                      ),
+                    ),
+                  ),
                 FutureBuilder<dynamic>(
                   future: _lessonsFuture,
                   builder: (context, snapshot) {

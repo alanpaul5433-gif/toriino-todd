@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/edit_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 import 'package:toriino_todd/view/users/student_view/review.dart';
@@ -445,166 +448,15 @@ class StudentProfile extends StatelessWidget {
                     ),
                     SizedBox(height: Responsive.h(2)),
 
-                    //comments card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(15),
-                      decoration: ShapeDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: const ShapeDecoration(
-                                              image: DecorationImage(
-                                                image: AssetImage(
-                                                  "assets/icons/Ellipse 6.png",
-                                                ),
-                                                fit: BoxFit.cover,
-                                              ),
-                                              shape: OvalBorder(),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 9),
-                                          Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                '--',
-                                                style: GoogleFonts.dmSans(
-                                                  color: Colors.white,
-                                                  fontSize:
-                                                      Responsive
-                                                          .textScaleFactor *
-                                                      14,
-                                                  fontWeight: FontWeight.w500,
-                                                  letterSpacing: -0.30,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.start,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
-                                                children: List.generate(
-                                                  5,
-                                                  (index) => Container(
-                                                    width: 13,
-                                                    height: 13,
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          right: 2,
-                                                        ),
-                                                    child: Icon(
-                                                      Icons.star,
-                                                      color: Colors.white,
-                                                      size:
-                                                          Responsive
-                                                              .textScaleFactor *
-                                                          14,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        '15 Days Ago',
-                                        style: GoogleFonts.dmSans(
-                                          color: Colors.white,
-                                          fontSize:
-                                              Responsive.textScaleFactor * 10,
-                                          fontWeight: FontWeight.w500,
-                                          letterSpacing: -0.30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  width: 325,
-                                  child: Text(
-                                    "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                                    style: GoogleFonts.dmSans(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 12,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.50,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
                     SizedBox(height: Responsive.h(2)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'My Enrolled Courses',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 12,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Sort By: Latest',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: Responsive.textScaleFactor * 10,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w400,
-                            height: 1.60,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'My Enrolled Courses',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: Responsive.textScaleFactor * 12,
+                        fontFamily: 'DM Sans',
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     SizedBox(height: Responsive.h(2)),
                   ],
@@ -612,214 +464,7 @@ class StudentProfile extends StatelessWidget {
               ),
             ),
 
-            // ListView section as a SliverList
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        color: AppColor.white.withValues(alpha: 0.08),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: Responsive.h(1)),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    SvgPicture.asset(
-                                      "assets/icons/Frame 1000002079.svg",
-                                    ),
-                                    SizedBox(width: Responsive.w(4)),
-                                    Text(
-                                      "Course 01",
-                                      style: GoogleFonts.dmSans(
-                                        color: AppColor.white,
-                                        fontSize:
-                                            Responsive.textScaleFactor * 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SvgPicture.asset(
-                                  "assets/icons/Component 26.svg",
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 10),
-
-                            Text(
-                              "Last seen 2 days ago",
-                              style: GoogleFonts.dmSans(
-                                fontSize: Responsive.textScaleFactor * 12,
-                                color: AppColor.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 10),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  "UI/UX Design Basics",
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: Responsive.textScaleFactor * 25,
-                                    color: AppColor.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    SvgPicture.asset(
-                                      "assets/icons/material-symbols_star (1).svg",
-                                    ),
-                                    Text(
-                                      "4.8",
-                                      style: GoogleFonts.dmSans(
-                                        color: AppColor.white,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundImage: AssetImage(
-                                        "assets/icons/Ellipse 6.png",
-                                      ),
-                                    ),
-                                    SizedBox(width: 10),
-
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '--',
-                                          style: GoogleFonts.dmSans(
-                                            color: AppColor.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          "Mentor",
-                                          style: GoogleFonts.dmSans(
-                                            color: AppColor.white,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                GestureDetector(
-                                  onTap:
-                                      () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => MyTakenCousreView(),
-                                        ),
-                                      ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(28),
-                                      color: AppColor.red,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                        horizontal: 16.0,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            "Continue",
-                                            style: GoogleFonts.dmSans(
-                                              fontSize: 14,
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          SvgPicture.asset(
-                                            "assets/icons/arrow.svg",
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            SizedBox(height: Responsive.h(2)),
-                            LinearProgressIndicator(
-                              backgroundColor: AppColor.white.withValues(
-                                alpha: 0.23,
-                              ), // Background color
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColor.white,
-                              ), // Progress color
-                              value: 0.5, // Set progress to 50%
-                            ),
-                            SizedBox(height: 10),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Completion",
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: 14,
-                                    color: AppColor.white,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                Text(
-                                  "78 %",
-                                  style: GoogleFonts.dmSans(
-                                    color: AppColor.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: Responsive.h(1)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-                childCount: 4, // Number of list items
-              ),
-            ),
-
-            // Book session button at the bottom
-            // const SliverToBoxAdapter(
-            //   child: Padding(
-            //     padding: EdgeInsets.all(16.0),
-            //     child: BookSessionButton(),
-            //   ),
-            // ),
+            const SliverToBoxAdapter(child: _EnrolledCoursesSection()),
           ],
         ),
       ),
@@ -827,32 +472,246 @@ class StudentProfile extends StatelessWidget {
   }
 }
 
-// // Extracted book session button widget
-// class BookSessionButton extends StatelessWidget {
-//   const BookSessionButton({super.key});
+/// The signed-in student's real enrollments (GET /courses/my-courses).
+/// Tapping a course opens its lessons in [MyTakenCousreView].
+class _EnrolledCoursesSection extends StatefulWidget {
+  const _EnrolledCoursesSection();
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: double.infinity,
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(22),
-//         color: AppColor.red,
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.symmetric(vertical: 16.0),
-//         child: Text(
-//           'Book a session',
-//           textAlign: TextAlign.center,
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontSize: 14,
-//             fontFamily: 'DM Sans',
-//             fontWeight: FontWeight.w700,
-//             letterSpacing: -0.20,
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
+  @override
+  State<_EnrolledCoursesSection> createState() =>
+      _EnrolledCoursesSectionState();
+}
+
+class _EnrolledCoursesSectionState extends State<_EnrolledCoursesSection> {
+  late Future<List<CourseModel>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    _future = CourseRepo().getMyEnrolledCourses().then(
+          (value) => CourseListResponse.fromJson(
+                  value is Map<String, dynamic> ? value : <String, dynamic>{})
+              .courses,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CourseModel>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Text(
+                  Utils.errorMessage(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                TextButton(
+                  onPressed: () => setState(_load),
+                  child: const Text('Retry',
+                      style: TextStyle(color: AppColor.red)),
+                ),
+              ],
+            ),
+          );
+        }
+        final courses = snapshot.data ?? const <CourseModel>[];
+        if (courses.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No enrolled courses yet',
+                  style: TextStyle(color: Colors.white70)),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final course in courses)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _card(context, course),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _card(BuildContext context, CourseModel course) {
+    final title = (course.title ?? '').trim();
+    final teacher = (course.teacherName ?? '').trim();
+    final rating = course.rating ?? 0;
+    final completed = course.isCompleted;
+    final hasStatus = (course.enrollmentStatus ?? '').isNotEmpty;
+    final progress =
+        completed ? 100 : course.enrollmentProgress?.clamp(0, 100);
+    final canOpen = (course.courseId ?? '').isNotEmpty;
+
+    return GestureDetector(
+      onTap: canOpen
+          ? () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MyTakenCousreView(course: course),
+                ),
+              );
+              // The course may have been marked completed meanwhile.
+              if (mounted) setState(_load);
+            }
+          : null,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          color: AppColor.white.withValues(alpha: 0.08),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title.isNotEmpty ? title : 'Untitled course',
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 18,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (rating > 0) ...[
+                    SvgPicture.asset(
+                      "assets/icons/material-symbols_star (1).svg",
+                    ),
+                    Text(
+                      rating.toStringAsFixed(1),
+                      style: GoogleFonts.dmSans(
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (hasStatus) ...[
+                const SizedBox(height: 6),
+                Text(
+                  completed ? 'Completed' : 'In progress',
+                  style: GoogleFonts.dmSans(
+                    fontSize: Responsive.textScaleFactor * 12,
+                    color: AppColor.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (teacher.isNotEmpty)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColor.secconderyColor,
+                            child: Icon(Icons.person, color: AppColor.white),
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              teacher,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                color: AppColor.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (canOpen)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        color: AppColor.red,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8.0,
+                          horizontal: 16.0,
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              completed ? "Review" : "Continue",
+                              style: GoogleFonts.dmSans(
+                                fontSize: 14,
+                                color: AppColor.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SvgPicture.asset("assets/icons/arrow.svg"),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (progress != null) ...[
+                SizedBox(height: Responsive.h(2)),
+                LinearProgressIndicator(
+                  backgroundColor: AppColor.white.withValues(alpha: 0.23),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColor.white),
+                  value: progress / 100,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Completion",
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    Text(
+                      "$progress %",
+                      style: GoogleFonts.dmSans(
+                        color: AppColor.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

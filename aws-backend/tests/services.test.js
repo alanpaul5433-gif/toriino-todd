@@ -304,3 +304,112 @@ describe('courses: POST /courses/{id}/complete', () => {
     expect(mockSend.mock.calls.some((c) => c[0]._type === 'Update')).toBe(false);
   });
 });
+
+describe('users: GET /users/{id} — who may view a student profile', () => {
+  // A student record carrying private fields that must never leak.
+  const STUDENT = {
+    userId: 'stu1', role: 'Student', name: 'Sam Student', avatarUrl: 'https://cdn.example.net/profiles/stu1/a.png',
+    bio: 'Learning', email: 'sam@example.com', phone: '+100000', fcmToken: 'tok', walletBalance: 50,
+  };
+
+  // Answers by table, so the tests don't depend on the order of calls.
+  function db({ sessions = [], courses = [], enrollments = [] }) {
+    mockSend.mockImplementation(async (c) => {
+      const t = c.input.TableName;
+      if (c._type === 'Get' && t === 'torino-users') return { Item: c.input.Key.userId === 'stu1' ? STUDENT : undefined };
+      if (c._type === 'Get' && t === 'torino-mentors') return {};
+      if (c._type === 'Scan' && t === 'torino-sessions') return { Items: sessions };
+      if (c._type === 'Scan' && t === 'torino-courses') return { Items: courses };
+      if (c._type === 'Scan' && t === 'toriino-enrollments') return { Items: enrollments };
+      throw new Error(`unexpected ${c._type} on ${t}`);
+    });
+  }
+  const PRIVATE = ['email', 'phone', 'fcmToken', 'walletBalance'];
+
+  test('allowed for a mentor who shares a session with the student', async () => {
+    db({ sessions: [{ sessionId: 's1', studentId: 'stu1', mentorId: 'me', title: 'Algebra', dateTime: '2027-01-01T10:00:00Z', notes: 'private note' }] });
+    const r = await users(ev('GET', '/users/stu1', { role: 'mentor' }));
+    expect(r.statusCode).toBe(200);
+    const b = json(r);
+    expect(b).toMatchObject({ userId: 'stu1', name: 'Sam Student', bio: 'Learning' });
+    expect(b.sharedSessions).toEqual([{ sessionId: 's1', title: 'Algebra', dateTime: '2027-01-01T10:00:00Z' }]);
+    for (const f of PRIVATE) expect(b).not.toHaveProperty(f);
+    expect(JSON.stringify(b)).not.toMatch(/sam@example\.com|private note/);
+    // The session scan is restricted to sessions between this student and the caller.
+    const scan = mockSend.mock.calls.map((c) => c[0]).find((c) => c.input.TableName === 'torino-sessions');
+    expect(scan.input.ExpressionAttributeValues).toEqual({ ':s': 'stu1', ':c': 'me' });
+  });
+
+  test('allowed for a teacher whose course the student is enrolled in', async () => {
+    db({
+      courses: [{ courseId: 'c1', teacherId: 'me', title: 'Physics', status: 'published', price: 20 }],
+      enrollments: [{ enrollmentId: 'e1', userId: 'stu1', courseId: 'c1', status: 'active', progress: 40 }],
+    });
+    const r = await users(ev('GET', '/users/stu1', { role: 'teacher' }));
+    expect(r.statusCode).toBe(200);
+    const b = json(r);
+    expect(b.sharedCourses).toEqual([expect.objectContaining({ courseId: 'c1', title: 'Physics', enrollmentStatus: 'active', progress: 40 })]);
+    expect(b.sharedCourses[0]).not.toHaveProperty('price');
+    for (const f of PRIVATE) expect(b).not.toHaveProperty(f);
+  });
+
+  test('403 for an unrelated student (no shared session, enrolled only in other teachers’ courses)', async () => {
+    db({
+      courses: [{ courseId: 'c1', teacherId: 'me', status: 'published' }],
+      enrollments: [{ enrollmentId: 'e2', userId: 'stu1', courseId: 'someone-elses-course', status: 'active' }],
+    });
+    const r = await users(ev('GET', '/users/stu1', { role: 'teacher' }));
+    expect(r.statusCode).toBe(403);
+    expect(r.body).not.toMatch(/Sam Student|sam@example\.com/);
+  });
+
+  test('403 when the only enrollment in the caller’s course was refunded', async () => {
+    db({
+      courses: [{ courseId: 'c1', teacherId: 'me', status: 'published' }],
+      enrollments: [{ enrollmentId: 'e1', userId: 'stu1', courseId: 'c1', status: 'refunded' }],
+    });
+    const r = await users(ev('GET', '/users/stu1', { role: 'teacher' }));
+    expect(r.statusCode).toBe(403);
+  });
+
+  test('403 when a student tries to view another student, without reading any sessions', async () => {
+    db({ sessions: [{ sessionId: 's1', studentId: 'stu1', mentorId: 'me' }] });
+    const r = await users(ev('GET', '/users/stu1', { role: 'student' }));
+    expect(r.statusCode).toBe(403);
+    expect(mockSend.mock.calls.some((c) => c[0]._type === 'Scan')).toBe(false);
+  });
+
+  test('a teacher profile is public but still whitelisted', async () => {
+    mockSend.mockImplementation(async (c) => {
+      const t = c.input.TableName;
+      if (c._type === 'Get' && t === 'torino-users') return { Item: { userId: 't9', role: 'Teacher', name: 'Tia', bio: 'Physics', email: 'tia@example.com', phone: '1' } };
+      if (c._type === 'Get') return {};
+      if (c._type === 'Scan' && t === 'torino-courses') return { Items: [
+        { courseId: 'c1', teacherId: 't9', title: 'Live', status: 'published' },
+        { courseId: 'c2', teacherId: 't9', title: 'Hidden', status: 'draft' },
+      ] };
+      throw new Error(`unexpected ${c._type} on ${t}`);
+    });
+    const r = await users(ev('GET', '/users/t9', { role: 'student' }));
+    expect(r.statusCode).toBe(200);
+    const b = json(r);
+    expect(b).toMatchObject({ userId: 't9', role: 'Teacher', name: 'Tia' });
+    expect(b.courses.map((c) => c.courseId)).toEqual(['c1']);
+    expect(b).not.toHaveProperty('email');
+    expect(b).not.toHaveProperty('phone');
+  });
+});
+
+describe('courses: teacherName', () => {
+  test('course list responses carry the teacher display name only', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c._type === 'Scan') return { Items: [{ courseId: 'c1', teacherId: 't9', title: 'X' }] };
+      if (c._type === 'BatchGet') return { Responses: { 'torino-users': [{ userId: 't9', name: 'Tia' }] } };
+      return {};
+    });
+    const r = await courses(ev('GET', '/courses'));
+    expect(json(r).courses[0]).toMatchObject({ courseId: 'c1', teacherName: 'Tia' });
+    const bg = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'BatchGet');
+    expect(bg.input.RequestItems['torino-users'].ProjectionExpression).toBe('userId, #n');
+  });
+});

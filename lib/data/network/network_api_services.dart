@@ -212,9 +212,9 @@ class NetworkApiServices extends BaseApiServices {
           price: _extractPrice(response.body),
         );
       case 403:
-        throw ServerException(serverMsg ?? 'Access denied.');
+        throw ForbiddenException(serverMsg ?? 'Access denied.');
       case 404:
-        throw InvalidUrlException(serverMsg ?? 'Resource not found');
+        throw NotFoundException(serverMsg ?? 'Resource not found');
       case 500:
         throw ServerException(
           serverMsg ?? 'Internal server error. Please try again later.',

@@ -274,7 +274,10 @@ class _MentorCard extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => TeacherProfile()),
+                    MaterialPageRoute(
+                      builder: (_) => TeacherProfile(
+                          teacherId: mentor.userId ?? ''),
+                    ),
                   );
                 },
                 child: Container(

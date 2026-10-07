@@ -447,7 +447,7 @@ class _HomeViewState extends State<HomeView> {
                       languages: '--',
                       pricePerHour: '\$${teacher.hourlyRate?.toInt() ?? 0}/hr',
                       onViewProfileTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherProfile()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherProfile(teacherId: teacher.userId ?? '')));
                       },
                       onBookSessionTap: () {},
                     );
@@ -585,24 +585,36 @@ class _HomeViewState extends State<HomeView> {
                                 CustomButton(backgroundColor: AppColor.red, width: Responsive.w(30), text: "Enroll", onTap: () { _enrollBottomSheet(context, course); }),
                               ],
                             ),
-                            Text("Duration: ${course.duration ?? 'N/A'}", style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
+                            if ((course.duration ?? '').isNotEmpty)
+                              Text("Duration: ${course.duration}", style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
                             Text(course.title ?? 'Course', style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 22, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(children: [
-                                  CircleAvatar(radius: 16, backgroundImage: AssetImage("assets/images/mentor.png")),
-                                  SizedBox(width: 10.w),
-                                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text(course.category ?? '', style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
-                                    Text(course.level ?? '', style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
+                                Expanded(
+                                  child: Row(children: [
+                                    if ((course.teacherName ?? '').isNotEmpty) ...[
+                                      CircleAvatar(radius: 16, backgroundColor: AppColor.red, child: Icon(Icons.person, color: AppColor.white, size: 18)),
+                                      SizedBox(width: 10.w),
+                                    ],
+                                    Flexible(
+                                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        if ((course.teacherName ?? '').isNotEmpty)
+                                          Text(course.teacherName!, overflow: TextOverflow.ellipsis, style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
+                                        if ((course.category ?? '').isNotEmpty)
+                                          Text(course.category!, overflow: TextOverflow.ellipsis, style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
+                                        if ((course.level ?? '').isNotEmpty)
+                                          Text(course.level!, overflow: TextOverflow.ellipsis, style: GoogleFonts.dmSans(fontSize: Responsive.textScaleFactor * 12, fontWeight: FontWeight.bold, color: AppColor.secconderyColor)),
+                                      ]),
+                                    ),
                                   ]),
-                                ]),
-                                Row(children: [
-                                  Icon(Icons.star, color: AppColor.white, size: Responsive.textScaleFactor * 16),
-                                  SizedBox(width: 4.w),
-                                  Text("${course.rating ?? 0}", style: GoogleFonts.dmSans(color: AppColor.white, fontSize: Responsive.textScaleFactor * 16)),
-                                ]),
+                                ),
+                                if ((course.rating ?? 0) > 0)
+                                  Row(children: [
+                                    Icon(Icons.star, color: AppColor.white, size: Responsive.textScaleFactor * 16),
+                                    SizedBox(width: 4.w),
+                                    Text(course.rating!.toStringAsFixed(1), style: GoogleFonts.dmSans(color: AppColor.white, fontSize: Responsive.textScaleFactor * 16)),
+                                  ]),
                               ],
                             ),
                           ],
@@ -668,33 +680,44 @@ void _enrollBottomSheet(BuildContext context, CourseModel course) {
                 ],
               ),
               SizedBox(height: Responsive.h(2)),
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppColor.red,
-                    child: Icon(Icons.person, color: AppColor.white),
-                  ),
-                  SizedBox(width: 10.w),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(course.category ?? 'Teacher', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700)),
-                      Text(course.level ?? '', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400)),
-                    ],
-                  ),
-                ],
-              ),
+              if ((course.teacherName ?? '').isNotEmpty)
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: AppColor.red,
+                      child: Icon(Icons.person, color: AppColor.white),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(course.teacherName!, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                          Text('Instructor', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w400)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               SizedBox(height: Responsive.h(2)),
               const Divider(color: Colors.grey),
               SizedBox(height: Responsive.h(2)),
-              _cousreinfo("Course Category", course.category ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Course Duration", course.duration ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Level", course.level ?? '—'),
-              SizedBox(height: Responsive.h(1)),
-              _cousreinfo("Rating", "${course.rating ?? 0}"),
-              SizedBox(height: Responsive.h(1)),
+              if ((course.category ?? '').isNotEmpty) ...[
+                _cousreinfo("Course Category", course.category!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.duration ?? '').isNotEmpty) ...[
+                _cousreinfo("Course Duration", course.duration!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.level ?? '').isNotEmpty) ...[
+                _cousreinfo("Level", course.level!),
+                SizedBox(height: Responsive.h(1)),
+              ],
+              if ((course.rating ?? 0) > 0) ...[
+                _cousreinfo("Rating", course.rating!.toStringAsFixed(1)),
+                SizedBox(height: Responsive.h(1)),
+              ],
               _cousreinfo("Price", price == 0 ? "FREE" : "\$${price.toStringAsFixed(2)}"),
               SizedBox(height: Responsive.h(1)),
               _cousreinfo("Platform Fee", price == 0 ? "\$0.00" : "\$$fee"),

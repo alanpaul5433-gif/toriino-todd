@@ -82,6 +82,16 @@ migrated, change that one parameter and redeploy.
   `GET /courses/{id}/lessons/{lessonId}/media` returns 5-minute pre-signed GET URLs after checking the
   caller owns the course, or it is free, or they have an active (not refunded) enrollment; otherwise 402.
 
+### Viewing other users (`GET /users/{id}`)
+
+- **Teacher / mentor**: public profile for any signed-in user. Fields: name, avatar, bio, title, expertise,
+  specialties, language, intro video, rating, hourly rate, plus published courses. Drafts and deleted courses are hidden.
+- **Student**: only a teacher or mentor who **shares a session** with the student, or whose course the student is
+  **actively enrolled** in (refunded and cancelled enrollments don't count), can view them. They get name, avatar,
+  bio and only the courses and sessions they share. Anyone else gets 403.
+- Responses are built from explicit field whitelists. Email, phone, wallet, earnings and tokens are never returned.
+- Course responses include `teacherName`, the owner's display name only.
+
 ## Auth flow
 
 1. Sign up / OTP / login / password reset → straight from the app to Cognito (no API call).

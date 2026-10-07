@@ -13,6 +13,7 @@
     { "path": "/users/role", "methods": ["PUT"], "lambda": "toriino-users" },
     { "path": "/users/avatar", "methods": ["POST"], "lambda": "toriino-users" },
     { "path": "/users/account", "methods": ["DELETE"], "lambda": "toriino-users" },
+    { "path": "/users/{id}", "methods": ["GET"], "lambda": "toriino-users" },
     { "path": "/students/search", "methods": ["GET"], "lambda": "toriino-student-search" },
 
     { "path": "/courses", "methods": ["GET", "POST"], "lambda": "toriino-courses" },

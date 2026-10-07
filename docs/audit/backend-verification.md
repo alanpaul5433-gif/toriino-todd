@@ -1,5 +1,20 @@
 # Backend Verification — /prod
 
+## Re-verification, round 4 (2026-10-07, branch `fix/remediation-v1`)
+
+`node scripts/verify-backend.mjs` against deployment `bqxbiy`: **20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED, exit 0.** The BLOCKED items are unchanged: Stripe, Agora, Gemini (live 503 "not configured") and the missing Firebase config.
+
+### New in this round
+| Item | Result |
+|---|---|
+| `GET /users/{id}` | Teacher and mentor profiles are public (safe fields + published courses). A student profile is visible only to a teacher/mentor who shares a session with them or whose course they are actively enrolled in, else **403**. Whitelisted fields only. Unit tests cover: allowed via shared session, allowed via enrollment, 403 for an unrelated student, 403 for a refunded-only enrollment, 403 for a student viewer, and no private fields. Live: the test mentor (shared test session) gets 200 with 1 shared session; the test teacher (no relation) gets 403 |
+| Teacher/mentor taps | Session cards on the teacher and mentor home screens open `StudentPublicProfileView(studentId:)` again, now with real data from `GET /users/{id}` |
+| `teacher_profile.dart` | The static placeholder is replaced with real data from `GET /users/{teacherId}` (both callers pass the id). The "Book a session" button opens the real booking screen, mentors only |
+| `teacherName` | Added to every course response (one batched name lookup; live: 45/45 catalog courses) and shown in the catalog, course detail, my-courses and enrolled-course screens |
+| Student "My Enrolled Courses" | Real `GET /courses/my-courses` data (progress, status, teacher) instead of the static card |
+
+---
+
 ## Re-verification, round 3 (2026-10-07, branch `fix/remediation-v1`)
 
 `node scripts/verify-backend.mjs`, using the checker's script from commit `938f18f`, which adds live "not configured" probes for Agora and Gemini. Run against deployment `wnqx6x`. Full output: [verify-after-remediation.txt](verify-after-remediation.txt).

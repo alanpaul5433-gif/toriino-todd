@@ -18,6 +18,10 @@ class AppUrl {
   static const String userProfile = '$baseUrl/users/profile';
   static const String userRole = '$baseUrl/users/role';
   static const String deleteAccount = '$baseUrl/users/account';
+  /// Public profile of a teacher/mentor, or (for a teacher/mentor caller who
+  /// teaches them) a student's shared courses and sessions.
+  static String userById(String id) =>
+      '$baseUrl/users/${Uri.encodeComponent(id)}';
 
   // Courses
   static const String courses = '$baseUrl/courses';

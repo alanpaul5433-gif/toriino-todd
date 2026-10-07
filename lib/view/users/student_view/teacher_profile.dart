@@ -1,11 +1,58 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:toriino_todd/data/app_exception.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/model/user/public_user_model.dart';
+import 'package:toriino_todd/repository/course_repo.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/student_view/availability_view.dart';
+import 'package:toriino_todd/view/users/student_view/course_view.dart';
+import 'package:toriino_todd/widgets/intro_video_tile.dart';
 
-class TeacherProfile extends StatelessWidget {
-  const TeacherProfile({super.key});
+/// Public profile of a teacher or mentor, built only from
+/// GET /users/{teacherId}: name, avatar, title, bio, expertise/specialties,
+/// language, rating, hourly rate, intro video and their published courses.
+/// Empty fields are hidden rather than shown as placeholders.
+class TeacherProfile extends StatefulWidget {
+  final String teacherId;
+  const TeacherProfile({super.key, required this.teacherId});
+
+  @override
+  State<TeacherProfile> createState() => _TeacherProfileState();
+}
+
+class _TeacherProfileState extends State<TeacherProfile> {
+  late Future<PublicUserModel> _future;
+  bool _openingCourse = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    final id = widget.teacherId.trim();
+    _future =
+        id.isEmpty
+            ? Future.error(NotFoundException('User not found'))
+            : UserRepo()
+                .getUserById(id)
+                .then(
+                  (value) => PublicUserModel.fromJson(
+                    value is Map<String, dynamic> ? value : <String, dynamic>{},
+                  ),
+                );
+  }
+
+  Future<void> _refresh() async {
+    setState(_load);
+    await _future.catchError((_) => PublicUserModel());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,739 +60,307 @@ class TeacherProfile extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: FutureBuilder<PublicUserModel>(
+            future: _future,
+            builder: (context, snapshot) {
+              final children = <Widget>[];
+              String heading = 'Teacher Profile';
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                children.add(
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                );
+              } else if (snapshot.hasError) {
+                children.add(_errorBox(snapshot.error));
+              } else {
+                final p = snapshot.data ?? PublicUserModel();
+                if ((p.role ?? '').toLowerCase() == 'mentor') {
+                  heading = 'Mentor Profile';
+                }
+                children.addAll(_buildProfile(context, p));
+              }
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: Row(
-                        children: [
-                          SvgPicture.asset(
-                            width: Responsive.w(6),
-                            height: Responsive.w(6),
-                            "assets/icons/Arrow - Right 3 (1).svg",
-                          ),
-
-                          SizedBox(width: Responsive.w(2)),
-                          Text(
-                            'Teacher Profile',
-                            style: GoogleFonts.rethinkSans(
-                              color: AppColor.white,
-                              fontSize: Responsive.textScaleFactor * 18,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    //Profile Pic Name Domain and Share Icon
-                    SizedBox(height: Responsive.h(2)),
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: Responsive.w(10),
-                              backgroundImage: const AssetImage(
-                                "assets/images/abram.png",
-                              ),
-                            ),
-                            SizedBox(width: Responsive.w(2)),
-
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Giana Rhiel Madsen',
-                                      style: GoogleFonts.dmSans(
-                                        color: Colors.white,
-                                        fontSize:
-                                            Responsive.textScaleFactor * 18,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: -0.30,
-                                      ),
-                                    ),
-                                    SizedBox(width: Responsive.w(2)),
-
-                                    SvgPicture.asset(
-                                      'assets/icons/bitcoin-icons_verify-filled (1).svg',
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  'IELTS Expert',
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 12,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: -0.20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColor.white.withValues(alpha: 0.08),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: SvgPicture.asset('assets/icons/share.svg'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    Text(
-                      "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontWeight: FontWeight.w400,
-                        height: 1.50,
-                      ),
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            SvgPicture.asset("assets/icons/mic.svg"),
-                            Text(
-                              'English, German',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: Responsive.textScaleFactor * 10,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.20,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '\$30/',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: Responsive.textScaleFactor * 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.20,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: Responsive.textScaleFactor * 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.20,
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'hr',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: Responsive.textScaleFactor * 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.20,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    //Divider
-                    const Row(children: [Expanded(child: Divider())]),
-
-                    Text(
-                      'Expertise',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontFamily: 'DM Sans',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    //Skill chips
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 10,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: ShapeDecoration(
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: Colors.white.withValues(alpha: 0.40),
-                              ),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Data Science',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.50,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: ShapeDecoration(
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: Colors.white.withValues(alpha: 0.40),
-                              ),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Machine Learning',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.50,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: ShapeDecoration(
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: Colors.white.withValues(alpha: 0.40),
-                              ),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Resume Review',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.50,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: ShapeDecoration(
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: Colors.white.withValues(alpha: 0.40),
-                              ),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Career Guidance',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.50,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    Text(
-                      'Intro Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: Responsive.textScaleFactor * 12,
-                        fontFamily: 'DM Sans',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    //video view
-                    // Container(
-                    //   height: 100,
-                    //   width: double.infinity,
-                    //   color: AppColor.white,
-                    // ),
-                    SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
-                    SizedBox(height: Responsive.h(2)),
-
-                    //review and view all
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Reviews',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'View all',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w400,
-                            height: 1.60,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-
-                    //comments card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(15),
-                      decoration: ShapeDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: const ShapeDecoration(
-                                              image: DecorationImage(
-                                                image: AssetImage(
-                                                  "assets/icons/Ellipse 6.png",
-                                                ),
-                                                fit: BoxFit.cover,
-                                              ),
-                                              shape: OvalBorder(),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 9),
-                                          Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                '--',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontFamily: 'DM Sans',
-                                                  fontWeight: FontWeight.w500,
-                                                  letterSpacing: -0.30,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.start,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
-                                                children: List.generate(
-                                                  5,
-                                                  (index) => Container(
-                                                    width: 13,
-                                                    height: 13,
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          right: 2,
-                                                        ),
-
-                                                    child: Icon(
-                                                      Icons.star,
-                                                      size: 12,
-                                                      color: Colors.white,
-                                                    ), //
-                                                    // decoration:
-                                                    // const BoxDecoration(
-                                                    //   color: Colors.amber,
-                                                    //   shape:
-                                                    //       BoxShape.circle,
-                                                    // ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        '15 Days Ago',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontFamily: 'DM Sans',
-                                          fontWeight: FontWeight.w500,
-                                          letterSpacing: -0.30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                const SizedBox(
-                                  width: 325,
-                                  child: Text(
-                                    "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontFamily: 'DM Sans',
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.50,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: Responsive.h(2)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Courses Offered by Mentor',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Sort By: Latest',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w400,
-                            height: 1.60,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: Responsive.h(2)),
-                  ],
-                ),
-              ),
-            ),
-
-            // ListView section as a SliverList
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        color: AppColor.white.withValues(alpha: 0.08),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    SvgPicture.asset(
-                                      "assets/icons/Frame 1000002079.svg",
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      "\$19.99",
-                                      style: GoogleFonts.dmSans(
-                                        color: AppColor.white,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(28),
-                                    color: AppColor.red,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8.0,
-                                      horizontal: 16.0,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          "Enroll",
-                                          style: GoogleFonts.dmSans(
-                                            fontSize: 14,
-                                            color: AppColor.white,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        SvgPicture.asset(
-                                          "assets/icons/arrow.svg",
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-
-                            Text(
-                              "Duration: 2–5h",
-                              style: GoogleFonts.dmSans(
-                                color: AppColor.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  "UI/UX Design Basics",
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: Responsive.textScaleFactor * 18,
-                                    color: AppColor.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundImage: const AssetImage(
-                                        "assets/icons/Ellipse 6.png",
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '--',
-                                          style: GoogleFonts.dmSans(
-                                            color: AppColor.white,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        Text(
-                                          "Mentor",
-                                          style: GoogleFonts.dmSans(
-                                            color: AppColor.white,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    SvgPicture.asset(
-                                      "assets/icons/material-symbols_star (1).svg",
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      "4.8",
-                                      style: GoogleFonts.dmSans(
-                                        color: AppColor.white,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-                childCount: 2, // Number of list items
-              ),
-            ),
-
-            // Book session button at the bottom
-            // const SliverToBoxAdapter(
-            //   child: Padding(
-            //     padding: EdgeInsets.all(16.0),
-            //     child: BookSessionButton(),
-            //   ),
-            // ),
-          ],
+                children: [_buildAppBar(context, heading), ...children],
+              );
+            },
+          ),
         ),
       ),
     );
   }
-}
 
-// Extracted book session button widget
-class BookSessionButton extends StatelessWidget {
-  const BookSessionButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: AppColor.red,
+  Widget _buildAppBar(BuildContext context, String heading) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            "assets/icons/Arrow - Right 3 (1).svg",
+            width: Responsive.w(6),
+            height: Responsive.w(6),
+          ),
+          SizedBox(width: Responsive.w(2)),
+          Text(
+            heading,
+            style: GoogleFonts.rethinkSans(
+              color: AppColor.white,
+              fontSize: Responsive.textScaleFactor * 18,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.20,
+            ),
+          ),
+        ],
       ),
-      child: Padding(
+    );
+  }
+
+  List<Widget> _buildProfile(BuildContext context, PublicUserModel p) {
+    final name = p.name ?? '';
+    final avatar = p.avatarUrl ?? '';
+    final subtitle = p.title ?? p.role ?? '';
+    final bio = p.bio ?? '';
+    final language = p.language ?? '';
+    final rate = p.hourlyRate;
+    final rating = p.rating;
+    final reviews = p.reviewCount;
+    final sessions = p.totalSessions;
+    final isMentor = (p.role ?? '').toLowerCase() == 'mentor';
+
+    final stats = <String>[
+      if (rating != null && rating > 0)
+        '★ ${rating.toStringAsFixed(1)}'
+            '${reviews != null && reviews > 0 ? ' ($reviews review${reviews == 1 ? '' : 's'})' : ''}',
+      if (sessions != null && sessions > 0)
+        '$sessions session${sessions == 1 ? '' : 's'}',
+    ];
+
+    return [
+      SizedBox(height: Responsive.h(2)),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: Responsive.w(10),
+            backgroundColor: AppColor.secconderyColor,
+            backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+            child:
+                avatar.isEmpty
+                    ? Icon(
+                      Icons.person,
+                      color: AppColor.white,
+                      size: Responsive.w(10),
+                    )
+                    : null,
+          ),
+          SizedBox(width: Responsive.w(3)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (name.isNotEmpty)
+                  Text(
+                    name,
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 18,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.30,
+                    ),
+                  ),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontSize: Responsive.textScaleFactor * 12,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.20,
+                    ),
+                  ),
+                if (stats.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    stats.join('  ·  '),
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white70,
+                      fontSize: Responsive.textScaleFactor * 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      if (bio.isNotEmpty) ...[
+        SizedBox(height: Responsive.h(2)),
+        Text(
+          bio,
+          style: GoogleFonts.dmSans(
+            color: Colors.white,
+            fontSize: Responsive.textScaleFactor * 12,
+            fontWeight: FontWeight.w400,
+            height: 1.50,
+          ),
+        ),
+      ],
+      if (language.isNotEmpty || (rate != null && rate > 0)) ...[
+        SizedBox(height: Responsive.h(2)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (language.isNotEmpty)
+              Flexible(
+                child: Row(
+                  children: [
+                    SvgPicture.asset("assets/icons/mic.svg"),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        language,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: Responsive.textScaleFactor * 12,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox.shrink(),
+            if (rate != null && rate > 0)
+              Text(
+                '\$${rate % 1 == 0 ? rate.toStringAsFixed(0) : rate.toStringAsFixed(2)}/hr',
+                style: GoogleFonts.dmSans(
+                  color: Colors.white,
+                  fontSize: Responsive.textScaleFactor * 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+          ],
+        ),
+      ],
+      const Divider(),
+      if (p.expertise.isNotEmpty) ...[
+        _sectionTitle('Expertise'),
+        SizedBox(height: Responsive.h(1)),
+        _chips(p.expertise),
+        SizedBox(height: Responsive.h(2)),
+      ],
+      if (p.specialties.isNotEmpty) ...[
+        _sectionTitle('Specialties'),
+        SizedBox(height: Responsive.h(1)),
+        _chips(p.specialties),
+        SizedBox(height: Responsive.h(2)),
+      ],
+      if ((p.introVideoUrl ?? '').isNotEmpty) ...[
+        _sectionTitle('Intro Video'),
+        SizedBox(height: Responsive.h(1)),
+        IntroVideoTile(url: p.introVideoUrl),
+        SizedBox(height: Responsive.h(2)),
+      ],
+      if (isMentor) ...[
+        _bookSessionButton(context, p),
+        SizedBox(height: Responsive.h(2)),
+      ],
+      _sectionTitle('Courses'),
+      SizedBox(height: Responsive.h(1)),
+      if (p.courses.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+            child: Text(
+              'No published courses yet',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        )
+      else
+        for (final c in p.courses)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: _courseCard(context, c),
+          ),
+      SizedBox(height: Responsive.h(2)),
+    ];
+  }
+
+  Widget _sectionTitle(String text) => Text(
+    text,
+    style: GoogleFonts.dmSans(
+      color: Colors.white,
+      fontSize: Responsive.textScaleFactor * 12,
+      fontWeight: FontWeight.w700,
+    ),
+  );
+
+  Widget _chips(List<String> items) {
+    return Wrap(
+      spacing: 5,
+      runSpacing: 10,
+      children: [
+        for (final item in items)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: ShapeDecoration(
+              shape: RoundedRectangleBorder(
+                side: BorderSide(
+                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.40),
+                ),
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: Text(
+              item,
+              style: GoogleFonts.dmSans(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 1.50,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Opens the real booking screen (mentor availability → session request).
+  Widget _bookSessionButton(BuildContext context, PublicUserModel p) {
+    return GestureDetector(
+      onTap:
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => AvailabilityView(
+                    mentorId: p.userId ?? widget.teacherId,
+                    mentorName: p.name ?? 'Mentor',
+                    hourlyRate: p.hourlyRate ?? 0.0,
+                  ),
+            ),
+          ),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: AppColor.red,
+        ),
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: Text(
           'Book a session',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: GoogleFonts.dmSans(
             color: Colors.white,
             fontSize: 14,
-            fontFamily: 'DM Sans',
             fontWeight: FontWeight.w700,
             letterSpacing: -0.20,
           ),
@@ -753,758 +368,215 @@ class BookSessionButton extends StatelessWidget {
       ),
     );
   }
+
+  Widget _courseCard(BuildContext context, PublicCourseModel c) {
+    final thumb = c.thumbnail ?? '';
+    final price = c.price;
+    final duration = c.duration ?? '';
+    final title = c.title ?? '';
+    final meta = [
+      if ((c.category ?? '').isNotEmpty) c.category!,
+      if ((c.level ?? '').isNotEmpty) c.level!,
+    ].join(' · ');
+    final rating = c.rating;
+    final canOpen = (c.courseId ?? '').isNotEmpty;
+
+    return GestureDetector(
+      onTap: canOpen ? () => _openCourse(context, c.courseId!) : null,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          color: AppColor.white.withValues(alpha: 0.08),
+        ),
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (thumb.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  thumb,
+                  width: Responsive.w(20),
+                  height: Responsive.w(20),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+              SizedBox(width: Responsive.w(3)),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (price != null)
+                        Text(
+                          price <= 0 ? 'Free' : '\$${price.toStringAsFixed(2)}',
+                          style: GoogleFonts.dmSans(
+                            color: AppColor.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      if (canOpen)
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            color: AppColor.red,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6.0,
+                            horizontal: 14.0,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'View',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 13,
+                                  color: AppColor.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              SvgPicture.asset("assets/icons/arrow.svg"),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (title.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: GoogleFonts.dmSans(
+                        fontSize: Responsive.textScaleFactor * 16,
+                        color: AppColor.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                  if (duration.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Duration: $duration',
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  if (meta.isNotEmpty || (rating != null && rating > 0)) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (meta.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              meta,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          )
+                        else
+                          const Spacer(),
+                        if (rating != null && rating > 0) ...[
+                          const Icon(Icons.star, color: Colors.white, size: 14),
+                          const SizedBox(width: 3),
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style: GoogleFonts.dmSans(
+                              color: AppColor.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Loads the full course (GET /courses/{id}) and opens the catalog's
+  /// existing course detail / enroll sheet for it.
+  Future<void> _openCourse(BuildContext context, String courseId) async {
+    if (_openingCourse) return;
+    setState(() => _openingCourse = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    CourseModel? course;
+    Object? error;
+    try {
+      final value = await CourseRepo().getCourseById(courseId);
+      course = CourseModel.fromJson(
+        value is Map<String, dynamic> ? value : <String, dynamic>{},
+      );
+    } catch (e) {
+      error = e;
+    }
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    setState(() => _openingCourse = false);
+    if (course == null || (course.courseId ?? '').isEmpty) {
+      Utils.toastMassage(
+        error != null
+            ? Utils.errorMessage(error)
+            : 'Could not load this course',
+      );
+      return;
+    }
+    showCourseEnrollSheet(context, course);
+  }
+
+  Widget _errorBox(Object? error) {
+    if (error is NotFoundException) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48, horizontal: 16),
+        child: Column(
+          children: [
+            Icon(Icons.person_off_outlined, color: Colors.white54, size: 48),
+            SizedBox(height: 12),
+            Text(
+              'This profile could not be found.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      child: Column(
+        children: [
+          Text(
+            Utils.errorMessage(error),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          TextButton(
+            onPressed: () => setState(_load),
+            child: const Text('Retry', style: TextStyle(color: AppColor.red)),
+          ),
+        ],
+      ),
+    );
+  }
 }
-
-// import 'package:flutter/material.dart';
-// import 'package:flutter_svg/svg.dart';
-// import 'package:toriino_todd/resources/colors/app_colors.dart';
-// import 'package:toriino_todd/utils/responsive.dart';
-// import 'package:google_fonts/google_fonts.dart';
-
-// class TeacherProfile extends StatelessWidget {
-//   const TeacherProfile({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     Responsive.init(context);
-//     return Scaffold(
-//       backgroundColor: AppColor.primaryColor,
-//       body: SafeArea(
-//         child: SingleChildScrollView(
-//           child: Padding(
-//             padding: const EdgeInsets.all(8.0),
-//             child: Column(
-//               mainAxisAlignment: MainAxisAlignment.start,
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Row(
-//                   children: [
-//                     SvgPicture.asset("assets/icons/Arrow - Right 3 (1).svg"),
-//                     SizedBox(width: Responsive.w(2)),
-//                     Text(
-//                       'Teacher Profile',
-//                       style: GoogleFonts.rethinkSans(
-//                         color: AppColor.white,
-//                         fontSize: Responsive.textScaleFactor * 18,
-//                         fontWeight: FontWeight.w600,
-//                         letterSpacing: -0.20,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-
-//                 //Profile Pic Name Domain and Share Icon
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 Row(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Row(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-
-//                       children: [
-//                         CircleAvatar(
-//                           radius: Responsive.w(10),
-//                           backgroundImage: AssetImage(
-//                             "assets/icons/Ellipse 6 (1).png",
-//                           ),
-//                         ),
-//                         SizedBox(width: Responsive.w(2)),
-
-//                         Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Row(
-//                               children: [
-//                                 Text(
-//                                   'Jaylon Culhane',
-//                                   style: GoogleFonts.dmSans(
-//                                     color: Colors.white,
-//                                     fontSize: Responsive.textScaleFactor * 18,
-//                                     fontWeight: FontWeight.w500,
-//                                     letterSpacing: -0.30,
-//                                   ),
-//                                 ),
-//                                 SizedBox(width: Responsive.w(2)),
-
-//                                 SvgPicture.asset(
-//                                   'assets/icons/bitcoin-icons_verify-filled (1).svg',
-//                                 ),
-//                               ],
-//                             ),
-//                             Text(
-//                               'Data Science Specialist',
-//                               style: GoogleFonts.dmSans(
-//                                 color: Colors.white,
-//                                 fontSize: Responsive.textScaleFactor * 12,
-//                                 fontWeight: FontWeight.w400,
-//                                 letterSpacing: -0.20,
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                       ],
-//                     ),
-
-//                     Container(
-//                       decoration: BoxDecoration(
-//                         shape: BoxShape.circle,
-//                         color: AppColor.white.withValues(alpha: 0.08),
-//                       ),
-//                       child: Padding(
-//                         padding: const EdgeInsets.all(8.0),
-//                         child: SvgPicture.asset('assets/icons/share.svg'),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 Text(
-//                   "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-//                   style: GoogleFonts.dmSans(
-//                     color: Colors.white,
-//                     fontSize: Responsive.textScaleFactor * 12,
-//                     fontWeight: FontWeight.w400,
-//                     height: 1.50,
-//                   ),
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-//                   children: [
-//                     Row(
-//                       children: [
-//                         SvgPicture.asset("assets/icons/mic.svg"),
-//                         Text(
-//                           'English, German',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontSize: Responsive.textScaleFactor * 10,
-//                             fontFamily: 'DM Sans',
-//                             fontWeight: FontWeight.w400,
-//                             letterSpacing: -0.20,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-
-//                     Text.rich(
-//                       TextSpan(
-//                         children: [
-//                           TextSpan(
-//                             text: '\$30/',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: Responsive.textScaleFactor * 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w800,
-//                               letterSpacing: -0.20,
-//                             ),
-//                           ),
-//                           TextSpan(
-//                             text: ' ',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: Responsive.textScaleFactor * 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w500,
-//                               letterSpacing: -0.20,
-//                             ),
-//                           ),
-//                           TextSpan(
-//                             text: 'hr',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: Responsive.textScaleFactor * 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w400,
-//                               letterSpacing: -0.20,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-
-//                 //Divider
-//                 Row(children: [Expanded(child: Divider())]),
-
-//                 Text(
-//                   'Expertise',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontSize: Responsive.textScaleFactor * 12,
-//                     fontFamily: 'DM Sans',
-//                     fontWeight: FontWeight.w700,
-//                   ),
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 //Skill cipsviewview
-//                 Wrap(
-//                   spacing: 5,
-//                   runSpacing: 10,
-//                   children: [
-//                     Container(
-//                       padding: const EdgeInsets.symmetric(
-//                         horizontal: 10,
-//                         vertical: 4,
-//                       ),
-//                       decoration: ShapeDecoration(
-//                         shape: RoundedRectangleBorder(
-//                           side: BorderSide(
-//                             width: 1,
-//                             color: Colors.white.withValues(alpha: 0.40),
-//                           ),
-//                           borderRadius: BorderRadius.circular(30),
-//                         ),
-//                       ),
-//                       child: Row(
-//                         mainAxisSize: MainAxisSize.min,
-//                         mainAxisAlignment: MainAxisAlignment.center,
-//                         crossAxisAlignment: CrossAxisAlignment.center,
-//                         spacing: 10,
-//                         children: [
-//                           Text(
-//                             'Data Science',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w400,
-//                               height: 1.50,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                     Container(
-//                       padding: const EdgeInsets.symmetric(
-//                         horizontal: 10,
-//                         vertical: 4,
-//                       ),
-//                       decoration: ShapeDecoration(
-//                         shape: RoundedRectangleBorder(
-//                           side: BorderSide(
-//                             width: 1,
-//                             color: Colors.white.withValues(alpha: 0.40),
-//                           ),
-//                           borderRadius: BorderRadius.circular(30),
-//                         ),
-//                       ),
-//                       child: Row(
-//                         mainAxisSize: MainAxisSize.min,
-//                         mainAxisAlignment: MainAxisAlignment.center,
-//                         crossAxisAlignment: CrossAxisAlignment.center,
-//                         spacing: 10,
-//                         children: [
-//                           Text(
-//                             'Machine Learning',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w400,
-//                               height: 1.50,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                     Container(
-//                       padding: const EdgeInsets.symmetric(
-//                         horizontal: 10,
-//                         vertical: 4,
-//                       ),
-//                       decoration: ShapeDecoration(
-//                         shape: RoundedRectangleBorder(
-//                           side: BorderSide(
-//                             width: 1,
-//                             color: Colors.white.withValues(alpha: 0.40),
-//                           ),
-//                           borderRadius: BorderRadius.circular(30),
-//                         ),
-//                       ),
-//                       child: Row(
-//                         mainAxisSize: MainAxisSize.min,
-//                         mainAxisAlignment: MainAxisAlignment.center,
-//                         crossAxisAlignment: CrossAxisAlignment.center,
-//                         spacing: 10,
-//                         children: [
-//                           Text(
-//                             'Resume Review',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w400,
-//                               height: 1.50,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                     Container(
-//                       padding: const EdgeInsets.symmetric(
-//                         horizontal: 10,
-//                         vertical: 4,
-//                       ),
-//                       decoration: ShapeDecoration(
-//                         shape: RoundedRectangleBorder(
-//                           side: BorderSide(
-//                             width: 1,
-//                             color: Colors.white.withValues(alpha: 0.40),
-//                           ),
-//                           borderRadius: BorderRadius.circular(30),
-//                         ),
-//                       ),
-//                       child: Row(
-//                         mainAxisSize: MainAxisSize.min,
-//                         mainAxisAlignment: MainAxisAlignment.center,
-//                         crossAxisAlignment: CrossAxisAlignment.center,
-//                         spacing: 10,
-//                         children: [
-//                           Text(
-//                             'Career Guidance',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: 12,
-//                               fontFamily: 'DM Sans',
-//                               fontWeight: FontWeight.w400,
-//                               height: 1.50,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 Text(
-//                   'Intro Video',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontSize: Responsive.textScaleFactor * 12,
-//                     fontFamily: 'DM Sans',
-//                     fontWeight: FontWeight.w700,
-//                   ),
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 //video view
-//                 Container(
-//                   height: 100,
-//                   width: double.infinity,
-//                   color: AppColor.red,
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 //reivew and viewa all
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text(
-//                       'Reviews',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 12,
-//                         fontFamily: 'DM Sans',
-//                         fontWeight: FontWeight.w700,
-//                       ),
-//                     ),
-//                     Text(
-//                       'View all',
-//                       textAlign: TextAlign.right,
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 10,
-//                         fontFamily: 'DM Sans',
-//                         fontWeight: FontWeight.w400,
-//                         height: 1.60,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: Responsive.h(2)),
-
-//                 //comments card
-//                 Container(
-//                   width: double.infinity,
-//                   padding: const EdgeInsets.all(15),
-//                   decoration: ShapeDecoration(
-//                     color: Colors.white.withValues(alpha: 0.08),
-//                     shape: RoundedRectangleBorder(
-//                       borderRadius: BorderRadius.circular(20),
-//                     ),
-//                   ),
-//                   child: Column(
-//                     mainAxisSize: MainAxisSize.min,
-//                     mainAxisAlignment: MainAxisAlignment.center,
-//                     crossAxisAlignment: CrossAxisAlignment.center,
-//                     spacing: 10,
-//                     children: [
-//                       Container(
-//                         width: double.infinity,
-//                         child: Column(
-//                           mainAxisSize: MainAxisSize.min,
-//                           mainAxisAlignment: MainAxisAlignment.start,
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           spacing: 10,
-//                           children: [
-//                             Container(
-//                               width: double.infinity,
-//                               child: Row(
-//                                 mainAxisSize: MainAxisSize.min,
-//                                 mainAxisAlignment:
-//                                     MainAxisAlignment.spaceBetween,
-//                                 crossAxisAlignment: CrossAxisAlignment.start,
-//                                 spacing: 9,
-//                                 children: [
-//                                   Row(
-//                                     mainAxisSize: MainAxisSize.min,
-//                                     mainAxisAlignment: MainAxisAlignment.start,
-//                                     crossAxisAlignment:
-//                                         CrossAxisAlignment.center,
-//                                     spacing: 9,
-//                                     children: [
-//                                       Container(
-//                                         width: 40,
-//                                         height: 40,
-//                                         decoration: ShapeDecoration(
-//                                           image: DecorationImage(
-//                                             image: AssetImage(
-//                                               "assets/icons/Ellipse 6.png",
-//                                             ),
-//                                             fit: BoxFit.cover,
-//                                           ),
-//                                           shape: OvalBorder(),
-//                                         ),
-//                                       ),
-//                                       Column(
-//                                         mainAxisSize: MainAxisSize.min,
-//                                         mainAxisAlignment:
-//                                             MainAxisAlignment.start,
-//                                         crossAxisAlignment:
-//                                             CrossAxisAlignment.start,
-//                                         spacing: 3,
-//                                         children: [
-//                                           Text(
-//                                             'Jamie Dunn',
-//                                             style: TextStyle(
-//                                               color: Colors.white,
-//                                               fontSize: 14,
-//                                               fontFamily: 'DM Sans',
-//                                               fontWeight: FontWeight.w500,
-//                                               letterSpacing: -0.30,
-//                                             ),
-//                                           ),
-//                                           Row(
-//                                             mainAxisSize: MainAxisSize.min,
-//                                             mainAxisAlignment:
-//                                                 MainAxisAlignment.start,
-//                                             crossAxisAlignment:
-//                                                 CrossAxisAlignment.center,
-//                                             children: [
-//                                               Container(
-//                                                 width: 13,
-//                                                 height: 13,
-//                                                 clipBehavior: Clip.antiAlias,
-//                                                 decoration: BoxDecoration(),
-//                                                 child: Stack(),
-//                                               ),
-//                                               Container(
-//                                                 width: 13,
-//                                                 height: 13,
-//                                                 clipBehavior: Clip.antiAlias,
-//                                                 decoration: BoxDecoration(),
-//                                                 child: Stack(),
-//                                               ),
-//                                               Container(
-//                                                 width: 13,
-//                                                 height: 13,
-//                                                 clipBehavior: Clip.antiAlias,
-//                                                 decoration: BoxDecoration(),
-//                                                 child: Stack(),
-//                                               ),
-//                                               Container(
-//                                                 width: 13,
-//                                                 height: 13,
-//                                                 clipBehavior: Clip.antiAlias,
-//                                                 decoration: BoxDecoration(),
-//                                                 child: Stack(),
-//                                               ),
-//                                               Container(
-//                                                 width: 13,
-//                                                 height: 13,
-//                                                 clipBehavior: Clip.antiAlias,
-//                                                 decoration: BoxDecoration(),
-//                                                 child: Stack(),
-//                                               ),
-//                                             ],
-//                                           ),
-//                                         ],
-//                                       ),
-//                                     ],
-//                                   ),
-//                                   Text(
-//                                     '15 Days Ago',
-//                                     style: TextStyle(
-//                                       color: Colors.white,
-//                                       fontSize: 10,
-//                                       fontFamily: 'DM Sans',
-//                                       fontWeight: FontWeight.w500,
-//                                       letterSpacing: -0.30,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ),
-//                             SizedBox(
-//                               width: 325,
-//                               child: Text(
-//                                 "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: 12,
-//                                   fontFamily: 'DM Sans',
-//                                   fontWeight: FontWeight.w400,
-//                                   height: 1.50,
-//                                 ),
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-
-//                 SizedBox(height: Responsive.h(2)),
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text(
-//                       'Courses Offered by Mentor',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 12,
-//                         fontFamily: 'DM Sans',
-//                         fontWeight: FontWeight.w700,
-//                       ),
-//                     ),
-//                     Text(
-//                       'Sort By: Latest',
-//                       textAlign: TextAlign.right,
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 10,
-//                         fontFamily: 'DM Sans',
-//                         fontWeight: FontWeight.w400,
-//                         height: 1.60,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-
-//                 Container(
-//                   width: double.infinity,
-//                   decoration: BoxDecoration(
-//                     borderRadius: BorderRadius.circular(22),
-//                     color: AppColor.red,
-//                   ),
-//                   child: Padding(
-//                     padding: Responsive.padding(
-//                       left: 1,
-//                       right: 1,
-//                       top: 2,
-//                       bottom: 2,
-//                     ),
-//                     child: Text(
-//                       'Book a session',
-//                       textAlign: TextAlign.center,
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 14,
-//                         fontFamily: 'DM Sans',
-//                         fontWeight: FontWeight.w700,
-//                         letterSpacing: -0.20,
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-
-//                 Flexible(
-//                   child: ListView.builder(
-//                     itemCount: 10,
-//                     itemBuilder: ((context, index) {
-//                       return Padding(
-//                         padding: const EdgeInsets.all(8.0),
-//                         child: Container(
-//                           decoration: BoxDecoration(
-//                             borderRadius: BorderRadius.circular(28),
-//                             color: AppColor.white.withValues(alpha: 0.08),
-//                           ),
-//                           child: Padding(
-//                             padding: const EdgeInsets.all(8.0),
-//                             child: Column(
-//                               crossAxisAlignment: CrossAxisAlignment.start,
-//                               children: [
-//                                 SizedBox(height: 10),
-//                                 Row(
-//                                   mainAxisAlignment:
-//                                       MainAxisAlignment.spaceBetween,
-//                                   children: [
-//                                     Row(
-//                                       spacing: 10,
-//                                       children: [
-//                                         SvgPicture.asset(
-//                                           "assets/icons/Frame 1000002079.svg",
-//                                         ),
-//                                         Text(
-//                                           "\$19.99",
-//                                           style: GoogleFonts.dmSans(
-//                                             color: AppColor.white,
-//                                             fontWeight: FontWeight.w500,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                     Container(
-//                                       decoration: BoxDecoration(
-//                                         borderRadius: BorderRadius.circular(28),
-//                                         color: AppColor.red,
-//                                       ),
-//                                       child: Padding(
-//                                         padding: const EdgeInsets.symmetric(
-//                                           vertical: 8.0,
-//                                           horizontal: 16.0,
-//                                         ),
-//                                         child: Row(
-//                                           children: [
-//                                             Text(
-//                                               "Enroll",
-//                                               style: GoogleFonts.dmSans(
-//                                                 fontSize: 14,
-//                                                 color: AppColor.white,
-//                                                 fontWeight: FontWeight.w700,
-//                                               ),
-//                                             ),
-//                                             SvgPicture.asset(
-//                                               "assets/icons/arrow.svg",
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-//                                 SizedBox(height: 10),
-
-//                                 Text(
-//                                   "Duration: 2–5h",
-//                                   style: GoogleFonts.dmSans(
-//                                     color: AppColor.white,
-//                                     fontWeight: FontWeight.w500,
-//                                   ),
-//                                 ),
-//                                 SizedBox(height: 10),
-
-//                                 Row(
-//                                   mainAxisAlignment:
-//                                       MainAxisAlignment.spaceBetween,
-//                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                   children: [
-//                                     Text(
-//                                       "UI/UX Design Basics",
-//                                       style: GoogleFonts.dmSans(
-//                                         fontSize:
-//                                             Responsive.textScaleFactor * 25,
-//                                         color: AppColor.white,
-//                                         fontWeight: FontWeight.bold,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-
-//                                 SizedBox(height: 10),
-//                                 Row(
-//                                   mainAxisAlignment:
-//                                       MainAxisAlignment.spaceBetween,
-//                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                   children: [
-//                                     Row(
-//                                       mainAxisAlignment:
-//                                           MainAxisAlignment.spaceBetween,
-//                                       crossAxisAlignment:
-//                                           CrossAxisAlignment.end,
-//                                       children: [
-//                                         CircleAvatar(
-//                                           radius: 20,
-//                                           backgroundImage: AssetImage(
-//                                             "assets/icons/Ellipse 6.png",
-//                                           ),
-//                                         ),
-//                                         SizedBox(width: 10),
-
-//                                         Column(
-//                                           crossAxisAlignment:
-//                                               CrossAxisAlignment.start,
-//                                           children: [
-//                                             Text(
-//                                               "Chance Calzoni",
-//                                               style: GoogleFonts.dmSans(
-//                                                 color: AppColor.white,
-//                                                 fontWeight: FontWeight.w500,
-//                                               ),
-//                                             ),
-//                                             Text(
-//                                               "Mentor",
-//                                               style: GoogleFonts.dmSans(
-//                                                 color: AppColor.white,
-//                                                 fontWeight: FontWeight.w500,
-//                                               ),
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ],
-//                                     ),
-//                                     Row(
-//                                       children: [
-//                                         SvgPicture.asset(
-//                                           "assets/icons/material-symbols_star (1).svg",
-//                                         ),
-//                                         Text(
-//                                           "4.8",
-//                                           style: GoogleFonts.dmSans(
-//                                             color: AppColor.white,
-//                                             fontWeight: FontWeight.w500,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ],
-//                                 ),
-
-//                                 SizedBox(height: 10),
-//                               ],
-//                             ),
-//                           ),
-//                         ),
-//                       );
-//                     }),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
