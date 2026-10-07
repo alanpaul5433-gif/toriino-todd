@@ -1,11 +1,23 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/widgets/intro_video_upload_section.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class EditIntroVideo extends StatelessWidget {
-  const EditIntroVideo({super.key});
+class EditIntroVideo extends StatefulWidget {
+  /// The currently saved intro video, if any.
+  final String? currentUrl;
+
+  const EditIntroVideo({super.key, this.currentUrl});
+
+  @override
+  State<EditIntroVideo> createState() => _EditIntroVideoState();
+}
+
+class _EditIntroVideoState extends State<EditIntroVideo> {
+  bool _busy = false;
+  String? _savedUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +35,11 @@ class EditIntroVideo extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  SvgPicture.asset("assets/icons/Arrow - Right 3.svg"),
+                  GestureDetector(
+                    onTap:
+                        _busy ? null : () => Navigator.pop(context, _savedUrl),
+                    child: SvgPicture.asset("assets/icons/Arrow - Right 3.svg"),
+                  ),
                 ],
               ),
               SizedBox(height: Responsive.h(1)),
@@ -38,70 +54,10 @@ class EditIntroVideo extends StatelessWidget {
               ),
               SizedBox(height: Responsive.h(10)),
 
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.white.withValues(alpha: 0.08),
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 7, bottom: 7),
-                  child: Column(
-                    children: [
-                      SvgPicture.asset("assets/icons/upload-circle.svg"),
-                      Text(
-                        'Formats, MOV, MP3, MP4',
-                        style: GoogleFonts.dmSans(
-                          color: AppColor.white,
-                          fontSize: Responsive.textScaleFactor * 8,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: Responsive.h(1)),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.red,
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 2, bottom: 2),
-                  child: Center(
-                    child: SvgPicture.asset("assets/icons/camera-add.svg"),
-                  ),
-                ),
-              ),
-              SizedBox(height: Responsive.h(1)),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.primaryColor,
-                  border: Border.all(color: AppColor.red),
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 2, bottom: 2),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset("assets/icons/IC_cross.svg"),  SizedBox(width: Responsive.w(2)),
-                      Text(
-                        'Upload a video',
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontSize: Responsive.textScaleFactor * 12,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              IntroVideoUploadSection(
+                currentUrl: widget.currentUrl,
+                onBusyChanged: (v) => setState(() => _busy = v),
+                onSaved: (url) => setState(() => _savedUrl = url),
               ),
               Spacer(),
 
@@ -109,33 +65,38 @@ class EditIntroVideo extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      color: AppColor.red,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8.0,
-                        horizontal: 16.0,
+                  GestureDetector(
+                    onTap:
+                        _busy ? null : () => Navigator.pop(context, _savedUrl),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        color: AppColor.red,
                       ),
-                      child: Row(
-                        children: [
-                          Text(
-                            "Continue",
-                            style: GoogleFonts.dmSans(
-                              fontSize: 14,
-                              color: AppColor.white,
-                              fontWeight: FontWeight.w700,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8.0,
+                          horizontal: 16.0,
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              "Continue",
+                              style: GoogleFonts.dmSans(
+                                fontSize: 14,
+                                color: AppColor.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          SvgPicture.asset("assets/icons/arrow.svg"),
-                        ],
+                            SvgPicture.asset("assets/icons/arrow.svg"),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ],
-              ),  SizedBox(height: Responsive.h(4)),
+              ),
+              SizedBox(height: Responsive.h(4)),
             ],
           ),
         ),

@@ -73,3 +73,4 @@ admin-panel/.next/
 
 # SAM build output
 aws-backend/.aws-sam/
+aws-backend/lambda/*/node_modules/

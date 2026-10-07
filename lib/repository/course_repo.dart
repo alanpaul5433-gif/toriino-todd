@@ -82,6 +82,21 @@ class CourseRepo {
     );
   }
 
+  /// GET /courses/{courseId}/lessons/{lessonId}/media
+  /// -> {videoUrl, materialUrl?, expiresIn}. Throws [PaymentRequiredException]
+  /// (402) when the course is paid and the caller is not enrolled.
+  /// The returned URLs expire after `expiresIn` seconds — never cache them.
+  Future<dynamic> getLessonMedia(String courseId, String lessonId) async {
+    final headers = await AuthInterceptor.getAuthHeaders();
+    return await _apiServices.getGetApiResponse(
+      AppUrl.lessonMedia(courseId, lessonId),
+      headers: headers,
+    );
+  }
+
+  /// POST /courses/{id}/enroll — enrolls in a FREE course (201). For a paid
+  /// course the server answers 402 (thrown as [PaymentRequiredException]) and
+  /// enrolls nothing; paid enrollment happens only via the Stripe webhook.
   Future<dynamic> enrollCourse(String courseId) async {
     final headers = await AuthInterceptor.getAuthHeaders();
     return await _apiServices.getPostApiResponse(

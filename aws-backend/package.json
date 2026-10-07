@@ -7,7 +7,7 @@
     "deploy:infra": "node infrastructure/deploy.js",
     "deploy:api": "node infrastructure/deploy-api.js",
     "deploy:all": "npm run deploy:backend",
-    "deploy:backend": "node ../scripts/ensure-ssm-params.mjs && node ../scripts/import-existing-lambdas.mjs && sam build && sam deploy && node ../scripts/deploy-api-routes.mjs"
+    "deploy:backend": "node ../scripts/ensure-ssm-params.mjs && node ../scripts/import-existing-lambdas.mjs && sam build && sam deploy && node ../scripts/deploy-legacy-lambdas.mjs && node ../scripts/deploy-api-routes.mjs"
   },
   "devDependencies": {
     "jest": "^29.7.0",

@@ -2,15 +2,21 @@
  * upload-url Lambda — pre-signed S3 PUT URLs  (Cognito authorizer)
  *
  *   GET /upload-url?folder=&contentType=&ext=
- *       folder: profiles | courses/thumbnails | lessons | course-materials | intro-videos
- *       → { uploadUrl, key, publicUrl, expiresIn }
+ *       folder: profiles | courses/thumbnails | intro-videos   (public, served by CloudFront)
+ *             | lessons | course-materials                    (private)
+ *       → { uploadUrl, key, expiresIn, publicUrl? }
  *   GET /courses/upload-url?fileName=&contentType=&courseId=     (older app builds)
- *       → same, plus `url` (= publicUrl); stored under course-materials/
+ *       → same; stored under course-materials/ (private, so no publicUrl)
+ *
+ * The bucket stays private. Public folders are readable only through the CloudFront
+ * distribution (Origin Access Control), so `publicUrl` is a CloudFront URL. Private
+ * objects (paid lesson videos, course materials) get no URL here: the courses Lambda
+ * issues a short-lived pre-signed GET after checking enrollment.
  *
  * Keys are always scoped to the caller's Cognito sub, so a user can only write
  * under their own prefix. No AWS credentials ever reach the app.
  *
- * Env: S3_BUCKET, CDN_BASE (optional), URL_EXPIRY (seconds, default 300)
+ * Env: S3_BUCKET, CDN_BASE (https://<distribution>.cloudfront.net), URL_EXPIRY (seconds, default 300)
  */
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
@@ -23,7 +29,8 @@ const URL_EXPIRY = parseInt(process.env.URL_EXPIRY || '300', 10);
 
 const s3 = new S3Client({ region: REGION });
 
-const ALLOWED_FOLDERS = new Set(['profiles', 'courses/thumbnails', 'lessons', 'course-materials', 'intro-videos']);
+const PUBLIC_FOLDERS = new Set(['profiles', 'courses/thumbnails', 'intro-videos']);
+const ALLOWED_FOLDERS = new Set([...PUBLIC_FOLDERS, 'lessons', 'course-materials']);
 const ALLOWED_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
   'video/mp4', 'video/quicktime', 'video/webm',
@@ -53,7 +60,7 @@ exports.handler = async (event) => {
 
   const userId = event.requestContext?.authorizer?.claims?.sub;
   if (!userId) return res(401, { error: 'Unauthorized' });
-  if (!BUCKET) return res(503, { error: 'Uploads not configured (S3_BUCKET)' });
+  if (!BUCKET || !CDN_BASE) return res(503, { error: 'Uploads not configured (S3_BUCKET / CDN_BASE)' });
 
   const qs = event.queryStringParameters || {};
   const legacy = event.path === '/courses/upload-url';
@@ -84,8 +91,9 @@ exports.handler = async (event) => {
       new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
       { expiresIn: URL_EXPIRY },
     );
-    const publicUrl = CDN_BASE ? `${CDN_BASE}/${key}` : `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
-    return res(200, { uploadUrl, key, publicUrl, url: publicUrl, expiresIn: URL_EXPIRY });
+    const body = { uploadUrl, key, expiresIn: URL_EXPIRY };
+    if (PUBLIC_FOLDERS.has(folder)) body.publicUrl = body.url = `${CDN_BASE}/${key}`;
+    return res(200, body);
   } catch (err) {
     console.error(JSON.stringify({ level: 'ERROR', message: 'pre-sign failed', error: err.message }));
     return res(500, { error: 'Failed to generate upload URL' });

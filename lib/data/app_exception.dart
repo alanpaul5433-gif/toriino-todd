@@ -28,3 +28,13 @@ class InvalidUrlException extends AppException {
 class FetchdataException extends AppException {
   FetchdataException(String massage) : super(massage,"");
 }
+
+
+/// HTTP 402 — the server requires payment before this action (e.g. enrolling
+/// in a paid course or opening paid lesson media). [price] is the course price
+/// when the server includes it.
+class PaymentRequiredException extends AppException {
+  final double? price;
+  PaymentRequiredException(String massage, {this.price})
+      : super(massage, "Payment Required");
+}

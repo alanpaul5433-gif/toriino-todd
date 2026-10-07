@@ -74,7 +74,12 @@ class TeacherCourseViewmodel extends GetxController {
     });
   }
 
-  Future<void> submitLessons(String courseId, List<Map<String, dynamic>> lessonsData) async {
+  /// POSTs each lesson. Lesson media is sent as S3 keys (`videoKey` /
+  /// `materialKey`), never URLs. Returns one "title: reason" entry per lesson
+  /// the server rejected (empty list = all saved).
+  Future<List<String>> submitLessons(
+      String courseId, List<Map<String, dynamic>> lessonsData) async {
+    final failures = <String>[];
     for (final lesson in lessonsData) {
       try {
         await _courseRepo.addLesson(courseId, {
@@ -83,10 +88,17 @@ class TeacherCourseViewmodel extends GetxController {
           'duration': lesson['duration'] ?? '',
           'order': lesson['order']?.toString() ?? '0',
           'materialType': lesson['materialType'] ?? 'Video',
+          if ((lesson['videoKey'] as String?)?.isNotEmpty == true)
+            'videoKey': lesson['videoKey'],
+          if ((lesson['materialKey'] as String?)?.isNotEmpty == true)
+            'materialKey': lesson['materialKey'],
           if ((lesson['url'] as String?)?.isNotEmpty == true) 'url': lesson['url'],
         });
-      } catch (_) {}
+      } catch (e) {
+        failures.add('${lesson['title'] ?? 'Lesson'}: ${Utils.errorMessage(e)}');
+      }
     }
+    return failures;
   }
 
   void fetchLessons(String courseId) {

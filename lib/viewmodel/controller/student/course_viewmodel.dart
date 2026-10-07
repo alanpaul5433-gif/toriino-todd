@@ -4,6 +4,7 @@ import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/model/course/lesson_model.dart';
 import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:toriino_todd/services/analytics_service.dart';
+import 'package:toriino_todd/services/course_enrollment_service.dart';
 import 'package:toriino_todd/utils/utils.dart';
 
 class CourseViewmodel extends GetxController {
@@ -62,16 +63,22 @@ class CourseViewmodel extends GetxController {
     });
   }
 
-  void enrollCourse(String courseId) {
+  /// Real enrollment: free course -> POST enroll; paid course (or a 402 from
+  /// enroll) -> Stripe PaymentSheet, then poll my-courses until the webhook
+  /// has enrolled the student. Prefer `runCourseEnrollment` from the UI, which
+  /// also shows progress and the outcome.
+  Future<EnrollResult> enrollCourse(CourseModel course) async {
     enrolling.value = true;
-    _courseRepo.enrollCourse(courseId).then((value) {
-      enrolling.value = false;
-      AnalyticsService.logEnroll(courseId: courseId);
-      Utils.toastMassage("Enrolled successfully!");
+    final result = await CourseEnrollmentService().enroll(course);
+    enrolling.value = false;
+    if (result.isEnrolled) {
+      AnalyticsService.logEnroll(courseId: course.courseId ?? '');
+    }
+    if (result.outcome != EnrollOutcome.failed &&
+        result.outcome != EnrollOutcome.cancelled) {
       fetchMyCourses();
-    }).onError((error, _) {
-      enrolling.value = false;
-      Utils.toastMassage(error.toString());
-    });
+    }
+    Utils.toastMassage(result.message);
+    return result;
   }
 }

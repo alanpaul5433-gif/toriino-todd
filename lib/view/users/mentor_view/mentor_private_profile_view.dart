@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/view/users/mentor_view/edit_intro_video.dart';
 import 'package:toriino_todd/view/users/mentor_view/edit_mentor_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
+import 'package:toriino_todd/widgets/intro_video_tile.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorPrivateProfileView extends StatelessWidget {
@@ -400,7 +402,20 @@ class MentorPrivateProfileView extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Container(
+                    GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditIntroVideo(
+                              currentUrl: profileVm
+                                  .rxProfile.value.data?.introVideoUrl,
+                            ),
+                          ),
+                        );
+                        profileVm.fetchProfile();
+                      },
+                      child: Container(
                       decoration: BoxDecoration(
                         color: AppColor.red,
                         borderRadius: BorderRadius.circular(18),
@@ -430,6 +445,7 @@ class MentorPrivateProfileView extends StatelessWidget {
                         ),
                       ),
                     ),
+                    ),
                   ],
                 ),
                 SizedBox(height: Responsive.h(2)),
@@ -440,7 +456,9 @@ class MentorPrivateProfileView extends StatelessWidget {
                 //   width: double.infinity,
                 //   color: AppColor.red,
                 // ),
-                SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
+                Obx(() => IntroVideoTile(
+                      url: profileVm.rxProfile.value.data?.introVideoUrl,
+                    )),
                 SizedBox(height: Responsive.h(2)),
 
                 //reivew and viewa all

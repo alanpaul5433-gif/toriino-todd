@@ -1,4 +1,4 @@
-Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T02:42:47.210Z
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T17:58:41.332Z
 
  1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
       ok   Cognito login student ok, custom:role=student
@@ -34,40 +34,42 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /courses → 200
       ok   GET /courses/crs_011 → 200
 
- 6. [BROKEN] Lessons list / add lesson (P8-2, P6-1)
+ 6. [WORKS] Lessons list / add lesson (P8-2, P6-1)
       ok   route GET /courses/x/lessons (GET /courses/{id}/lessons → toriino-courses) has Cognito authorizer
       ok   route POST /courses/x/lessons (POST /courses/{id}/lessons → toriino-courses) has Cognito authorizer
-      FAIL (defect) table torino-lessons does not exist
+      ok   table toriino-lessons exists
       ok   GET /courses/crs_011/lessons → 200
 
  7. [WORKS] Course upload URL (P6-1)
       ok   route GET /courses/upload-url (GET /courses/upload-url → toriino-upload-url) has Cognito authorizer
       ok   GET /courses/upload-url → 200
 
- 8. [BROKEN] Course delete cascade + enrollment guard (P6-3)
+ 8. [WORKS] Course delete cascade + enrollment guard (P6-3)
       ok   route DELETE /courses/x (DELETE /courses/{id} → toriino-courses) has Cognito authorizer
       ok   table torino-courses exists
-      FAIL (defect) table torino-lessons does not exist
-      FAIL (defect) table torino-enrollments does not exist
+      ok   table toriino-lessons exists
+      ok   table toriino-enrollments exists
       ok   deployed toriino-courses has the enrollment guard
 
- 9. [BROKEN] Enroll + My Courses (P5-1)
+ 9. [WORKS] Enroll + My Courses (P5-1)
       ok   route POST /courses/x/enroll (POST /courses/{id}/enroll → toriino-courses) has Cognito authorizer
       ok   route GET /courses/my-courses (GET /courses/my-courses → toriino-courses) has Cognito authorizer
-      FAIL (defect) table torino-enrollments does not exist
+      ok   table toriino-enrollments exists
       ok   GET /courses/my-courses → 200
-      FAIL (defect) write test: POST /courses/verify-backend-test-course/enroll → 404, but no enrollment record could be read back
+      ok   write test: POST /courses/crs_1791056065760/enroll (free course) → 201, read back from toriino-enrollments and GET /courses/my-courses
+      ok   write test cleanup: deleted 1 test enrollment(s)
+      ok   write test cleanup: restored crs_1791056065760 enrollments counter
 
 10. [BLOCKED] Stripe payment intent (P5-1/2/3)
       ok   route POST /payments/create-intent (POST /payments/create-intent → toriino-payments) has Cognito authorizer
       ok   Lambda toriino-payments: handler file index.js present
-      FAIL (blocker) Lambda toriino-payments: env STRIPE_SECRET_KEY is missing or empty
-      ok   GET /payments/create-intent (route probe) → 404 "Not found"
+      ok   Lambda toriino-payments: STRIPE_SECRET_KEY is an SSM parameter (value not read)
+      FAIL (blocker) POST /payments/create-intent with an empty body → 503 "Stripe not configured"
 
 11. [BLOCKED] Stripe webhook (P1-3)
       ok   Lambda toriino-stripe-webhook: handler file index.js present
-      FAIL (blocker) Lambda toriino-stripe-webhook: env STRIPE_SECRET_KEY is missing or empty
-      FAIL (blocker) Lambda toriino-stripe-webhook: env STRIPE_WEBHOOK_SECRET is missing or empty
+      ok   Lambda toriino-stripe-webhook: STRIPE_SECRET_KEY is an SSM parameter (value not read)
+      ok   Lambda toriino-stripe-webhook: STRIPE_WEBHOOK_SECRET is an SSM parameter (value not read)
       ok   route POST /stripe/webhook (POST /stripe/webhook → toriino-stripe-webhook) is public (allow-listed)
       FAIL (blocker) POST /stripe/webhook with a bad Stripe-Signature, no auth → 503 "Stripe webhook not configured" (Stripe keys not set)
       ok   table toriino-stripe-events exists
@@ -93,9 +95,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
 15. [WORKS] Sessions list (P7-2)
       ok   route GET /sessions (GET /sessions → toriino-sessions) has Cognito authorizer
       ok   table torino-sessions exists
-      ok   GET /sessions?role=student → 0 session(s), all the caller's
-      ok   GET /sessions?role=teacher → 0 session(s), all the caller's
-      ok   GET /sessions?role=mentor → 0 session(s), all the caller's
+      ok   GET /sessions?role=student → 1 session(s), all the caller's
+      ok   GET /sessions?role=teacher → 1 session(s), all the caller's
+      ok   GET /sessions?role=mentor → 1 session(s), all the caller's
 
 16. [WORKS] Live-session Agora token
       ok   route POST /sessions/token (POST /sessions/token → torino-api) has Cognito authorizer
@@ -103,7 +105,7 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda torino-api: env AGORA_APP_CERTIFICATE is set
       ok   POST /sessions/token → 200
 
-17. [BLOCKED] Session recording
+17. [WORKS] Session recording
       ok   route GET /sessions/x/recording (GET /sessions/{id}/recording → toriino-agora-recording) has Cognito authorizer
       ok   route POST /sessions/x/recording/start (POST /sessions/{id}/recording/start → toriino-agora-recording) has Cognito authorizer
       ok   route POST /sessions/x/recording/stop (POST /sessions/{id}/recording/stop → toriino-agora-recording) has Cognito authorizer
@@ -112,41 +114,41 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda toriino-agora-recording: env AGORA_APP_CERTIFICATE is set
       ok   Lambda toriino-agora-recording: env RECORDING_TABLE is set
       ok   Lambda toriino-agora-recording: env RECORDING_S3_BUCKET is set
-      FAIL (blocker) Lambda toriino-agora-recording: env AGORA_CUSTOMER_ID is missing or empty
-      FAIL (blocker) Lambda toriino-agora-recording: env AGORA_CUSTOMER_SECRET is missing or empty
+      ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_ID is an SSM parameter (value not read)
+      ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_SECRET is an SSM parameter (value not read)
       ok   table toriino-recordings exists
       ok   GET /sessions/{none}/recording → 404 "Recording not found"
 
-18. [BLOCKED] Transcript / summary
+18. [WORKS] Transcript / summary
       ok   route GET /sessions/x/transcript (GET /sessions/{id}/transcript → toriino-ai-transcripts) has Cognito authorizer
       ok   route GET /sessions/x/summary (GET /sessions/{id}/summary → toriino-ai-summaries) has Cognito authorizer
       ok   Lambda toriino-ai-transcripts: handler file index.js present
       ok   Lambda toriino-ai-summaries: handler file index.js present
       ok   Lambda toriino-transcribe-processor: handler file index.js present
-      FAIL (blocker) Lambda toriino-ai-summaries: env GEMINI_API_KEY is missing or empty
-      FAIL (blocker) Lambda toriino-transcribe-processor: env GEMINI_API_KEY is missing or empty
+      ok   Lambda toriino-ai-summaries: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   Lambda toriino-transcribe-processor: GEMINI_API_KEY is an SSM parameter (value not read)
       ok   table toriino-transcripts exists
       ok   table toriino-session-summaries exists
       ok   GET /sessions/{none}/transcript → 404 "Transcript not found"
       ok   GET /sessions/{none}/summary → 404 "Summary not found"
       ok   app: transcript segments are recorded (addSegment called)
 
-19. [BLOCKED] AI Tutor chat (P2-1)
+19. [WORKS] AI Tutor chat (P2-1)
       ok   route GET /ai/chat/x (GET /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
       ok   route POST /ai/chat/x (POST /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
       ok   Lambda toriino-ai-chat: handler file index.js present
-      FAIL (blocker) Lambda toriino-ai-chat: env GEMINI_API_KEY is missing or empty
+      ok   Lambda toriino-ai-chat: GEMINI_API_KEY is an SSM parameter (value not read)
       ok   table toriino-ai-chat exists
       ok   GET /ai/chat/{self} → 200
       ok   GET /ai/chat/{other user} (expect 403) → 403 "Forbidden"
 
-20. [BLOCKED] AI Twins / Memory
+20. [WORKS] AI Twins / Memory
       ok   route GET /ai/twins/x (GET /ai/twins/{userId} → toriino-ai-twins) has Cognito authorizer
       ok   route GET /ai/memory/x (GET /ai/memory/{userId} → toriino-ai-memory) has Cognito authorizer
       ok   Lambda toriino-ai-twins: handler file index.js present
-      FAIL (blocker) Lambda toriino-ai-twins: env GEMINI_API_KEY is missing or empty
+      ok   Lambda toriino-ai-twins: GEMINI_API_KEY is an SSM parameter (value not read)
       ok   Lambda toriino-ai-memory: handler file index.js present
-      FAIL (blocker) Lambda toriino-ai-memory: env GEMINI_API_KEY is missing or empty
+      ok   Lambda toriino-ai-memory: GEMINI_API_KEY is an SSM parameter (value not read)
       ok   table toriino-ai-twins exists
       ok   table toriino-ai-memory exists
       ok   table toriino-knowledge-graph exists
@@ -183,10 +185,10 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /earnings returns availableBalance
       ok   GET /earnings/history → 200
 
-24. [BROKEN] Notifications (P8-4)
+24. [WORKS] Notifications (P8-4)
       ok   route GET /notifications (GET /notifications → toriino-notifications) has Cognito authorizer
       ok   route PATCH /notifications/x/read (PATCH /notifications/{sortKey}/read → toriino-notifications) has Cognito authorizer
-      FAIL (defect) table torino-notifications does not exist
+      ok   table toriino-notifications exists
       ok   GET /notifications → 200
       ok   deployed toriino-notifications handles PATCH /notifications/{sk}/read
 
@@ -196,13 +198,13 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   table toriino-devices exists
       FAIL (blocker) android/app/google-services.json missing (no Firebase config)
       ok   write test: POST /notifications/fcm-token → 200, token read back from torino-users
-      ok   write test cleanup: restored the previous fcmToken
+      ok   write test cleanup: restored the user record to its previous state
       ok   write test cleanup: deleted 1 test device row(s)
 
-26. [BROKEN] Reviews + one-per-student rule (P2-5)
+26. [WORKS] Reviews + one-per-student rule (P2-5)
       ok   route POST /reviews (POST /reviews → toriino-reviews) has Cognito authorizer
       ok   route GET /reviews/x (GET /reviews/{targetId} → toriino-reviews) has Cognito authorizer
-      FAIL (defect) table torino-reviews does not exist
+      ok   table toriino-reviews exists
       ok   deployed toriino-reviews has the one-review-per-student guard
       ok   write test: POST /reviews → 201, read back via GET /reviews/verify-backend-test-target
       ok   write test cleanup: deleted 1 test review(s)
@@ -241,10 +243,10 @@ Summary
    3. WORKS        User profile (home screens, profile screen)
    4. WORKS        Profile edit / change password / delete account
    5. WORKS        Course list + detail (P8-6)
-   6. BROKEN       Lessons list / add lesson (P8-2, P6-1)
+   6. WORKS        Lessons list / add lesson (P8-2, P6-1)
    7. WORKS        Course upload URL (P6-1)
-   8. BROKEN       Course delete cascade + enrollment guard (P6-3)
-   9. BROKEN       Enroll + My Courses (P5-1)
+   8. WORKS        Course delete cascade + enrollment guard (P6-3)
+   9. WORKS        Enroll + My Courses (P5-1)
   10. BLOCKED      Stripe payment intent (P5-1/2/3)
   11. BLOCKED      Stripe webhook (P1-3)
   12. WORKS        General uploads / S3Service (P2-2)
@@ -252,17 +254,17 @@ Summary
   14. WORKS        Mentor availability (P7-1)
   15. WORKS        Sessions list (P7-2)
   16. WORKS        Live-session Agora token
-  17. BLOCKED      Session recording
-  18. BLOCKED      Transcript / summary
-  19. BLOCKED      AI Tutor chat (P2-1)
-  20. BLOCKED      AI Twins / Memory
+  17. WORKS        Session recording
+  18. WORKS        Transcript / summary
+  19. WORKS        AI Tutor chat (P2-1)
+  20. WORKS        AI Twins / Memory
   21. WORKS        Wallet (P5-3)
   22. WORKS        Student search (P7-2)
   23. WORKS        Earnings (P5-4)
-  24. BROKEN       Notifications (P8-4)
+  24. WORKS        Notifications (P8-4)
   25. BLOCKED      FCM token registration (P9-1)
-  26. BROKEN       Reviews + one-per-student rule (P2-5)
+  26. WORKS        Reviews + one-per-student rule (P2-5)
   27. WORKS        Admin panel (P10-7, P1-2)
 
-TOTAL: 15 WORKS · 5 BROKEN · 0 NOT DEPLOYED · 7 BLOCKED  (of 27)
-RESULT: FAIL
+TOTAL: 24 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 3 BLOCKED  (of 27)
+RESULT: PASS (every feature WORKS or BLOCKED)

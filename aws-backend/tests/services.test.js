@@ -28,7 +28,23 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
   };
 });
 
+const mockSign = jest.fn().mockResolvedValue('https://signed.example/obj?X-Amz-Signature=x');
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn().mockImplementation(() => ({})),
+  GetObjectCommand: jest.fn().mockImplementation((input) => ({ input })),
+  PutObjectCommand: jest.fn().mockImplementation((input) => ({ input })),
+}), { virtual: true });
+jest.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl: (...a) => mockSign(...a) }), { virtual: true });
+jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
+  CognitoIdentityProviderClient: jest.fn().mockImplementation(() => ({ send: jest.fn() })),
+  AdminDeleteUserCommand: jest.fn(),
+}), { virtual: true });
+
 Object.assign(process.env, {
+  MEDIA_BUCKET: 'torino-app-storage',
+  USERS_TABLE: 'torino-users',
+  MENTORS_TABLE: 'torino-mentors',
+  CDN_BASE: 'https://cdn.example.net',
   SESSIONS_TABLE: 'torino-sessions',
   COURSES_TABLE: 'torino-courses',
   LESSONS_TABLE: 'toriino-lessons',
@@ -43,6 +59,7 @@ const sessions = require('../lambda/sessions/index').handler;
 const courses = require('../lambda/courses/index').handler;
 const reviews = require('../lambda/reviews/index').handler;
 const earnings = require('../lambda/earnings/index').handler;
+const users = require('../lambda/users/index').handler;
 
 function ev(method, path, { sub = 'me', role = 'student', body, qs } = {}) {
   return {
@@ -180,5 +197,87 @@ describe('earnings', () => {
     const r = await earnings(ev('POST', '/earnings/withdraw', { role: 'mentor', body: { amount: 60 } }));
     expect(r.statusCode).toBe(409);
     expect(mockSend.mock.calls.some((c) => c[0]._type === 'TransactWrite')).toBe(false);
+  });
+});
+
+describe('courses: paid enrollment and private lesson media', () => {
+  test('enrolling in a PAID course → 402 "payment required", nothing written', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', price: 49, status: 'published' } })
+      .mockResolvedValueOnce({ Items: [] });                       // not enrolled yet
+    const r = await courses(ev('POST', '/courses/c9/enroll'));
+    expect(r.statusCode).toBe(402);
+    expect(json(r).error).toBe('payment required');
+    expect(mockSend.mock.calls.some((c) => c[0]._type === 'Put')).toBe(false);
+  });
+
+  test('enrolling in a FREE course → 201', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c0', price: 0, status: 'active' } })
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValue({});
+    const r = await courses(ev('POST', '/courses/c0/enroll'));
+    expect(r.statusCode).toBe(201);
+    const put = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'Put');
+    expect(put.input.Item.enrollmentId).toBe('enr_c0_me');
+  });
+
+  test('paid lesson media without an enrollment → 402, no URL signed', async () => {
+    mockSign.mockClear();
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', price: 49, teacherId: 't1' } })
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', lessonId: 'l1', videoKey: 'lessons/t1/v.mp4' } })
+      .mockResolvedValueOnce({ Items: [] });
+    const r = await courses(ev('GET', '/courses/c9/lessons/l1/media'));
+    expect(r.statusCode).toBe(402);
+    expect(mockSign).not.toHaveBeenCalled();
+  });
+
+  test('paid lesson media for an enrolled student → short-lived signed URL', async () => {
+    mockSign.mockClear();
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', price: 49, teacherId: 't1' } })
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', lessonId: 'l1', videoKey: 'lessons/t1/v.mp4' } })
+      .mockResolvedValueOnce({ Items: [{ enrollmentId: 'e', status: 'active' }] });
+    const r = await courses(ev('GET', '/courses/c9/lessons/l1/media'));
+    expect(r.statusCode).toBe(200);
+    expect(json(r).videoUrl).toMatch(/^https:\/\/signed/);
+    expect(mockSign.mock.calls[0][2]).toEqual({ expiresIn: 300 });
+    expect(mockSign.mock.calls[0][1].input).toEqual({ Bucket: 'torino-app-storage', Key: 'lessons/t1/v.mp4' });
+  });
+
+  test('a refunded enrollment does not unlock paid media', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', price: 49, teacherId: 't1' } })
+      .mockResolvedValueOnce({ Item: { courseId: 'c9', lessonId: 'l1', videoKey: 'lessons/t1/v.mp4' } })
+      .mockResolvedValueOnce({ Items: [{ enrollmentId: 'e', status: 'refunded' }] });
+    const r = await courses(ev('GET', '/courses/c9/lessons/l1/media'));
+    expect(r.statusCode).toBe(402);
+  });
+
+  test("a lesson cannot point at someone else's upload", async () => {
+    mockSend.mockResolvedValueOnce({ Item: { courseId: 'c9', price: 49, teacherId: 'me' } });
+    const r = await courses(ev('POST', '/courses/c9/lessons', {
+      role: 'teacher', body: { title: 'L', videoKey: 'lessons/other-user/v.mp4' },
+    }));
+    expect(r.statusCode).toBe(400);
+  });
+});
+
+describe('users: introVideoUrl', () => {
+  test("rejects a URL that is not the caller's intro-videos upload", async () => {
+    const r = await users(ev('PUT', '/users/profile', { role: 'mentor', body: { introVideoUrl: 'https://evil.example/x.mp4' } }));
+    expect(r.statusCode).toBe(400);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  test('saves the URL and mirrors it onto the mentor record', async () => {
+    const url = 'https://cdn.example.net/intro-videos/me/v.mp4';
+    mockSend.mockResolvedValueOnce({ Attributes: { userId: 'me', role: 'Mentor', introVideoUrl: url } }).mockResolvedValue({});
+    const r = await users(ev('PUT', '/users/profile', { role: 'mentor', body: { introVideoUrl: url } }));
+    expect(r.statusCode).toBe(200);
+    const mirror = mockSend.mock.calls.map((c) => c[0]).filter((c) => c._type === 'Update')[1];
+    expect(mirror.input.TableName).toBe('torino-mentors');
+    expect(mirror.input.Key).toEqual({ mentorId: 'me' });
   });
 });

@@ -7,7 +7,10 @@
  *   POST   /users/avatar    legacy: pre-signed avatar upload (app now uses GET /upload-url)
  *   DELETE /users/account   delete the Cognito user, then the profile record
  *
- * Env: USERS_TABLE, COGNITO_USER_POOL_ID
+ * Profile field introVideoUrl must be a CloudFront URL from an upload to folder
+ * intro-videos (GET /upload-url); for mentors it is mirrored onto the mentor record.
+ *
+ * Env: USERS_TABLE, MENTORS_TABLE, COGNITO_USER_POOL_ID, CDN_BASE
  */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
@@ -25,6 +28,8 @@ const {
 const REGION = process.env.AWS_REGION || "us-east-1";
 const TABLE = process.env.USERS_TABLE;
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
+const MENTORS_TABLE = process.env.MENTORS_TABLE;
+const CDN_BASE = process.env.CDN_BASE || "";
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
@@ -49,7 +54,7 @@ const ROLES = { student: "Student", teacher: "Teacher", mentor: "Mentor" };
 const PROFILE_FIELDS = [
   "name", "phone", "bio", "interests", "avatarUrl", "dateOfBirth", "location",
   "experience", "language", "hourlyRate", "expertise", "specialties", "goals",
-  "educationLevel", "title", "skills", "industry",
+  "educationLevel", "title", "skills", "industry", "introVideoUrl",
 ];
 
 exports.handler = async (event) => {
@@ -68,6 +73,12 @@ exports.handler = async (event) => {
 
   const path = event.path;
   try {
+    if (path === "/users/profile" && method === "PUT" && body.introVideoUrl !== undefined) {
+      const url = String(body.introVideoUrl || "");
+      if (url && !(CDN_BASE && url.startsWith(`${CDN_BASE}/intro-videos/${userId}/`))) {
+        return response(400, { error: "introVideoUrl must be the URL returned by an intro-videos upload" });
+      }
+    }
     if (path === "/users/profile" && method === "GET") return await getProfile(userId, claims);
     if (path === "/users/profile" && method === "PUT") return await updateProfile(userId, body);
     if (path === "/users/role" && method === "PUT") return await updateRole(userId, body);
@@ -135,6 +146,25 @@ async function updateProfile(userId, data) {
     ExpressionAttributeValues: values,
     ReturnValues: "ALL_NEW",
   }));
+
+  // Students see a mentor's intro video on GET /mentors/{id}, so mirror it there.
+  if (data.introVideoUrl !== undefined && MENTORS_TABLE
+      && String(result.Attributes?.role || "").toLowerCase() === "mentor") {
+    try {
+      await dynamodb.send(new UpdateCommand({
+        TableName: MENTORS_TABLE,
+        Key: { mentorId: userId },
+        UpdateExpression: "SET introVideoUrl = :v, updatedAt = :u",
+        ConditionExpression: "attribute_exists(mentorId)",
+        ExpressionAttributeValues: { ":v": data.introVideoUrl, ":u": values[":updatedAt"] },
+      }));
+    } catch (err) {
+      if (err.name !== "ConditionalCheckFailedException") {
+        log("ERROR", "Intro video saved on profile but mentor record update failed", { userId, error: err.message });
+        return response(500, { error: "Intro video saved on your profile but not on your mentor listing; please retry" });
+      }
+    }
+  }
   return response(200, result.Attributes);
 }
 

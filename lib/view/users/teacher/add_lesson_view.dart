@@ -25,7 +25,9 @@ class _LessonEntry {
   String? fileName;
   int? fileSize;
   String? linkUrl;
-  String? uploadedUrl; // set after successful S3 upload
+  // S3 key returned by S3Service.uploadFile. Lesson media is private, so the
+  // key (not a URL) is stored as videoKey / materialKey.
+  String? uploadedKey;
 
   _LessonEntry({
     required this.title,
@@ -45,7 +47,11 @@ class _LessonEntry {
         'duration': duration,
         'order': order,
         'materialType': materialType,
-        'url': uploadedUrl ?? linkUrl ?? '',
+        if (uploadedKey != null && materialType == 'Video')
+          'videoKey': uploadedKey,
+        if (uploadedKey != null && materialType == 'PDF')
+          'materialKey': uploadedKey,
+        if (materialType == 'Link' && (linkUrl ?? '').isNotEmpty) 'url': linkUrl,
       };
 }
 
@@ -286,7 +292,7 @@ class _AddLessonViewState extends State<AddLessonView> {
         .where((l) =>
             (l.materialType == 'Video' || l.materialType == 'PDF') &&
             l.fileBytes != null &&
-            l.uploadedUrl == null)
+            l.uploadedKey == null)
         .toList();
 
     if (lessonsNeedingUpload.isNotEmpty) {
@@ -321,10 +327,11 @@ class _AddLessonViewState extends State<AddLessonView> {
           if (result['success'] != true) {
             throw Exception(result['message'] ?? 'Upload failed');
           }
-          final publicUrl = result['url'] as String;
+          final key = (result['key'] as String?) ?? '';
+          if (key.isEmpty) throw Exception('Upload did not return a file key');
 
           setState(() {
-            lesson.uploadedUrl = publicUrl;
+            lesson.uploadedKey = key;
             _uploadProgress = (i + 1) / lessonsNeedingUpload.length;
           });
         } catch (e) {
@@ -354,13 +361,43 @@ class _AddLessonViewState extends State<AddLessonView> {
     // Step 2: create course and submit lessons
     _courseVm.onCourseCreated = () async {
       final courseId = _courseVm.lastCourseId;
-      if (courseId != null && _lessons.isNotEmpty) {
-        await _courseVm.submitLessons(
-          courseId,
-          _lessons.map((l) => l.toMap()).toList(),
+      if (courseId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Course was created but the server did not return its id, so lessons were not saved.'),
+            backgroundColor: Colors.red,
+          ));
+        }
+        return;
+      }
+      final failures = await _courseVm.submitLessons(
+        courseId,
+        _lessons.map((l) => l.toMap()).toList(),
+      );
+      if (!mounted) return;
+      if (failures.isEmpty) {
+        _courseCompleteAlert(context);
+      } else {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColor.primaryColor,
+            title: const Text('Some lessons were not saved',
+                style: TextStyle(color: Colors.white)),
+            content: Text(
+              'The course was created, but ${failures.length} lesson(s) failed:\n\n${failures.join('\n')}',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK', style: TextStyle(color: AppColor.red)),
+              ),
+            ],
+          ),
         );
       }
-      if (mounted) _courseCompleteAlert(context);
     };
     _courseVm.createCourse();
   }
@@ -541,7 +578,7 @@ class _AddLessonViewState extends State<AddLessonView> {
   Widget _lessonCard(int index, _LessonEntry lesson) {
     final hasFile = lesson.fileName != null;
     final hasLink = (lesson.linkUrl ?? '').isNotEmpty;
-    final uploaded = (lesson.uploadedUrl ?? '').isNotEmpty;
+    final uploaded = (lesson.uploadedKey ?? '').isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),

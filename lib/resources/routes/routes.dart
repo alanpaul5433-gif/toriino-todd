@@ -72,8 +72,11 @@ class AppRoutes {
       page: () {
         final args = Get.arguments as Map<String, dynamic>;
         return LessonVideoView(
-          videoUrl: args['videoUrl'] as String,
-          title: args['title'] as String,
+          videoUrl: args['videoUrl'] as String?,
+          title: args['title'] as String? ?? 'Lesson',
+          courseId: args['courseId'] as String?,
+          lessonId: args['lessonId'] as String?,
+          course: args['course'] as CourseModel?,
         );
       },
       transitionDuration: const Duration(milliseconds: 200),

@@ -4,17 +4,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/model/course/course_model.dart';
-import 'package:toriino_todd/repository/course_repo.dart';
-import 'package:toriino_todd/services/stripe_service.dart';
+import 'package:toriino_todd/view/users/student_view/course_enroll_flow.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_filter.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class CourseView extends StatelessWidget {
   CourseView({super.key});
@@ -373,26 +370,11 @@ void _enrollBottomSheet(BuildContext context, CourseModel course) {
     backgroundColor: AppColor.primaryColor,
     builder: (sheetContext) => StatefulBuilder(
       builder: (sheetContext, setSheetState) {
-        bool paying = false;
+        // Free course -> enroll; paid course -> Stripe PaymentSheet, then wait
+        // for the webhook to enroll (see CourseEnrollmentService).
         void pay() {
-          if (paying) return;
-          setSheetState(() => paying = true);
-          StripeService.purchaseCourse(
-            courseId: course.courseId ?? '',
-            courseTitle: course.title ?? 'Course',
-          ).then((result) {
-            if (result['success'] == true) {
-              Navigator.pop(sheetContext);
-              CourseRepo().enrollCourse(course.courseId ?? '').then((_) {
-                _showEnrollSuccessDialog(context, course.title ?? 'Course');
-              }).catchError((_) {
-                _showEnrollSuccessDialog(context, course.title ?? 'Course');
-              });
-            } else {
-              setSheetState(() => paying = false);
-              Utils.toastMassage(result['message'] ?? 'Payment failed');
-            }
-          });
+          Navigator.pop(sheetContext);
+          runCourseEnrollment(context, course);
         }
         return Padding(
           padding: EdgeInsets.only(
@@ -421,7 +403,7 @@ void _enrollBottomSheet(BuildContext context, CourseModel course) {
                     ),
                   ),
                   GestureDetector(
-                    onTap: paying ? null : () => Navigator.pop(sheetContext),
+                    onTap: () => Navigator.pop(sheetContext),
                     child: Icon(Icons.close, color: AppColor.white),
                   ),
                 ],
@@ -473,9 +455,9 @@ void _enrollBottomSheet(BuildContext context, CourseModel course) {
                 ),
               SizedBox(height: Responsive.h(2)),
               AuthButton(
-                buttontext: "Proceed to Payment",
+                buttontext: price > 0 ? "Proceed to Payment" : "Enroll for Free",
                 onPress: pay,
-                loading: paying,
+                loading: false,
               ),
               SizedBox(height: Responsive.h(2)),
             ],
@@ -520,74 +502,3 @@ void _showFilterSuggestipon(BuildContext context) {
   );
 }
 
-void _showEnrollSuccessDialog(BuildContext context, String courseTitle) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext dialogContext) {
-      return Dialog(
-        backgroundColor: AppColor.primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.0),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(20.0.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset("assets/icons/checkmark-circle-02.svg"),
-              SizedBox(height: 15.h),
-              Text(
-                "You're Enrolled!",
-                style: TextStyle(
-                  color: AppColor.white,
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                'You now have access to "$courseTitle". Head to My Courses to start learning.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColor.white, fontSize: 14.sp, height: 1.5),
-              ),
-              SizedBox(height: 20.h),
-              GestureDetector(
-                onTap: () => Navigator.of(dialogContext).pop(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: AppColor.red,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8.0,
-                      horizontal: 16.0,
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Start Learning",
-                            style: GoogleFonts.dmSans(
-                              fontSize: 14,
-                              color: AppColor.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SvgPicture.asset("assets/icons/arrow.svg"),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}

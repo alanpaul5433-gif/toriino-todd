@@ -4,9 +4,41 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryComm
 const REGION = process.env.AWS_REGION || "us-east-1";
 const MEMORY_TABLE = process.env.MEMORY_TABLE || "toriino-ai-memory";
 const KNOWLEDGE_GRAPH_TABLE = process.env.KNOWLEDGE_GRAPH_TABLE || "toriino-knowledge-graph";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = "gemini-flash-latest";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+// ── Secrets: SSM SecureString under SSM_PREFIX (e.g. /torino/prod/), cached 5 min.
+// The placeholder NOT_SET (or a missing parameter) means "not configured" → HTTP 503.
+const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
+const ssm = new SSMClient({ region: process.env.AWS_REGION || "us-east-1" });
+const SECRET_TTL_MS = 5 * 60 * 1000;
+const secretCache = {};
+async function getSecret(name) {
+  const prefix = process.env.SSM_PREFIX;
+  if (!prefix) return null;
+  const hit = secretCache[name];
+  if (hit && Date.now() - hit.at < SECRET_TTL_MS) return hit.value;
+  let value = null;
+  try {
+    const out = await ssm.send(new GetParameterCommand({ Name: `${prefix}${name}`, WithDecryption: true }));
+    const raw = out.Parameter?.Value;
+    value = raw && raw !== "NOT_SET" ? raw : null;
+  } catch (err) {
+    if (err.name !== "ParameterNotFound") throw err;
+  }
+  secretCache[name] = { value, at: Date.now() };
+  return value;
+}
+function notConfigured(message) {
+  const err = new Error(message);
+  err.code = "NOT_CONFIGURED";
+  return err;
+}
+
+async function geminiUrl() {
+  const key = await getSecret("GEMINI_API_KEY");
+  if (!key) throw notConfigured("Gemini not configured");
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+}
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 
@@ -69,6 +101,7 @@ exports.handler = async (event) => {
     return response(404, { error: "Route not found" });
   } catch (error) {
     console.error("Memory error:", error);
+    if (error.code === "NOT_CONFIGURED") return response(503, { error: error.message });
     return response(500, { error: error.message });
   }
 };
@@ -147,7 +180,7 @@ ${recentActivity ? `- Recent activity: ${recentActivity}` : ""}
 
 Return ONLY valid JSON.`;
 
-  const geminiResponse = await fetch(GEMINI_URL, {
+  const geminiResponse = await fetch(await geminiUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),

@@ -65,6 +65,12 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(Utils.errorMessage(snapshot.error),
+                            style: const TextStyle(color: Colors.white)),
+                      );
+                    }
                     final raw = snapshot.data;
                     final lessonList = (raw is Map ? raw['lessons'] as List? : null) ?? [];
                     if (lessonList.isEmpty) {
@@ -76,6 +82,7 @@ class _MyTakenCousreViewState extends State<MyTakenCousreView> {
                       itemCount: lessonList.length,
                       itemBuilder: (_, i) => CourseContentWidget(
                         lesson: LessonModel.fromJson(lessonList[i] as Map<String, dynamic>),
+                        course: widget.course,
                       ),
                     );
                   },

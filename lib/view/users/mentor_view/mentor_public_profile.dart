@@ -1,10 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/model/mentor/mentor_model.dart';
+import 'package:toriino_todd/repository/mentor_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/availability_view.dart';
 import 'package:toriino_todd/widgets/components/starrating.dart';
+import 'package:toriino_todd/widgets/intro_video_tile.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorPublicProfile extends StatefulWidget {
@@ -22,6 +24,21 @@ class _MentorPublicProfileState extends State<MentorPublicProfile> {
   void initState() {
     super.initState();
     _mentor = widget.mentor;
+    _refreshMentor();
+  }
+
+  /// GET /mentors/{id} returns the full record (incl. introVideoUrl, which
+  /// list payloads may omit).
+  Future<void> _refreshMentor() async {
+    final id = widget.mentor?.userId ?? '';
+    if (id.isEmpty) return;
+    try {
+      final value = await MentorRepo().getMentorById(id);
+      if (!mounted || value is! Map<String, dynamic>) return;
+      setState(() => _mentor = MentorModel.fromJson(value));
+    } catch (_) {
+      // Keep showing the data we were given.
+    }
   }
 
   @override
@@ -328,7 +345,7 @@ class _MentorPublicProfileState extends State<MentorPublicProfile> {
                 //   width: double.infinity,
 
                 // ),
-                SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
+                IntroVideoTile(url: mentor.introVideoUrl),
                 SizedBox(height: Responsive.h(2)),
 
                 //rating row

@@ -10,7 +10,11 @@ import 'package:toriino_todd/data/network/auth_interceptor.dart';
 /// server-issued pre-signed PUT URL.
 ///
 /// 1. GET {base}/upload-url?folder=&contentType=&ext=
-///    -> {uploadUrl, key, publicUrl, expiresIn}
+///    -> {uploadUrl, key, expiresIn, publicUrl?}
+///    `publicUrl` (a CloudFront https URL) is present ONLY for the public
+///    folders: profiles, courses/thumbnails, intro-videos. Private folders
+///    (lessons, course-materials) return only the S3 `key`, which is what the
+///    app must store; the media is later served via pre-signed GET URLs.
 /// 2. HTTP PUT the bytes to uploadUrl with the same Content-Type.
 ///
 /// The Lambda (upload-url) scopes the key to the Cognito sub and enforces
@@ -44,8 +48,9 @@ class S3Service {
 
   /// Uploads [bytes] to [folder] as [fileName].
   ///
-  /// Returns `{'success': true, 'url': publicUrl, 'key': key}` on success or
-  /// `{'success': false, 'message': reason}` on any failure.
+  /// Returns `{'success': true, 'key': key, 'url': publicUrl ?? ''}` on
+  /// success or `{'success': false, 'message': reason}` on any failure.
+  /// `url` is empty for private folders — no S3 URL is ever invented.
   static Future<Map<String, dynamic>> uploadFile({
     required Uint8List bytes,
     required String folder,
@@ -94,6 +99,9 @@ class S3Service {
       if (uploadUrl == null || uploadUrl.isEmpty) {
         return {'success': false, 'message': 'Upload URL missing from server response'};
       }
+      if (key == null || key.isEmpty) {
+        return {'success': false, 'message': 'Upload key missing from server response'};
+      }
 
       // 2. PUT the bytes directly to S3 with the same Content-Type
       final putResponse = await http
@@ -105,7 +113,7 @@ class S3Service {
           .timeout(const Duration(minutes: 10));
 
       if (putResponse.statusCode >= 200 && putResponse.statusCode < 300) {
-        return {'success': true, 'url': publicUrl ?? '', 'key': key ?? ''};
+        return {'success': true, 'key': key, 'url': publicUrl ?? ''};
       }
       return {
         'success': false,

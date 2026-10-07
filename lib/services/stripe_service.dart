@@ -38,12 +38,13 @@ class StripeService {
         body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': jsonDecode(response.body)};
       }
       return {
         'success': false,
-        'message': 'Failed to create payment intent: ${response.statusCode}',
+        'message': _serverError(response.body) ??
+            'Failed to create payment intent: ${response.statusCode}',
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -96,6 +97,14 @@ class StripeService {
   // ── Course purchase ──────────────────────────────────
   // Price and teacherId are resolved server-side from DynamoDB.
   // The client only supplies courseId (and a display title for the description).
+  //
+  // Success here means only that the PaymentSheet completed. The student is
+  // enrolled by the Stripe webhook afterwards — callers must NOT call
+  // POST /courses/{id}/enroll; poll GET /courses/my-courses instead
+  // (see CourseEnrollmentService).
+  //
+  // Returns {success, message} and, when the user dismissed the sheet,
+  // {cancelled: true}.
   static Future<Map<String, dynamic>> purchaseCourse({
     required String courseId,
     required String courseTitle,
@@ -115,10 +124,12 @@ class StripeService {
         }),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        // e.g. 503 {"error": "Stripe not configured"} — show the server's text.
         return {
           'success': false,
-          'message': 'Payment setup failed: ${response.statusCode}',
+          'message': _serverError(response.body) ??
+              'Payment setup failed (${response.statusCode})',
         };
       }
 
@@ -137,15 +148,30 @@ class StripeService {
       );
 
       await Stripe.instance.presentPaymentSheet();
-      return {'success': true, 'message': 'Payment successful'};
+      return {'success': true, 'message': 'Payment received'};
     } on StripeException catch (e) {
+      final cancelled = e.error.code == FailureCode.Canceled;
       return {
         'success': false,
-        'message': e.error.localizedMessage ?? 'Payment cancelled',
+        'cancelled': cancelled,
+        'message': cancelled
+            ? 'Payment cancelled'
+            : (e.error.localizedMessage ?? 'Payment failed'),
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  static String? _serverError(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final msg = decoded['error'] ?? decoded['message'];
+        if (msg is String && msg.trim().isNotEmpty) return msg;
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ── Session booking payment ──────────────────────────

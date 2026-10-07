@@ -1,18 +1,28 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  Toriino Todd backend (us-east-1) — microservice Lambdas, their IAM roles and the
-  DynamoDB tables that did not exist yet. API Gateway pq8cu94cfd (prod) is NOT managed
-  here: scripts/deploy-api-routes.mjs wires its routes from aws-backend/routes.json.
-
-  Existing tables (torino-users/courses/sessions/mentors/earnings, toriino-enrollments/
-  reviews/notifications, …) are referenced by name only and never created or changed.
-  toriino-users, toriino-student-search and toriino-admin were created by hand and are
-  imported into this stack (see scripts/import-existing-lambdas.mjs) — never re-created.
-
-  Secrets live in SSM Parameter Store SecureStrings under SsmPrefix (created with the value
-  NOT_SET by scripts/ensure-ssm-params.mjs; CloudFormation cannot create SecureStrings).
-  Each Lambda can read only the parameters it needs.
+# Toriino Todd backend (us-east-1) — microservice Lambdas, their IAM roles and the
+# DynamoDB tables that did not exist yet. API Gateway pq8cu94cfd (prod) is NOT managed
+# here: scripts/deploy-api-routes.mjs wires its routes from aws-backend/routes.json.
+#
+# Existing tables (torino-users/courses/sessions/mentors/earnings, toriino-enrollments/
+# reviews/notifications, …) are referenced by name only and never created or changed.
+# toriino-users, toriino-student-search and toriino-admin were created by hand and are
+# imported into this stack (see scripts/import-existing-lambdas.mjs) — never re-created.
+#
+# Secrets live in SSM Parameter Store SecureStrings under SsmPrefix (created with the value
+# NOT_SET by scripts/ensure-ssm-params.mjs; CloudFormation cannot create SecureStrings).
+# Each Lambda can read only the parameters it needs.
+#
+# The AI Lambdas (toriino-ai-chat/-twins/-memory/-summaries, toriino-transcribe-processor)
+# were also imported. toriino-agora-recording and torino-api keep AGORA_APP_CERTIFICATE as
+# an env var (it must never be written into this template), so their code/env are deployed
+# by scripts/deploy-legacy-lambdas.mjs; their SSM permissions are managed here.
+#
+# Files: torino-app-storage stays private (Block Public Access on). Avatars, course
+# thumbnails and intro videos are served by the MediaDistribution CloudFront distribution
+# through Origin Access Control; lesson videos and course materials are served only through
+# short-lived pre-signed GET URLs issued by the courses Lambda after an enrollment check.
+Description: Toriino Todd backend (us-east-1) — microservice Lambdas, IAM roles, new DynamoDB tables and the public-media CloudFront distribution. See the header comment.
 
 Parameters:
   CognitoUserPoolId:
@@ -64,6 +74,19 @@ Parameters:
   AiMemoryTable:
     Type: String
     Default: toriino-ai-memory
+  KnowledgeGraphTable:
+    Type: String
+    Default: toriino-knowledge-graph
+  RecordingsTable:
+    Type: String
+    Default: toriino-recordings
+  RecordingsBucket:
+    Type: String
+    Default: toriino-recordings-888245942659
+  MonolithRoleName:
+    Type: String
+    Default: torino-api-role-4vdklh0d
+    Description: Existing execution role of torino-api (not managed by this stack).
 
 Globals:
   Function:
@@ -154,6 +177,121 @@ Resources:
             - { AttributeName: userId, KeyType: HASH }
           Projection: { ProjectionType: ALL }
 
+  # ── Media delivery (CloudFront + Origin Access Control; bucket stays private) ──
+  MediaOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: torino-app-storage-oac
+        Description: CloudFront access to the public prefixes of torino-app-storage
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  MediaDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Toriino Todd public media (avatars, course thumbnails, intro videos)
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: app-storage
+            DomainName: !Sub ${UploadBucket}.s3.${AWS::Region}.amazonaws.com
+            OriginAccessControlId: !GetAtt MediaOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: app-storage
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+
+  # Replaces the old (ineffective, Block-Public-Access-overridden) public-read policy.
+  # CloudFront may read ONLY the public prefixes; lessons/ and course-materials/ are
+  # reachable solely through pre-signed URLs.
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref UploadBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudFrontReadPublicPrefixes
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource:
+              - !Sub arn:aws:s3:::${UploadBucket}/profiles/*
+              - !Sub arn:aws:s3:::${UploadBucket}/avatars/*
+              - !Sub arn:aws:s3:::${UploadBucket}/courses/thumbnails/*
+              - !Sub arn:aws:s3:::${UploadBucket}/intro-videos/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${MediaDistribution}
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub arn:aws:s3:::${UploadBucket}
+              - !Sub arn:aws:s3:::${UploadBucket}/*
+            Condition:
+              Bool: { aws:SecureTransport: "false" }
+
+  # ── Roles for Lambdas deployed outside SAM (scripts/deploy-legacy-lambdas.mjs) ──
+  AgoraRecordingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: agora-recording
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${RecordingsTable}
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}AGORA_CUSTOMER_ID
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}AGORA_CUSTOMER_SECRET
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals: { kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com" }
+
+  MonolithGeminiSecretPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: torino-api-gemini-secret
+      Roles: [!Ref MonolithRoleName]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: ssm:GetParameter
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+          - Effect: Allow
+            Action: kms:Decrypt
+            Resource: "*"
+            Condition:
+              StringEquals: { kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com" }
+
   # ── Functions ─────────────────────────────────────────────────────────────────
   # Imported (existed before this stack): logical IDs must stay UsersFunction,
   # StudentSearchFunction and AdminFunction.
@@ -167,10 +305,15 @@ Resources:
       Environment:
         Variables:
           USERS_TABLE: !Ref UsersTable
+          MENTORS_TABLE: !Ref MentorsTable
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          CDN_BASE: !Sub https://${MediaDistribution.DomainName}
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref UsersTable }
         - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MentorsTable}
             - Effect: Allow
               Action: cognito-idp:AdminDeleteUser
               Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
@@ -268,13 +411,21 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
+          # torino-courses holds the 45 live courses — see docs/ARCHITECTURE.md (Courses table).
           COURSES_TABLE: !Ref CoursesTable
           LESSONS_TABLE: !Ref LessonsTable
           ENROLLMENTS_TABLE: !Ref EnrollmentsTable
+          MEDIA_BUCKET: !Ref UploadBucket
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref CoursesTable }
         - DynamoDBCrudPolicy: { TableName: !Ref LessonsTable }
         - DynamoDBCrudPolicy: { TableName: !Ref EnrollmentsTable }
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource:
+                - !Sub arn:aws:s3:::${UploadBucket}/lessons/*
+                - !Sub arn:aws:s3:::${UploadBucket}/course-materials/*
 
   SessionsFunction:
     Type: AWS::Serverless::Function
@@ -361,6 +512,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET: !Ref UploadBucket
+          CDN_BASE: !Sub https://${MediaDistribution.DomainName}
           URL_EXPIRY: "300"
       Policies:
         - Statement:
@@ -428,6 +580,154 @@ Resources:
                 StringEquals:
                   kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
 
+  # ── Imported AI functions (Gemini key from SSM; no secrets in env) ─────────────
+  AiChatFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-ai-chat
+      CodeUri: lambda/ai-chat/
+      Timeout: 30
+      Environment:
+        Variables:
+          CHAT_TABLE: !Ref AiChatTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref AiChatTable }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  AiTwinsFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-ai-twins
+      CodeUri: lambda/ai-twins/
+      Timeout: 60
+      Environment:
+        Variables:
+          TWINS_TABLE: !Ref AiTwinsTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref AiTwinsTable }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  AiMemoryFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-ai-memory
+      CodeUri: lambda/ai-memory/
+      Timeout: 30
+      Environment:
+        Variables:
+          MEMORY_TABLE: !Ref AiMemoryTable
+          KNOWLEDGE_GRAPH_TABLE: !Ref KnowledgeGraphTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref AiMemoryTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref KnowledgeGraphTable }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  AiSummariesFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-ai-summaries
+      CodeUri: lambda/ai-summaries/
+      Timeout: 60
+      Environment:
+        Variables:
+          SUMMARIES_TABLE: !Ref SummariesTable
+          TRANSCRIPTS_TABLE: !Ref TranscriptsTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SummariesTable }
+        - DynamoDBReadPolicy: { TableName: !Ref TranscriptsTable }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  # S3 trigger (recordings/*.mp4 on the recordings bucket) is configured on the bucket
+  # and kept: the function ARN does not change.
+  TranscribeProcessorFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-transcribe-processor
+      CodeUri: lambda/transcribe-processor/
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          SUMMARIES_TABLE: !Ref SummariesTable
+          TRANSCRIPTS_TABLE: !Ref TranscriptsTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SummariesTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref TranscriptsTable }
+        - Statement:
+            - Effect: Allow
+              Action: [transcribe:StartTranscriptionJob, transcribe:GetTranscriptionJob]
+              Resource: "*"
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject]
+              Resource: !Sub arn:aws:s3:::${RecordingsBucket}/*
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
 Outputs:
+  MediaCdnBase:
+    Description: Public base URL for avatars, course thumbnails and intro videos
+    Value: !Sub https://${MediaDistribution.DomainName}
+  AgoraRecordingRoleArn:
+    Description: Execution role for toriino-agora-recording (applied by deploy-legacy-lambdas.mjs)
+    Value: !GetAtt AgoraRecordingRole.Arn
   NewTables:
     Value: !Join [", ", [!Ref LessonsTable, !Ref WithdrawalsTable, !Ref DevicesTable, !Ref StripeEventsTable, !Ref EarningEntriesTable]]

@@ -206,6 +206,11 @@ class NetworkApiServices extends BaseApiServices {
         throw InvalidUrlException(serverMsg ?? 'Bad request');
       case 401:
         throw ServerException(serverMsg ?? 'Unauthorized. Please login again.');
+      case 402:
+        throw PaymentRequiredException(
+          serverMsg ?? 'Payment required',
+          price: _extractPrice(response.body),
+        );
       case 403:
         throw ServerException(serverMsg ?? 'Access denied.');
       case 404:
@@ -219,6 +224,16 @@ class NetworkApiServices extends BaseApiServices {
           serverMsg ?? 'Error while communicating with server: $code',
         );
     }
+  }
+
+  static double? _extractPrice(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['price'] is num) {
+        return (decoded['price'] as num).toDouble();
+      }
+    } catch (_) {}
+    return null;
   }
 
   static String? _extractServerMessage(String body) {

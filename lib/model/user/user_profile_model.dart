@@ -21,6 +21,9 @@ class UserProfileModel {
   final List<String>? expertise;
   final List<String>? skills;
 
+  /// Public (CloudFront https) intro video for mentors/teachers.
+  final String? introVideoUrl;
+
   UserProfileModel({
     this.userId,
     this.name,
@@ -43,6 +46,7 @@ class UserProfileModel {
     this.industry,
     this.expertise,
     this.skills,
+    this.introVideoUrl,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +74,7 @@ class UserProfileModel {
       industry: json['industry'],
       expertise: _stringList(json['expertise']),
       skills: _stringList(json['skills']),
+      introVideoUrl: json['introVideoUrl'],
     );
   }
 
@@ -105,6 +110,7 @@ class UserProfileModel {
     if (industry != null) data['industry'] = industry;
     if (expertise != null) data['expertise'] = expertise;
     if (skills != null) data['skills'] = skills;
+    if (introVideoUrl != null) data['introVideoUrl'] = introVideoUrl;
     return data;
   }
 }

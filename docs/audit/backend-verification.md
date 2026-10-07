@@ -1,6 +1,32 @@
 # Backend Verification — /prod
 
-## Re-verification after remediation (2026-10-07, branch `fix/remediation-v1`)
+## Re-verification, round 2 (2026-10-07, branch `fix/remediation-v1`)
+
+`node scripts/verify-backend.mjs` (the checker's updated script, commit `381876f`) against deployment `t76glk`. Full output: [verify-after-remediation.txt](verify-after-remediation.txt).
+
+**Result: 24 WORKS · 3 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED. Exit code 0 (PASS).**
+
+BLOCKED, missing third-party values only: Stripe payment intent and webhook (`STRIPE_*` = `NOT_SET` → 503 "not configured"), and FCM (no `android/app/google-services.json`).
+
+**Read this before trusting the WORKS count:** AI chat/twins/memory/summary and session recording now count as WORKS because the checker's secret check passes when the SSM parameter *exists*. `GEMINI_API_KEY`, `AGORA_CUSTOMER_ID` and `AGORA_CUSTOMER_SECRET` are still `NOT_SET`, so every call that needs them returns **503 "Gemini not configured" / "Agora cloud recording not configured"** (checked live). Reads such as chat history, memory and stored summaries work.
+
+### Changes in this round
+| Item | Result |
+|---|---|
+| Stray probe row in `torino-earnings` | Backed up to [pre-deploy/torino-earnings-stray-probe-row.json](pre-deploy/torino-earnings-stray-probe-row.json), then deleted (conditional on it having no earnings data). The table is back to 13 rows |
+| `/dev` stage | Still on old deployment `wzljzr`. Every route has an authorizer, but `/{proxy+}` → `torino-api` (with its unguarded write handlers) uses AWS_IAM. Only IAM users in the Administrators/Developers groups can sign for it; there is no Cognito identity pool. **Throttled to 0** (rate 0, burst 0) and not deleted: an authenticated call now gets **429** |
+| Secrets → SSM | `toriino-ai-chat/-twins/-memory/-summaries`, `toriino-transcribe-processor`, `toriino-agora-recording` and `torino-api` read `GEMINI_API_KEY` / `AGORA_CUSTOMER_ID` / `AGORA_CUSTOMER_SECRET` from `/torino/prod/` at runtime (5-min cache). `NOT_SET` → 503. Plain env copies removed. The 5 AI Lambdas were imported into the SAM stack with their own roles. Agora recording got its own role (`AgoraRecordingRole`) instead of the shared, over-privileged `toriino-lambda-role`. `torino-api` source is now in the repo (`aws-backend/lambda/torino-api/`). These two are deployed by `scripts/deploy-legacy-lambdas.mjs`, because their `AGORA_APP_CERTIFICATE` must stay an env var and must never be written into the template |
+| Courses table | `torino-courses` (the 45 live courses) is the only courses table. `COURSES_TABLE` points at it explicitly; no data moved. Documented in `docs/ARCHITECTURE.md` |
+| Paid courses | `POST /courses/{id}/enroll` → **402 "payment required"** for any course with price > 0 (checked live). Only the Stripe webhook enrolls in paid courses; free courses enroll directly (201) |
+| File viewing | CloudFront distribution `d21264ndaif3rv.cloudfront.net` with Origin Access Control. The bucket policy (imported into the stack, then replaced; the old one is in `pre-deploy/`) lets only that distribution read `profiles/`, `avatars/`, `courses/thumbnails/` and `intro-videos/`, and denies non-TLS access. Checked live: avatar via CloudFront 200, direct S3 403, `lessons/` via CloudFront 403. Lesson videos and materials are served only by `GET /courses/{id}/lessons/{lessonId}/media`: 5-minute pre-signed GET after an owner, free-course or active-enrollment check, else 402 |
+| Intro video | New profile field `introVideoUrl` (must be the caller's own CloudFront `intro-videos/` URL; mirrored onto the mentor record). The three upload screens now pick, upload via upload-url and save; the fake success toast is gone |
+| Sessions test data | `verify-test-session-teacher-hosted` (test teacher) and `verify-test-session-student-booked` (test student with the test mentor) are kept in `torino-sessions`. Each test user sees exactly 1 session, their own |
+
+Rollback points: Lambda versions published before this round (`toriino-ai-*` v1, `toriino-transcribe-processor` v1, `toriino-agora-recording` v1, `torino-api` v9).
+
+---
+
+## Re-verification after remediation, round 1 (2026-10-07, branch `fix/remediation-v1`)
 
 `node scripts/verify-backend.mjs`, run at 2026-10-07T02:42Z against deployment `l0qw3k`. Full output: [verify-after-remediation.txt](verify-after-remediation.txt).
 

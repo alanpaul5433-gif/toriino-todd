@@ -9,16 +9,24 @@
  *   PUT    /courses/{id}                        owner/admin only
  *   DELETE /courses/{id}                        soft delete; blocked while students are enrolled;
  *                                               cascades a soft delete to the course's lessons
- *   GET    /courses/{id}/lessons
+ *   GET    /courses/{id}/lessons                lesson metadata only (videoKey/materialKey, never URLs)
  *   POST   /courses/{id}/lessons                owner/admin only
  *   PUT    /courses/{id}/lessons/{lessonId}     owner/admin only
  *   DELETE /courses/{id}/lessons/{lessonId}     owner/admin only
- *   POST   /courses/{id}/enroll                 idempotent per (student, course)
+ *   GET    /courses/{id}/lessons/{lessonId}/media
+ *                                               5-minute pre-signed GET URLs for the lesson's
+ *                                               private S3 objects; paid courses require an
+ *                                               active enrollment (402 otherwise)
+ *   POST   /courses/{id}/enroll                 FREE courses only (idempotent per student);
+ *                                               paid courses → 402 "payment required": only the
+ *                                               Stripe webhook enrolls a student in a paid course
  *
  * (GET /courses/upload-url is routed to the upload-url Lambda.)
  *
- * Env: COURSES_TABLE (PK courseId), LESSONS_TABLE (PK courseId, SK lessonId),
- *      ENROLLMENTS_TABLE (PK enrollmentId; userId, courseId attributes)
+ * Env: COURSES_TABLE (PK courseId) — torino-courses, the table holding the live courses
+ *      (see docs/ARCHITECTURE.md), LESSONS_TABLE (PK courseId, SK lessonId),
+ *      ENROLLMENTS_TABLE (PK enrollmentId; userId, courseId attributes),
+ *      MEDIA_BUCKET (private bucket holding lessons/ and course-materials/ objects)
  */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
@@ -32,11 +40,17 @@ const {
   BatchGetCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const { randomUUID } = require("crypto");
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const REGION = process.env.AWS_REGION || "us-east-1";
 const COURSES_TABLE = process.env.COURSES_TABLE;
 const LESSONS_TABLE = process.env.LESSONS_TABLE;
 const ENROLLMENTS_TABLE = process.env.ENROLLMENTS_TABLE;
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+const MEDIA_URL_TTL = 300; // seconds
+
+const s3 = new S3Client({ region: REGION });
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 
@@ -60,7 +74,12 @@ const COURSE_FIELDS = [
   "title", "description", "category", "duration", "price", "thumbnail", "imageUrl",
   "level", "language", "tags", "materials", "totalDuration", "totalLessons", "status",
 ];
-const LESSON_FIELDS = ["title", "description", "videoUrl", "duration", "order", "materials", "content", "type"];
+// `url` is only for link-type lessons (an external https page, not our private media).
+const LESSON_FIELDS = ["title", "description", "videoKey", "materialKey", "url", "duration", "order", "content", "type"];
+// Lesson media lives in the private bucket; a lesson may only point at keys under these prefixes.
+const MEDIA_PREFIX = { videoKey: "lessons/", materialKey: "course-materials/" };
+const isPaid = (course) => (Number(course.price) || 0) > 0;
+const INACTIVE_ENROLLMENT = new Set(["refunded", "cancelled"]);
 
 function isAdmin(claims) {
   const g = claims["cognito:groups"];
@@ -125,6 +144,9 @@ exports.handler = async (event) => {
     if (seg.length === 3 && sub === "lessons") {
       if (method === "GET") return await getLessons(courseId);
       if (method === "POST") return await addLesson(userId, claims, courseId, body);
+    }
+    if (seg.length === 5 && sub === "lessons" && seg[4] === "media" && method === "GET") {
+      return await lessonMedia(userId, claims, courseId, lessonId);
     }
     if (seg.length === 4 && sub === "lessons") {
       if (method === "PUT") return await updateLesson(userId, claims, courseId, lessonId, body);
@@ -291,6 +313,25 @@ async function deleteCourse(userId, claims, courseId) {
 }
 
 // ── Lessons ────────────────────────────────────────────────
+// videoKey/materialKey must be objects the caller uploaded through GET /upload-url
+// (keys look like lessons/<sub>/<uuid>.<ext>); admins may reference any key under the prefix.
+function invalidMediaKey(data, userId, claims) {
+  if (data.url !== undefined && data.url !== null && data.url !== "") {
+    if (typeof data.url !== "string" || !/^https:\/\/[^\s]+$/.test(data.url)) return "url must be an https link";
+  }
+  for (const [field, prefix] of Object.entries(MEDIA_PREFIX)) {
+    const key = data[field];
+    if (key === undefined || key === null || key === "") continue;
+    if (typeof key !== "string" || key.includes("..") || !key.startsWith(prefix)) {
+      return `${field} must be an S3 key under ${prefix} returned by GET /upload-url`;
+    }
+    if (!isAdmin(claims) && !key.startsWith(`${prefix}${userId}/`)) {
+      return `${field} must be a file you uploaded`;
+    }
+  }
+  return null;
+}
+
 async function queryLessons(courseId, includeDeleted = false) {
   const items = [];
   let ExclusiveStartKey;
@@ -320,6 +361,8 @@ async function addLesson(userId, claims, courseId, data) {
   if (!course) return response(404, { error: "Course not found" });
   if (!ownsCourse(course, userId, claims)) return response(403, { error: "Not authorized to add lessons to this course" });
   if (!data.title || !String(data.title).trim()) return response(400, { error: "title is required" });
+  const badKey = invalidMediaKey(data, userId, claims);
+  if (badKey) return response(400, { error: badKey });
 
   const lesson = { courseId, lessonId: `les_${randomUUID()}` };
   for (const f of LESSON_FIELDS) if (data[f] !== undefined) lesson[f] = data[f];
@@ -339,6 +382,8 @@ async function updateLesson(userId, claims, courseId, lessonId, data) {
   const course = await getCourseItem(courseId);
   if (!course) return response(404, { error: "Course not found" });
   if (!ownsCourse(course, userId, claims)) return response(403, { error: "Not authorized to edit this lesson" });
+  const badKey = invalidMediaKey(data, userId, claims);
+  if (badKey) return response(400, { error: badKey });
 
   const sets = [];
   const values = {};
@@ -387,6 +432,36 @@ async function deleteLesson(userId, claims, courseId, lessonId) {
   return response(200, { message: "Lesson deleted" });
 }
 
+async function hasActiveEnrollment(userId, courseId) {
+  const rows = await findEnrollments(
+    "courseId = :c AND (userId = :u OR studentId = :u)",
+    { ":c": courseId, ":u": userId },
+  );
+  return rows.some((e) => !INACTIVE_ENROLLMENT.has(e.status));
+}
+
+// Paid lesson videos are never public: they are served only through short-lived
+// pre-signed GET URLs, issued after checking the caller may watch the course.
+async function lessonMedia(userId, claims, courseId, lessonId) {
+  if (!MEDIA_BUCKET) return response(503, { error: "Lesson media not configured (MEDIA_BUCKET)" });
+  const course = await getCourseItem(courseId);
+  if (!course) return response(404, { error: "Course not found" });
+
+  const { Item: lesson } = await dynamodb.send(new GetCommand({ TableName: LESSONS_TABLE, Key: { courseId, lessonId } }));
+  if (!lesson || lesson.status === DELETED) return response(404, { error: "Lesson not found" });
+  if (!lesson.videoKey && !lesson.materialKey) return response(404, { error: "This lesson has no media" });
+
+  const allowed = ownsCourse(course, userId, claims) || !isPaid(course) || await hasActiveEnrollment(userId, courseId);
+  if (!allowed) return response(402, { error: "payment required", price: Number(course.price) || 0 });
+
+  const sign = (Key) => getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key }), { expiresIn: MEDIA_URL_TTL });
+  const body = { expiresIn: MEDIA_URL_TTL };
+  if (lesson.videoKey) body.videoUrl = await sign(lesson.videoKey);
+  if (lesson.materialKey) body.materialUrl = await sign(lesson.materialKey);
+  log("INFO", "Lesson media URL issued", { userId, courseId, lessonId });
+  return response(200, body);
+}
+
 // ── Enrollment ─────────────────────────────────────────────
 async function findEnrollments(filter, values) {
   return scanAll({ TableName: ENROLLMENTS_TABLE, FilterExpression: filter, ExpressionAttributeValues: values });
@@ -401,6 +476,11 @@ async function enroll(userId, courseId) {
     { ":c": courseId, ":u": userId },
   );
   if (existing.length > 0) return response(200, { message: "Already enrolled", ...existing[0] });
+
+  // Paid courses are enrolled only by the Stripe webhook after payment succeeds.
+  if (isPaid(course)) {
+    return response(402, { error: "payment required", price: Number(course.price) || 0, courseId });
+  }
 
   const enrollment = {
     enrollmentId: `enr_${courseId}_${userId}`,

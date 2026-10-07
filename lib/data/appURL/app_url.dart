@@ -28,6 +28,9 @@ class AppUrl {
   static String courseLesson(String courseId, String lessonId) =>
       '$baseUrl/courses/$courseId/lessons/$lessonId';
   static String enrollCourse(String id) => '$baseUrl/courses/$id/enroll';
+  /// Pre-signed (300 s) GET URLs for a lesson's private video/material.
+  static String lessonMedia(String courseId, String lessonId) =>
+      '$baseUrl/courses/$courseId/lessons/$lessonId/media';
 
   // Sessions
   static const String sessions = '$baseUrl/sessions';

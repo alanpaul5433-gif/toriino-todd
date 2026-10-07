@@ -8,6 +8,7 @@ import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_profile_edit_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_upload_view.dart';
 import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
+import 'package:toriino_todd/widgets/intro_video_tile.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherProfilePrivateView extends StatelessWidget {
@@ -492,12 +493,15 @@ class TeacherProfilePrivateView extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTap: ()=> Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TeacherUploadView(),
-                        ),
-                      ),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TeacherUploadView(),
+                          ),
+                        );
+                        profileVm.fetchProfile();
+                      },
                       child: Container(
                         decoration: BoxDecoration(
                           color: AppColor.red,
@@ -539,7 +543,9 @@ class TeacherProfilePrivateView extends StatelessWidget {
                 //   width: double.infinity,
                 //   color: AppColor.red,
                 // ),
-                SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
+                Obx(() => IntroVideoTile(
+                      url: profileVm.rxProfile.value.data?.introVideoUrl,
+                    )),
                 SizedBox(height: Responsive.h(2)),
 
                 //reivew and viewa all
