@@ -417,6 +417,103 @@ async function writeTestFcm(c, S) {
   }
 }
 
+// ── "Not configured" probes (same pattern as the Stripe probes) ─
+// SSM parameters exist with a NOT_SET placeholder until the owner fills them in, and
+// the script never reads secret values. A probe that reaches the credential check
+// tells the two apart: 503 "... not configured" → BLOCKED; a configured response →
+// pass; anything else → BROKEN.
+function configProbe(c, label, res, configuredOk, configuredMsg = 'credentials loaded') {
+  const detail = `${res.status}${res.msg ? ` "${res.msg.slice(0, 80)}"` : ''}`;
+  if (res.status === 503 && /not configured/i.test(res.msg)) c.fail('blocker', `${label} → ${detail}`);
+  else if (configuredOk(res)) c.pass(`${label} → ${detail} (${configuredMsg})`);
+  else if (res.status === 404 && res.msg === 'Route not found') c.fail('notDeployed', `${label} → ${detail}`);
+  else c.fail('defect', `${label} → ${detail}; expected 503 "not configured" or a configured response`);
+}
+
+const PROBE_SESSION = 'verify-backend-test-session-probe';
+
+// Agora: start a recording with a bogus RTC token on a session that does not exist.
+// Agora credentials are read before any network call, so NOT_SET → 503. When they
+// are set, Agora rejects the bogus token (500 "Agora ... failed") and nothing is
+// written; a 2xx would mean a recording really started, so it is stopped again.
+async function probeRecording(c, U) {
+  const label = `POST /sessions/${PROBE_SESSION}/recording/start (bogus token)`;
+  const res = await api('POST', `/sessions/${PROBE_SESSION}/recording/start`, U.TEACHER,
+    { channelName: PROBE_SESSION, token: 'verify-backend-bogus-token', uid: '1' });
+  try {
+    configProbe(c, label, res, r => r.status === 500 && /^Agora .*failed/i.test(r.msg), 'credentials loaded; Agora rejected the bogus token');
+    if (is2xx(res)) c.fail('defect', `${label} started a recording with a bogus token`);
+  } finally {
+    if (is2xx(res)) {
+      const { resourceId, sid } = res.json || {};
+      await api('POST', `/sessions/${PROBE_SESSION}/recording/stop`, U.TEACHER, { channelName: PROBE_SESSION, uid: '1', resourceId, sid });
+    }
+    if (tableExists('toriino-recordings')) {
+      const key = JSON.stringify({ sessionId: { S: PROBE_SESSION } });
+      if (aws(['dynamodb', 'get-item', '--table-name', 'toriino-recordings', '--key', key])?.Item) {
+        aws(['dynamodb', 'delete-item', '--table-name', 'toriino-recordings', '--key', key]);
+        c.pass('probe cleanup: deleted the probe recording row');
+      }
+    }
+  }
+}
+
+// Gemini via ai-summaries: the transcript is passed in the body, so no stored
+// transcript is needed. When configured this writes a summary row for the probe
+// session, which is deleted again.
+async function probeSummary(c, U) {
+  const key = JSON.stringify({ sessionId: { S: PROBE_SESSION } });
+  try {
+    const res = await api('POST', `/sessions/${PROBE_SESSION}/summary`, U.TEACHER,
+      { transcript: `${TEST_MARKER}. Short probe transcript.`, subjectArea: 'verification' });
+    configProbe(c, `POST /sessions/${PROBE_SESSION}/summary`, res, is2xx);
+  } finally {
+    if (tableExists('toriino-session-summaries') && aws(['dynamodb', 'get-item', '--table-name', 'toriino-session-summaries', '--key', key])?.Item) {
+      aws(['dynamodb', 'delete-item', '--table-name', 'toriino-session-summaries', '--key', key]);
+      c.pass('probe cleanup: deleted the probe summary row');
+    }
+  }
+}
+
+// Gemini via ai-chat. When configured this writes the user message and the AI
+// reply to the caller's chat history; both rows are deleted again.
+async function probeChat(c, U) {
+  const S = U.STUDENT;
+  const res = await api('POST', `/ai/chat/${S.sub}`, S, { message: TEST_MARKER });
+  try {
+    configProbe(c, 'POST /ai/chat/{self}', res, is2xx);
+  } finally {
+    const ids = new Set([res.json?.userMessage?.messageId, res.json?.aiMessage?.messageId].filter(Boolean));
+    if (tableExists('toriino-ai-chat')) {
+      for (const i of aws(['dynamodb', 'query', '--table-name', 'toriino-ai-chat', '--key-condition-expression', 'userId = :u',
+        '--expression-attribute-values', JSON.stringify({ ':u': { S: S.sub } })]).Items || [])
+        if (i.text?.S === TEST_MARKER) ids.add(i.messageId.S);
+      for (const id of ids) aws(['dynamodb', 'delete-item', '--table-name', 'toriino-ai-chat', '--key',
+        JSON.stringify({ userId: { S: S.sub }, messageId: { S: id } })]);
+      if (ids.size) c.pass(`probe cleanup: deleted ${ids.size} probe chat row(s)`);
+    }
+  }
+}
+
+// Gemini via ai-twins: build a twin for the test student. Runs only when the student
+// has no twin, so an existing one is never overwritten; one created by the probe
+// (configured case) is deleted again.
+async function probeTwin(c, U) {
+  const S = U.STUDENT;
+  const key = JSON.stringify({ userId: { S: S.sub } });
+  const getTwin = () => tableExists('toriino-ai-twins') ? aws(['dynamodb', 'get-item', '--table-name', 'toriino-ai-twins', '--key', key])?.Item : undefined;
+  if (getTwin()) return c.fail('defect', 'twin probe skipped: the test student already has an AI twin');
+  try {
+    const res = await api('POST', `/ai/twins/${S.sub}`, S, { role: 'student', name: 'verify-backend-test-twin', bio: TEST_MARKER });
+    configProbe(c, 'POST /ai/twins/{self}', res, is2xx);
+  } finally {
+    if (getTwin()) {
+      aws(['dynamodb', 'delete-item', '--table-name', 'toriino-ai-twins', '--key', key]);
+      c.pass('probe cleanup: deleted the probe twin');
+    }
+  }
+}
+
 // ── Features (same 27 as docs/audit/backend-verification.md) ─
 const FEATURES = [
   ['Sign-up / login / OTP (P3-5, P3-6)', async (c, U) => {
@@ -574,6 +671,7 @@ const FEATURES = [
     for (const v of ['AGORA_CUSTOMER_ID', 'AGORA_CUSTOMER_SECRET']) await c.secret('toriino-agora-recording', v);
     c.tables('toriino-recordings');
     c.live('GET /sessions/{none}/recording', await api('GET', '/sessions/verify-backend-none/recording', U.STUDENT), not5xx);
+    await probeRecording(c, U);
   }],
   ['Transcript / summary', async (c, U) => {
     c.route('GET', '/sessions/x/transcript', { lambda: 'toriino-ai-transcripts' });
@@ -583,6 +681,7 @@ const FEATURES = [
     c.tables('toriino-transcripts', 'toriino-session-summaries');
     c.live('GET /sessions/{none}/transcript', await api('GET', '/sessions/verify-backend-none/transcript', U.STUDENT), not5xx);
     c.live('GET /sessions/{none}/summary', await api('GET', '/sessions/verify-backend-none/summary', U.STUDENT), not5xx);
+    await probeSummary(c, U);
     c.check(usedOutside(/\.addSegment\s*\(/, 'services/session_intelligence_service.dart'), 'defect',
       'app: transcript segments are recorded (addSegment called)', 'app: addSegment() is never called, so the summary screen never opens');
   }],
@@ -594,6 +693,7 @@ const FEATURES = [
     c.tables('toriino-ai-chat');
     c.live('GET /ai/chat/{self}', await api('GET', `/ai/chat/${U.STUDENT.sub}`, U.STUDENT), is2xx);
     c.live("GET /ai/chat/{other user} (expect 403)", await api('GET', `/ai/chat/${U.TEACHER.sub}`, U.STUDENT), r => r.status === 403);
+    await probeChat(c, U);
   }],
   ['AI Twins / Memory', async (c, U) => {
     c.route('GET', '/ai/twins/x', { lambda: 'toriino-ai-twins' });
@@ -603,6 +703,9 @@ const FEATURES = [
     c.live('GET /ai/twins/{self}', await api('GET', `/ai/twins/${U.STUDENT.sub}`, U.STUDENT), not5xx);
     c.live('GET /ai/memory/{self}', await api('GET', `/ai/memory/${U.STUDENT.sub}`, U.STUDENT), is2xx);
     c.live('GET /ai/memory/{self}/graph', await api('GET', `/ai/memory/${U.STUDENT.sub}/graph`, U.STUDENT), is2xx);
+    // Read-only even when configured: recommend only reads memory and calls Gemini.
+    configProbe(c, 'POST /ai/memory/{self}/recommend', await api('POST', `/ai/memory/${U.STUDENT.sub}/recommend`, U.STUDENT, {}), is2xx);
+    await probeTwin(c, U);
     if (!usedOutside(/AiTwinService\s*\(/, 'services/ai_twin_service.dart')) c.fail('note', 'app: no screen uses AI Twins / Memory');
   }],
   ['Wallet (P5-3)', async (c, U) => {
