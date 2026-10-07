@@ -1,5 +1,9 @@
 /**
- * stripe-webhook Lambda — /prod/payments/webhook
+ * stripe-webhook Lambda — POST /prod/stripe/webhook (no Cognito authorizer; Stripe
+ * cannot send a Cognito token, so requests are authenticated by Stripe-Signature).
+ *
+ * Responses: 400 for a missing/bad Stripe-Signature, 503 "not configured" while
+ * STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY is NOT_SET (SSM) or empty.
  *
  * Handles:
  *   payment_intent.succeeded          → enroll student or confirm session, credit earnings
@@ -16,12 +20,15 @@
  *   - Earnings: uses deterministic earningId = '<type>_<paymentIntentId>' so that
  *     duplicate writes and refund reversals are both safe.
  *
- * OWNER: set these Lambda env vars before pointing the Stripe webhook here:
- *   STRIPE_WEBHOOK_SECRET   — whsec_... from Stripe dashboard
+ * Secrets (SSM SecureString under SSM_PREFIX, placeholder NOT_SET; the owner sets them):
+ *   STRIPE_WEBHOOK_SECRET   — whsec_... from the Stripe dashboard
  *   STRIPE_SECRET_KEY       — sk_live_... or sk_test_...
- *   EARNINGS_TABLE          — toriino-earnings
- *   ENROLLMENTS_TABLE       — toriino-enrollments
- *   SESSIONS_TABLE          — toriino-sessions
+ * Env (set by template.yaml):
+ *   SSM_PREFIX              — /torino/prod/
+ *   EARNING_ENTRIES_TABLE   — toriino-earning-entries (PK earningId; GSI userId-index)
+ *   ENROLLMENTS_TABLE       — toriino-enrollments (PK enrollmentId = enr_<courseId>_<studentId>)
+ *   SESSIONS_TABLE          — torino-sessions
+ *   USERS_TABLE             — torino-users
  *   STRIPE_EVENTS_TABLE     — toriino-stripe-events  (PK = eventId, TTL = ttl)
  */
 
@@ -29,23 +36,53 @@ function log(level, message, extra = {}) {
   console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
 }
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Stripe = require('stripe');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
   DynamoDBDocumentClient,
-  GetCommand,
   PutCommand,
   UpdateCommand,
+  DeleteCommand,
 } = require('@aws-sdk/lib-dynamodb');
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 
 const REGION              = process.env.AWS_REGION            || 'us-east-1';
 const STRIPE_EVENTS_TABLE = process.env.STRIPE_EVENTS_TABLE   || 'toriino-stripe-events';
-const EARNINGS_TABLE      = process.env.EARNINGS_TABLE        || 'toriino-earnings';
+const EARNINGS_TABLE      = process.env.EARNING_ENTRIES_TABLE || 'toriino-earning-entries';
 const ENROLLMENTS_TABLE   = process.env.ENROLLMENTS_TABLE     || 'toriino-enrollments';
-const SESSIONS_TABLE      = process.env.SESSIONS_TABLE        || 'toriino-sessions';
-const WEBHOOK_SECRET      = process.env.STRIPE_WEBHOOK_SECRET || '';
+const SESSIONS_TABLE      = process.env.SESSIONS_TABLE        || 'torino-sessions';
+const USERS_TABLE         = process.env.USERS_TABLE           || 'torino-users';
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
+const ssm = new SSMClient({ region: REGION });
+
+// ── Secrets: env (tests/local) first, else SSM SecureString, cached 5 min ──────
+const NOT_SET = 'NOT_SET';
+const SECRET_TTL_MS = 5 * 60 * 1000;
+const secretCache = {};
+async function getSecret(name) {
+  const fromEnv = process.env[name];
+  if (fromEnv && fromEnv !== NOT_SET) return fromEnv;
+  const prefix = process.env.SSM_PREFIX;
+  if (!prefix) return null;
+  const hit = secretCache[name];
+  if (hit && Date.now() - hit.at < SECRET_TTL_MS) return hit.value;
+  const out = await ssm.send(new GetParameterCommand({ Name: `${prefix}${name}`, WithDecryption: true }));
+  const raw = out.Parameter?.Value;
+  const value = raw && raw !== NOT_SET ? raw : null;
+  secretCache[name] = { value, at: Date.now() };
+  return value;
+}
+
+let stripe;
+let stripeKey;
+function stripeFor(key) {
+  if (!stripe || key !== stripeKey) {
+    stripe = Stripe(key);
+    stripeKey = key;
+  }
+  return stripe;
+}
 
 const headers = {
   'Content-Type': 'application/json',
@@ -86,12 +123,13 @@ async function handlePaymentSucceeded(paymentIntent) {
       return;
     }
 
-    // Enrollment: idempotent via (studentId PK, courseId SK) composite key.
-    // The ENROLLMENTS_TABLE uses studentId as partition key and courseId as sort key.
+    // Enrollment: idempotent via the deterministic enrollmentId the courses Lambda also uses.
     try {
       await db.send(new PutCommand({
         TableName: ENROLLMENTS_TABLE,
         Item: {
+          enrollmentId: `enr_${courseId}_${studentId}`,
+          userId: studentId,
           studentId,
           courseId,
           paymentIntentId: paymentIntent.id,
@@ -100,7 +138,7 @@ async function handlePaymentSucceeded(paymentIntent) {
           progress: 0,
         },
         // Write only if this (studentId, courseId) pair does not already exist
-        ConditionExpression: 'attribute_not_exists(courseId)',
+        ConditionExpression: 'attribute_not_exists(enrollmentId)',
       }));
       log('INFO', 'Student enrolled via webhook', { studentId, courseId });
     } catch (err) {
@@ -230,7 +268,7 @@ async function handleChargeRefunded(charge) {
     try {
       await db.send(new UpdateCommand({
         TableName: ENROLLMENTS_TABLE,
-        Key: { studentId, courseId },
+        Key: { enrollmentId: `enr_${courseId}_${studentId}` },
         UpdateExpression: 'SET #status = :s, refundedAt = :r, updatedAt = :u',
         ExpressionAttributeNames: { '#status': 'status' },
         ExpressionAttributeValues: {
@@ -325,7 +363,7 @@ async function handleSubscription(subscription, action) {
   const { userId } = metadata;
   if (!userId) return;
   await db.send(new UpdateCommand({
-    TableName: 'toriino-users',
+    TableName: USERS_TABLE,
     Key: { userId },
     UpdateExpression: 'SET subscription = :sub, updatedAt = :u',
     ExpressionAttributeValues: {
@@ -344,15 +382,38 @@ async function handleSubscription(subscription, action) {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return res(200, {});
 
-  const sig = (event.headers || {})['stripe-signature'];
+  // Read per request (cached 5 min) so secrets set after a cold start are picked up.
+  let webhookSecret;
+  let secretKey;
+  try {
+    [webhookSecret, secretKey] = await Promise.all([getSecret('STRIPE_WEBHOOK_SECRET'), getSecret('STRIPE_SECRET_KEY')]);
+  } catch (err) {
+    log('ERROR', 'Could not read Stripe secrets', { error: err.message });
+    return res(500, { error: 'Webhook could not load its configuration' });
+  }
+  if (!webhookSecret || !secretKey) {
+    log('ERROR', 'Stripe webhook not configured — STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY is NOT_SET');
+    return res(503, { error: 'Stripe webhook not configured' });
+  }
+  stripeFor(secretKey);
+
+  // API Gateway passes header names as the client sent them (Stripe sends "Stripe-Signature").
+  const reqHeaders = event.headers || {};
+  const sigKey = Object.keys(reqHeaders).find((k) => k.toLowerCase() === 'stripe-signature');
+  const sig = sigKey ? reqHeaders[sigKey] : undefined;
+  if (!sig) {
+    log('WARN', 'Webhook request without Stripe-Signature header');
+    return res(400, { error: 'Missing Stripe-Signature header' });
+  }
+
+  // Signature verification needs the exact raw body.
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body || '', 'base64').toString('utf8')
+    : (event.body || '');
   let stripeEvent;
 
   try {
-    stripeEvent = stripe.webhooks.constructEvent(
-      event.body,
-      sig,
-      WEBHOOK_SECRET,
-    );
+    stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     log('ERROR', 'Webhook signature verification failed', { error: err.message });
     return res(400, { error: 'Invalid signature' });
@@ -393,6 +454,12 @@ exports.handler = async (event) => {
     return res(200, { received: true });
   } catch (err) {
     log('ERROR', 'Error processing webhook event', { type: stripeEvent.type, error: err.message });
+    // Release the idempotency marker so Stripe's retry is processed, not skipped as a duplicate.
+    try {
+      await db.send(new DeleteCommand({ TableName: STRIPE_EVENTS_TABLE, Key: { eventId: stripeEvent.id } }));
+    } catch (e) {
+      log('ERROR', 'Could not release idempotency marker', { eventId: stripeEvent.id, error: e.message });
+    }
     // Return 500 so Stripe retries
     return res(500, { error: 'Processing failed' });
   }

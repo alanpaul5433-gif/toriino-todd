@@ -493,7 +493,7 @@ async function deploy() {
   console.log("  DEPLOYMENT COMPLETE");
   console.log("==============================================");
   console.log("\nNext steps:");
-  console.log("  1. Deploy Lambda functions: node deploy-lambdas.js");
+  console.log("  1. Deploy Lambda functions: npm run deploy:backend");
   console.log("  2. Set up API Gateway: node deploy-api.js");
   console.log("  3. Update Flutter app with config values");
 

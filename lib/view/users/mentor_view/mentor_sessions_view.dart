@@ -7,6 +7,7 @@ import 'package:toriino_todd/model/session/session_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/live_session/live_session_screen.dart';
+import 'package:toriino_todd/view/live_session/session_summary_screen.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_create_session_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_session_viewmodel.dart';
@@ -510,6 +511,24 @@ class MentorSessionsView extends StatelessWidget {
                   ),
                 ],
               ),
+              if (s.status == 'completed' && (s.sessionId ?? '').isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => Get.to(
+                      () => SessionSummaryScreen(sessionId: s.sessionId!),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, color: AppColor.red, size: 16),
+                    label: Text(
+                      'View AI summary',
+                      style: GoogleFonts.dmSans(
+                        color: AppColor.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               SizedBox(height: Responsive.h(1)),
             ],
           ),

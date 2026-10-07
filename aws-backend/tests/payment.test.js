@@ -11,6 +11,12 @@
 
 'use strict';
 
+// The webhook returns 503 "not configured" without these.
+process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+process.env.COURSES_TABLE = 'torino-courses';
+process.env.SESSIONS_TABLE = 'torino-sessions';
+
 // ── Mock @aws-sdk ──────────────────────────────────────────────────────────────
 const mockSend = jest.fn();
 
@@ -26,7 +32,15 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   PutCommand: jest.fn().mockImplementation((input) => ({ input, _type: 'Put' })),
   UpdateCommand: jest.fn().mockImplementation((input) => ({ input, _type: 'Update' })),
   QueryCommand: jest.fn().mockImplementation((input) => ({ input, _type: 'Query' })),
+  DeleteCommand: jest.fn().mockImplementation((input) => ({ input, _type: 'Delete' })),
 }));
+
+// SSM is only reached when a secret is not in env; the tests set env, so it must never be called.
+const mockSsmSend = jest.fn();
+jest.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: jest.fn().mockImplementation(() => ({ send: mockSsmSend })),
+  GetParameterCommand: jest.fn().mockImplementation((input) => ({ input })),
+}), { virtual: true });
 
 // ── Mock stripe ────────────────────────────────────────────────────────────────
 const mockConstructEvent = jest.fn();
@@ -85,6 +99,49 @@ beforeAll(() => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // WEBHOOK TESTS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+describe('stripe-webhook: signature and configuration', () => {
+  test('Bad Stripe-Signature → 400, nothing written', async () => {
+    mockConstructEvent.mockImplementation(() => { throw new Error('No signatures found'); });
+    const result = await webhookHandler({
+      httpMethod: 'POST',
+      headers: { 'Stripe-Signature': 't=0,v1=bad' },
+      body: '{}',
+    });
+    expect(result.statusCode).toBe(400);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  test('Missing Stripe-Signature → 400', async () => {
+    const result = await webhookHandler({ httpMethod: 'POST', headers: {}, body: '{}' });
+    expect(result.statusCode).toBe(400);
+    expect(mockConstructEvent).not.toHaveBeenCalled();
+  });
+
+  test('Mixed-case Stripe-Signature header is passed to constructEvent', async () => {
+    mockConstructEvent.mockReturnValue({ id: 'evt_case', type: 'ping', data: { object: {} } });
+    const result = await webhookHandler({
+      httpMethod: 'POST',
+      headers: { 'Stripe-Signature': 'sig_case' },
+      body: '{"a":1}',
+    });
+    expect(result.statusCode).toBe(200);
+    expect(mockConstructEvent).toHaveBeenCalledWith('{"a":1}', 'sig_case', 'whsec_test');
+  });
+
+  test('Empty STRIPE_WEBHOOK_SECRET → 503 "not configured"', async () => {
+    const saved = process.env.STRIPE_WEBHOOK_SECRET;
+    process.env.STRIPE_WEBHOOK_SECRET = '';
+    try {
+      const result = await webhookHandler(makeWebhookEvent());
+      expect(result.statusCode).toBe(503);
+      expect(JSON.parse(result.body).error).toMatch(/not configured/i);
+      expect(mockConstructEvent).not.toHaveBeenCalled();
+    } finally {
+      process.env.STRIPE_WEBHOOK_SECRET = saved;
+    }
+  });
+});
 
 describe('stripe-webhook: payment_intent.succeeded — course purchase', () => {
 
@@ -361,7 +418,7 @@ describe('stripe-webhook: charge.refunded', () => {
     // Find enrollment update call
     const updateCalls = mockSend.mock.calls.filter(c => c[0]._type === 'Update');
     const enrollmentUpdate = updateCalls.find(c =>
-      c[0].input && c[0].input.Key && c[0].input.Key.courseId === 'course-abc'
+      c[0].input && c[0].input.Key && c[0].input.Key.enrollmentId === 'enr_course-abc_student-123'
     );
     expect(enrollmentUpdate).toBeDefined();
     expect(enrollmentUpdate[0].input.ExpressionAttributeValues[':s']).toBe('refunded');

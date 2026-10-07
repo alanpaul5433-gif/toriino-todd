@@ -43,6 +43,17 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
   Timer? _timer;
   String? _agoraToken;
 
+  // In-call chat / notes (Agora data stream). Every line sent or received
+  // is recorded as a transcript segment for the AI session summary.
+  final List<_ChatLine> _chat = [];
+  final TextEditingController _chatCtrl = TextEditingController();
+  final ScrollController _chatScroll = ScrollController();
+  bool _chatOpen = false;
+  int _unreadChat = 0;
+
+  String get _localName => widget.isMentor ? 'Mentor' : 'Student';
+  String get _remoteName => widget.isMentor ? 'Student' : 'Mentor';
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +111,8 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
       }
       _agoraToken = token;
 
+      // Handlers can only be registered on an initialized engine.
+      await AgoraService.initialize();
       AgoraService.registerEventHandlers(
         onUserJoined: (conn, uid, elapsed) {
           if (mounted) setState(() => _remoteUid = uid);
@@ -110,6 +123,7 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
         onError: (code, msg) {
           if (mounted) setState(() => _error = 'Agora error: $msg');
         },
+        onChatMessage: _onRemoteChat,
       );
 
       await AgoraService.joinChannel(
@@ -139,6 +153,44 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString(); });
     }
+  }
+
+  void _onRemoteChat(int remoteUid, String text) {
+    if (!mounted || text.trim().isEmpty) return;
+    _intelligence.addSegment(
+      speakerId: 'uid:$remoteUid',
+      speakerName: _remoteName,
+      text: text,
+    );
+    setState(() {
+      _chat.add(_ChatLine(speaker: _remoteName, text: text.trim(), mine: false));
+      if (!_chatOpen) _unreadChat++;
+    });
+    _scrollChatToEnd();
+  }
+
+  Future<void> _sendChat() async {
+    final text = _chatCtrl.text.trim();
+    if (text.isEmpty || !_joined) return;
+    _chatCtrl.clear();
+    final line = _ChatLine(speaker: _localName, text: text, mine: true);
+    setState(() => _chat.add(line));
+    _intelligence.addSegment(
+      speakerId: widget.isMentor ? 'mentor' : 'student',
+      speakerName: _localName,
+      text: text,
+    );
+    _scrollChatToEnd();
+    final delivered = await AgoraService.sendChatMessage(text);
+    if (!delivered && mounted) setState(() => line.delivered = false);
+  }
+
+  void _scrollChatToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScroll.hasClients) {
+        _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
+      }
+    });
   }
 
   Future<void> _startCloudRecording() async {
@@ -186,6 +238,8 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _chatCtrl.dispose();
+    _chatScroll.dispose();
     AgoraService.leaveChannel();
     super.dispose();
   }
@@ -317,6 +371,9 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
               ),
             ),
 
+          // Chat / notes panel
+          if (_joined && _chatOpen) _chatPanel(),
+
           // Control bar (bottom)
           Positioned(
             left: 0,
@@ -356,6 +413,15 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
                     AgoraService.muteLocalVideo(_camOff);
                   },
                 ),
+                const SizedBox(width: 20),
+                _controlBtn(
+                  icon: Icons.chat_bubble_outline,
+                  label: _unreadChat > 0 ? 'Chat ($_unreadChat)' : 'Chat',
+                  onTap: () => setState(() {
+                    _chatOpen = !_chatOpen;
+                    if (_chatOpen) _unreadChat = 0;
+                  }),
+                ),
               ],
             ),
           ),
@@ -378,6 +444,105 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _chatPanel() {
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 140,
+      height: 260,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.isMentor
+                          ? 'Chat & notes (used for the AI summary)'
+                          : 'Chat',
+                      style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                    onPressed: () => setState(() => _chatOpen = false),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: _chatScroll,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _chat.length,
+                itemBuilder: (_, i) {
+                  final c = _chat[i];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: '${c.speaker}: ',
+                          style: GoogleFonts.dmSans(
+                            color: c.mine ? AppColor.red : Colors.lightBlueAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text: c.text,
+                          style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13),
+                        ),
+                        if (!c.delivered)
+                          TextSpan(
+                            text: '  (not delivered, kept as a note)',
+                            style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 11),
+                          ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _chatCtrl,
+                      maxLength: 300,
+                      style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendChat(),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        isDense: true,
+                        hintText: 'Type a message or note...',
+                        hintStyle: GoogleFonts.dmSans(color: Colors.white38, fontSize: 13),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendChat,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -430,4 +595,13 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
       ),
     );
   }
+}
+
+class _ChatLine {
+  final String speaker;
+  final String text;
+  final bool mine;
+  bool delivered = true;
+
+  _ChatLine({required this.speaker, required this.text, required this.mine});
 }

@@ -1,0 +1,45 @@
+{
+  "FunctionName": "toriino-ai-memory",
+  "FunctionArn": "arn:aws:lambda:us-east-1:888245942659:function:toriino-ai-memory",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::888245942659:role/toriino-lambda-role",
+  "Handler": "index.handler",
+  "CodeSize": 2708,
+  "Description": "",
+  "Timeout": 30,
+  "MemorySize": 256,
+  "LastModified": "2026-10-06T21:22:57.000+0000",
+  "CodeSha256": "bP/lGsqAZ8oGksuKyxPU5sC2FuS4SRC2QHXnj6+el6I=",
+  "Version": "$LATEST",
+  "Environment": {
+    "Variables": {
+      "GEMINI_API_KEY": "<empty>",
+      "KNOWLEDGE_GRAPH_TABLE": "toriino-knowledge-graph",
+      "MEMORY_TABLE": "toriino-ai-memory"
+    }
+  },
+  "TracingConfig": {
+    "Mode": "PassThrough"
+  },
+  "RevisionId": "cc43a534-cf97-4c97-a893-626dd90f6fbe",
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "PackageType": "Zip",
+  "Architectures": [
+    "x86_64"
+  ],
+  "EphemeralStorage": {
+    "Size": 512
+  },
+  "SnapStart": {
+    "ApplyOn": "None",
+    "OptimizationStatus": "Off"
+  },
+  "RuntimeVersionConfig": {
+    "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:18671876e7cc385452255180c58ca50cf8763398a4248ae92ed14410d196b942"
+  },
+  "LoggingConfig": {
+    "LogFormat": "Text",
+    "LogGroup": "/aws/lambda/toriino-ai-memory"
+  }
+}

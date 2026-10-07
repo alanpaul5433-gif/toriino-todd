@@ -193,26 +193,42 @@ class NetworkApiServices extends BaseApiServices {
   }
 
   dynamic returnResponse(http.Response response) {
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        return jsonDecode(response.body);
-      case 204:
-        return {};
+    final code = response.statusCode;
+    if (code >= 200 && code < 300) {
+      if (code == 204 || response.body.trim().isEmpty) return {};
+      return jsonDecode(response.body);
+    }
+    // Prefer the server's own error message ({error} or {message}) so the UI
+    // can show the real reason (validation, policy, not found, ...).
+    final serverMsg = _extractServerMessage(response.body);
+    switch (code) {
       case 400:
-        throw InvalidUrlException('Bad request');
+        throw InvalidUrlException(serverMsg ?? 'Bad request');
       case 401:
-        throw ServerException('Unauthorized. Please login again.');
+        throw ServerException(serverMsg ?? 'Unauthorized. Please login again.');
       case 403:
-        throw ServerException('Access denied.');
+        throw ServerException(serverMsg ?? 'Access denied.');
       case 404:
-        throw InvalidUrlException('Resource not found');
+        throw InvalidUrlException(serverMsg ?? 'Resource not found');
       case 500:
-        throw ServerException('Internal server error. Please try again later.');
+        throw ServerException(
+          serverMsg ?? 'Internal server error. Please try again later.',
+        );
       default:
         throw FetchdataException(
-          'Error while communicating with server: ${response.statusCode}',
+          serverMsg ?? 'Error while communicating with server: $code',
         );
     }
+  }
+
+  static String? _extractServerMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final msg = decoded['error'] ?? decoded['message'];
+        if (msg is String && msg.trim().isNotEmpty) return msg;
+      }
+    } catch (_) {}
+    return null;
   }
 }

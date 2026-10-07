@@ -1,0 +1,433 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Toriino Todd backend (us-east-1) — microservice Lambdas, their IAM roles and the
+  DynamoDB tables that did not exist yet. API Gateway pq8cu94cfd (prod) is NOT managed
+  here: scripts/deploy-api-routes.mjs wires its routes from aws-backend/routes.json.
+
+  Existing tables (torino-users/courses/sessions/mentors/earnings, toriino-enrollments/
+  reviews/notifications, …) are referenced by name only and never created or changed.
+  toriino-users, toriino-student-search and toriino-admin were created by hand and are
+  imported into this stack (see scripts/import-existing-lambdas.mjs) — never re-created.
+
+  Secrets live in SSM Parameter Store SecureStrings under SsmPrefix (created with the value
+  NOT_SET by scripts/ensure-ssm-params.mjs; CloudFormation cannot create SecureStrings).
+  Each Lambda can read only the parameters it needs.
+
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Default: us-east-1_CAiea51iC
+  SsmPrefix:
+    Type: String
+    Default: /torino/prod/
+    AllowedPattern: ^/.*/$
+  UploadBucket:
+    Type: String
+    Default: torino-app-storage
+  UsersTable:
+    Type: String
+    Default: torino-users
+  CoursesTable:
+    Type: String
+    Default: torino-courses
+  SessionsTable:
+    Type: String
+    Default: torino-sessions
+  MentorsTable:
+    Type: String
+    Default: torino-mentors
+  EarningsTable:
+    Type: String
+    Default: torino-earnings
+  EnrollmentsTable:
+    Type: String
+    Default: toriino-enrollments
+  ReviewsTable:
+    Type: String
+    Default: toriino-reviews
+  NotificationsTable:
+    Type: String
+    Default: toriino-notifications
+  SummariesTable:
+    Type: String
+    Default: toriino-session-summaries
+  TranscriptsTable:
+    Type: String
+    Default: toriino-transcripts
+  AiChatTable:
+    Type: String
+    Default: toriino-ai-chat
+  AiTwinsTable:
+    Type: String
+    Default: toriino-ai-twins
+  AiMemoryTable:
+    Type: String
+    Default: toriino-ai-memory
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Handler: index.handler
+    Architectures: [x86_64]
+    MemorySize: 256
+    Timeout: 15
+
+Resources:
+  # ── New tables (on-demand, point-in-time recovery, retained on stack delete) ──
+  LessonsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-lessons
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: courseId, AttributeType: S }
+        - { AttributeName: lessonId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: courseId, KeyType: HASH }
+        - { AttributeName: lessonId, KeyType: RANGE }
+
+  WithdrawalsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-withdrawals
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+        - { AttributeName: withdrawalId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+        - { AttributeName: withdrawalId, KeyType: RANGE }
+
+  DevicesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-devices
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+        - { AttributeName: token, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+        - { AttributeName: token, KeyType: RANGE }
+
+  StripeEventsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-stripe-events
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+      AttributeDefinitions:
+        - { AttributeName: eventId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: eventId, KeyType: HASH }
+
+  # Per-payment earnings ledger written by the Stripe webhook (idempotent earningId).
+  EarningEntriesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-earning-entries
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: earningId, AttributeType: S }
+        - { AttributeName: userId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: earningId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - { AttributeName: userId, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  # ── Functions ─────────────────────────────────────────────────────────────────
+  # Imported (existed before this stack): logical IDs must stay UsersFunction,
+  # StudentSearchFunction and AdminFunction.
+  UsersFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-users
+      CodeUri: lambda/users/
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref UsersTable }
+        - Statement:
+            - Effect: Allow
+              Action: cognito-idp:AdminDeleteUser
+              Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+
+  StudentSearchFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-student-search
+      CodeUri: lambda/student-search/
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref UsersTable }
+
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: toriino-admin
+      CodeUri: lambda/admin/
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          USERS_TABLE: !Ref UsersTable
+          COURSES_TABLE: !Ref CoursesTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          MENTORS_TABLE: !Ref MentorsTable
+          EARNINGS_TABLE: !Ref EarningsTable
+          ENROLLMENTS_TABLE: !Ref EnrollmentsTable
+          REVIEWS_TABLE: !Ref ReviewsTable
+          NOTIFICATIONS_TABLE: !Ref NotificationsTable
+          SUMMARIES_TABLE: !Ref SummariesTable
+          TRANSCRIPTS_TABLE: !Ref TranscriptsTable
+          AI_CHAT_TABLE: !Ref AiChatTable
+          AI_TWINS_TABLE: !Ref AiTwinsTable
+          AI_MEMORY_TABLE: !Ref AiMemoryTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref UsersTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref CoursesTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref SessionsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref MentorsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref ReviewsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref NotificationsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref EarningsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref EnrollmentsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref SummariesTable }
+        - DynamoDBReadPolicy: { TableName: !Ref TranscriptsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref AiChatTable }
+        - DynamoDBReadPolicy: { TableName: !Ref AiTwinsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref AiMemoryTable }
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ListUsers
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminListGroupsForUser
+              Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+
+  # New functions
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-auth
+      CodeUri: lambda/auth/
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminUpdateUserAttributes
+              Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
+
+  CoursesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-courses
+      CodeUri: lambda/courses/
+      Timeout: 30
+      Environment:
+        Variables:
+          COURSES_TABLE: !Ref CoursesTable
+          LESSONS_TABLE: !Ref LessonsTable
+          ENROLLMENTS_TABLE: !Ref EnrollmentsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref CoursesTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref LessonsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref EnrollmentsTable }
+
+  SessionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-sessions
+      CodeUri: lambda/sessions/
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SessionsTable }
+
+  MentorsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-mentors
+      CodeUri: lambda/mentors/
+      Environment:
+        Variables:
+          MENTORS_TABLE: !Ref MentorsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref MentorsTable }
+
+  ReviewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-reviews
+      CodeUri: lambda/reviews/
+      Environment:
+        Variables:
+          REVIEWS_TABLE: !Ref ReviewsTable
+          ENROLLMENTS_TABLE: !Ref EnrollmentsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref ReviewsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref EnrollmentsTable }
+
+  NotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-notifications
+      CodeUri: lambda/notifications/
+      Environment:
+        Variables:
+          NOTIFICATIONS_TABLE: !Ref NotificationsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref NotificationsTable }
+
+  RegisterDeviceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-register-device
+      CodeUri: lambda/register-device/
+      Environment:
+        Variables:
+          DEVICES_TABLE: !Ref DevicesTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DevicesTable }
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
+
+  EarningsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-earnings
+      CodeUri: lambda/earnings/
+      Environment:
+        Variables:
+          EARNINGS_TABLE: !Ref EarningsTable
+          EARNING_ENTRIES_TABLE: !Ref EarningEntriesTable
+          WITHDRAWALS_TABLE: !Ref WithdrawalsTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref EarningsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref WithdrawalsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref EarningEntriesTable }
+
+  UploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-upload-url
+      CodeUri: lambda/upload-url/
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref UploadBucket
+          URL_EXPIRY: "300"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub arn:aws:s3:::${UploadBucket}/*
+
+  PaymentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-payments
+      CodeUri: lambda/payments/
+      Environment:
+        Variables:
+          COURSES_TABLE: !Ref CoursesTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref CoursesTable }
+        - DynamoDBReadPolicy: { TableName: !Ref SessionsTable }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  StripeWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-stripe-webhook
+      CodeUri: lambda/stripe-webhook/
+      Timeout: 30
+      Environment:
+        Variables:
+          SSM_PREFIX: !Ref SsmPrefix
+          STRIPE_EVENTS_TABLE: !Ref StripeEventsTable
+          EARNING_ENTRIES_TABLE: !Ref EarningEntriesTable
+          ENROLLMENTS_TABLE: !Ref EnrollmentsTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref StripeEventsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref EarningEntriesTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref EnrollmentsTable }
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SessionsTable}
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_WEBHOOK_SECRET
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+Outputs:
+  NewTables:
+    Value: !Join [", ", [!Ref LessonsTable, !Ref WithdrawalsTable, !Ref DevicesTable, !Ref StripeEventsTable, !Ref EarningEntriesTable]]

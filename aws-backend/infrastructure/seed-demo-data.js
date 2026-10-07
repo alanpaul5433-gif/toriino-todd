@@ -48,7 +48,7 @@ async function ensureTable(name) {
   try {
     await db.send(new DescribeTableCommand({ TableName: name }));
   } catch {
-    console.log(`\n  [warn] Table ${name} not found — skipping (run deploy-lambdas.js first)`);
+    console.log(`\n  [warn] Table ${name} not found — skipping (run npm run deploy:backend first)`);
     return false;
   }
   return true;

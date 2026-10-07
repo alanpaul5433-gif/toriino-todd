@@ -17,14 +17,12 @@ class AppUrl {
   // Users
   static const String userProfile = '$baseUrl/users/profile';
   static const String userRole = '$baseUrl/users/role';
-  static const String userAvatar = '$baseUrl/users/avatar';
   static const String deleteAccount = '$baseUrl/users/account';
 
   // Courses
   static const String courses = '$baseUrl/courses';
   static const String myCourses = '$baseUrl/courses/my-courses';
   static const String myCreatedCourses = '$baseUrl/courses/my-created';
-  static const String courseUploadUrl = '$baseUrl/courses/upload-url';
   static String courseById(String id) => '$baseUrl/courses/$id';
   static String courseLessons(String id) => '$baseUrl/courses/$id/lessons';
   static String courseLesson(String courseId, String lessonId) =>
@@ -42,7 +40,6 @@ class AppUrl {
   static String mentorAvailability(String id) =>
       '$baseUrl/mentors/$id/availability';
   static const String updateAvailability = '$baseUrl/mentors/availability';
-  static const String mentorIntroVideo = '$baseUrl/mentors/intro-video';
 
   // Reviews
   static const String reviews = '$baseUrl/reviews';
@@ -52,7 +49,7 @@ class AppUrl {
   // Notifications
   static const String notifications = '$baseUrl/notifications';
   static String markNotificationRead(String sortKey) =>
-      '$baseUrl/notifications/$sortKey/read';
+      '$baseUrl/notifications/${Uri.encodeComponent(sortKey)}/read';
   static const String registerFcmToken = '$baseUrl/notifications/fcm-token';
 
   // Earnings

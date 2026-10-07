@@ -16,7 +16,8 @@ import 'package:toriino_todd/view/users/mentor_view/earinig_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_sessions_view.dart';
 import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_availability.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_setting_view.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
 
 class MentorBottomNavBar extends StatefulWidget {
@@ -107,10 +108,19 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                   onTap: () {
                     _customDrawerController.advancedDrawerController
                         .hideDrawer();
+                    Get.to(() => const MentorAvailability());
+                  },
+                  leading: const Icon(Icons.event_available, color: Colors.white),
+                  title: const Text('Availability'),
+                ),
+                ListTile(
+                  onTap: () {
+                    _customDrawerController.advancedDrawerController
+                        .hideDrawer();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const MentorSettingView(),
                       ),
                     );
                   },

@@ -31,15 +31,6 @@ class UserRepo {
     );
   }
 
-  Future<dynamic> getAvatarUploadUrl(Map<String, dynamic> data) async {
-    final headers = await AuthInterceptor.getAuthHeaders();
-    return await _apiServices.getPostApiResponse(
-      AppUrl.userAvatar,
-      data,
-      headers,
-    );
-  }
-
   Future<dynamic> deleteAccount() async {
     final headers = await AuthInterceptor.getAuthHeaders();
     return await _apiServices.getDeleteApiResponse(

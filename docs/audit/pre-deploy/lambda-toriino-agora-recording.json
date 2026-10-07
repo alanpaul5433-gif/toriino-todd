@@ -1,0 +1,48 @@
+{
+  "FunctionName": "toriino-agora-recording",
+  "FunctionArn": "arn:aws:lambda:us-east-1:888245942659:function:toriino-agora-recording",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::888245942659:role/toriino-lambda-role",
+  "Handler": "index.handler",
+  "CodeSize": 1942,
+  "Description": "",
+  "Timeout": 30,
+  "MemorySize": 256,
+  "LastModified": "2026-10-06T19:38:07.000+0000",
+  "CodeSha256": "pGGYtGr4S2vD1MTCflMM7+o7fcj7x5qRw4nI6daqNyU=",
+  "Version": "$LATEST",
+  "Environment": {
+    "Variables": {
+      "AGORA_CUSTOMER_SECRET": "<empty>",
+      "AGORA_APP_CERTIFICATE": "<redacted: set>",
+      "AGORA_APP_ID": "82cc37a56aad47eea0cb717dc33b9ccd",
+      "RECORDING_TABLE": "toriino-recordings",
+      "AGORA_CUSTOMER_ID": "",
+      "RECORDING_S3_BUCKET": "toriino-recordings-888245942659"
+    }
+  },
+  "TracingConfig": {
+    "Mode": "PassThrough"
+  },
+  "RevisionId": "77645b7e-f5e5-47e1-853c-e0d654699deb",
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "PackageType": "Zip",
+  "Architectures": [
+    "x86_64"
+  ],
+  "EphemeralStorage": {
+    "Size": 512
+  },
+  "SnapStart": {
+    "ApplyOn": "None",
+    "OptimizationStatus": "Off"
+  },
+  "RuntimeVersionConfig": {
+    "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:18671876e7cc385452255180c58ca50cf8763398a4248ae92ed14410d196b942"
+  },
+  "LoggingConfig": {
+    "LogFormat": "Text",
+    "LogGroup": "/aws/lambda/toriino-agora-recording"
+  }
+}

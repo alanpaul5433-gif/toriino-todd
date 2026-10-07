@@ -1,0 +1,51 @@
+{
+  "FunctionName": "torino-api",
+  "FunctionArn": "arn:aws:lambda:us-east-1:888245942659:function:torino-api",
+  "Runtime": "nodejs24.x",
+  "Role": "arn:aws:iam::888245942659:role/service-role/torino-api-role-4vdklh0d",
+  "Handler": "index.handler",
+  "CodeSize": 5763127,
+  "Description": "",
+  "Timeout": 10,
+  "MemorySize": 128,
+  "LastModified": "2026-10-06T21:15:41.000+0000",
+  "CodeSha256": "KQu33vF0Rz56wkrn81mfpDVRW+Y2hcbLg6U5iLV4eT0=",
+  "Version": "$LATEST",
+  "Environment": {
+    "Variables": {
+      "S3_BUCKET": "torino-app-storage",
+      "AGORA_APP_CERTIFICATE": "<redacted: set>",
+      "AGORA_APP_ID": "82cc37a56aad47eea0cb717dc33b9ccd",
+      "DEVICES_TABLE": "toriino-devices",
+      "STRIPE_SECRET_KEY": "<empty>",
+      "S3_REGION": "us-east-1",
+      "GEMINI_API_KEY": "<empty>",
+      "SESSIONS_TABLE": "toriino-sessions",
+      "STRIPE_PUBLISHABLE_KEY": "<empty>"
+    }
+  },
+  "TracingConfig": {
+    "Mode": "PassThrough"
+  },
+  "RevisionId": "ccbedd01-f422-4aae-8dd3-72737613d0bd",
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "PackageType": "Zip",
+  "Architectures": [
+    "x86_64"
+  ],
+  "EphemeralStorage": {
+    "Size": 512
+  },
+  "SnapStart": {
+    "ApplyOn": "None",
+    "OptimizationStatus": "Off"
+  },
+  "RuntimeVersionConfig": {
+    "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:88e03c92517ea4e25874b2ff8f059c90f3f223d7565a5f1a4492b996a44e9681"
+  },
+  "LoggingConfig": {
+    "LogFormat": "Text",
+    "LogGroup": "/aws/lambda/torino-api"
+  }
+}

@@ -24,12 +24,12 @@ class NotificationModel {
       userId: json['userId'],
       sortKey: json['sortKey'],
       title: json['title'],
-      message: json['message'],
-      type: json['type'],
+      message: json['message'] ?? json['body'],
+      type: json['type'] ?? json['notifType'],
       data: json['data'] != null
           ? Map<String, dynamic>.from(json['data'])
           : null,
-      isRead: json['isRead'],
+      isRead: (json['isRead'] ?? json['read']) as bool?,
       createdAt: json['createdAt'],
     );
   }

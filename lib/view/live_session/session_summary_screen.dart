@@ -3,15 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:toriino_todd/model/ai/transcript_model.dart';
 import 'package:toriino_todd/repository/session_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class SessionSummaryScreen extends StatefulWidget {
   final String sessionId;
-  final TranscriptModel transcript;
+
+  /// Transcript captured during the live session. When null the screen is
+  /// opened from session history and loads the summary already stored.
+  final TranscriptModel? transcript;
   final String subjectArea;
 
   const SessionSummaryScreen({
     required this.sessionId,
-    required this.transcript,
+    this.transcript,
     this.subjectArea = 'general',
     super.key,
   });
@@ -34,11 +38,25 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
   }
 
   Future<void> _generateSummary() async {
+    final transcript = widget.transcript;
+    if (transcript == null) {
+      // Opened from history: show the summary saved for this session.
+      final stored = await _repo.getSummary(widget.sessionId);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _summary = stored;
+        _error = stored == null
+            ? 'No AI summary has been saved for this session yet.'
+            : null;
+      });
+      return;
+    }
     try {
       // Save transcript first
-      await _repo.saveTranscript(widget.sessionId, widget.transcript.toJson());
+      await _repo.saveTranscript(widget.sessionId, transcript.toJson());
 
-      final plainText = widget.transcript.toPlainText();
+      final plainText = transcript.toPlainText();
       if (plainText.trim().isEmpty) {
         setState(() { _loading = false; _error = 'No transcript available for this session.'; });
         return;
@@ -49,9 +67,11 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
         plainText,
         subjectArea: widget.subjectArea,
       );
+      if (!mounted) return;
       setState(() { _summary = result; _loading = false; });
     } catch (e) {
-      setState(() { _loading = false; _error = e.toString(); });
+      if (!mounted) return;
+      setState(() { _loading = false; _error = Utils.errorMessage(e); });
     }
   }
 
@@ -79,7 +99,9 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                    onPressed: () => widget.transcript == null
+                        ? Navigator.of(context).pop()
+                        : Navigator.of(context).popUntil((r) => r.isFirst),
                     child: Text('Done', style: GoogleFonts.dmSans(color: AppColor.red, fontWeight: FontWeight.w600)),
                   ),
                 ],
@@ -94,7 +116,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
                         children: [
                           const CircularProgressIndicator(color: Colors.white),
                           const SizedBox(height: 16),
-                          Text('Generating AI summary...', style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 13)),
+                          Text(widget.transcript == null ? 'Loading summary...' : 'Generating AI summary...', style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 13)),
                         ],
                       ),
                     )
@@ -159,12 +181,13 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
               ),
             ),
           const SizedBox(height: 32),
-          Center(
-            child: Text(
-              '${widget.transcript.segments.length} transcript segments · ${_durationLabel(widget.transcript.totalDuration)}',
-              style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 11),
+          if (widget.transcript != null)
+            Center(
+              child: Text(
+                '${widget.transcript!.segments.length} transcript segments · ${_durationLabel(widget.transcript!.totalDuration)}',
+                style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 11),
+              ),
             ),
-          ),
         ],
       ),
     );

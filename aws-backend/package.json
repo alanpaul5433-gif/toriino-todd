@@ -5,9 +5,9 @@
   "scripts": {
     "test": "jest --testPathPattern=tests/ --forceExit",
     "deploy:infra": "node infrastructure/deploy.js",
-    "deploy:lambdas": "node infrastructure/deploy-lambdas.js",
     "deploy:api": "node infrastructure/deploy-api.js",
-    "deploy:all": "npm run deploy:infra && npm run deploy:lambdas && npm run deploy:api"
+    "deploy:all": "npm run deploy:backend",
+    "deploy:backend": "node ../scripts/ensure-ssm-params.mjs && node ../scripts/import-existing-lambdas.mjs && sam build && sam deploy && node ../scripts/deploy-api-routes.mjs"
   },
   "devDependencies": {
     "jest": "^29.7.0",

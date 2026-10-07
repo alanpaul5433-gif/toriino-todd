@@ -10,7 +10,7 @@ import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/settings.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
 import 'package:toriino_todd/view/users/teacher/ai_tutar_teacher.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
@@ -93,7 +93,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const Settings(),
                       ),
                     );
                   },

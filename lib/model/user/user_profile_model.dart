@@ -15,6 +15,11 @@ class UserProfileModel {
   final String? experience;
   final String? language;
   final double? hourlyRate;
+  final String? educationLevel;
+  final String? title;
+  final String? industry;
+  final List<String>? expertise;
+  final List<String>? skills;
 
   UserProfileModel({
     this.userId,
@@ -33,6 +38,11 @@ class UserProfileModel {
     this.experience,
     this.language,
     this.hourlyRate,
+    this.educationLevel,
+    this.title,
+    this.industry,
+    this.expertise,
+    this.skills,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -55,7 +65,22 @@ class UserProfileModel {
       experience: json['experience'],
       language: json['language'],
       hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
+      educationLevel: json['educationLevel'],
+      title: json['title'],
+      industry: json['industry'],
+      expertise: _stringList(json['expertise']),
+      skills: _stringList(json['skills']),
     );
+  }
+
+  /// Accepts either a JSON array or a comma-separated string.
+  static List<String>? _stringList(dynamic v) {
+    if (v == null) return null;
+    if (v is List) return v.map((e) => e.toString()).toList();
+    if (v is String) {
+      return v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -75,6 +100,11 @@ class UserProfileModel {
     if (experience != null) data['experience'] = experience;
     if (language != null) data['language'] = language;
     if (hourlyRate != null) data['hourlyRate'] = hourlyRate;
+    if (educationLevel != null) data['educationLevel'] = educationLevel;
+    if (title != null) data['title'] = title;
+    if (industry != null) data['industry'] = industry;
+    if (expertise != null) data['expertise'] = expertise;
+    if (skills != null) data['skills'] = skills;
     return data;
   }
 }

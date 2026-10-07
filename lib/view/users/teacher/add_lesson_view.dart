@@ -3,8 +3,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:toriino_todd/repository/course_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/s3_service.dart';
+import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
 import 'package:toriino_todd/viewmodel/controller/teacher/teacher_course_viewmodel.dart';
@@ -57,7 +58,6 @@ class AddLessonView extends StatefulWidget {
 
 class _AddLessonViewState extends State<AddLessonView> {
   late final TeacherCourseViewmodel _courseVm;
-  final _courseRepo = CourseRepo();
   final List<_LessonEntry> _lessons = [];
 
   bool _uploading = false;
@@ -192,7 +192,7 @@ class _AddLessonViewState extends State<AddLessonView> {
                             Expanded(
                               child: Text(
                                 pickedFileName ??
-                                    'Tap to select ${selectedType} file',
+                                    'Tap to select $selectedType file',
                                 style: GoogleFonts.dmSans(
                                     color: pickedFileName != null
                                         ? Colors.white
@@ -307,23 +307,21 @@ class _AddLessonViewState extends State<AddLessonView> {
           final contentType = lesson.materialType == 'PDF'
               ? 'application/pdf'
               : _videoContentType(lesson.fileName ?? '');
-          final tempCourseId = _courseVm.lastCourseId ??
-              'crs_${DateTime.now().millisecondsSinceEpoch}';
+          if (contentType == null) {
+            throw Exception(
+                'Unsupported video format. Please use MP4, MOV or WebM.');
+          }
 
-          final result = await _courseRepo.getUploadUrl(
+          final result = await S3Service.uploadFile(
+            bytes: lesson.fileBytes!,
+            folder: lesson.materialType == 'PDF' ? 'course-materials' : 'lessons',
             fileName: lesson.fileName!,
             contentType: contentType,
-            courseId: tempCourseId,
           );
-
-          final presignedUrl = result['uploadUrl'] as String;
+          if (result['success'] != true) {
+            throw Exception(result['message'] ?? 'Upload failed');
+          }
           final publicUrl = result['url'] as String;
-
-          await _courseRepo.uploadFileToS3(
-            presignedUrl: presignedUrl,
-            bytes: lesson.fileBytes!,
-            contentType: contentType,
-          );
 
           setState(() {
             lesson.uploadedUrl = publicUrl;
@@ -337,7 +335,7 @@ class _AddLessonViewState extends State<AddLessonView> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Upload failed for "${lesson.fileName}": $e'),
+                content: Text('Upload failed for "${lesson.fileName}": ${Utils.errorMessage(e)}'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -653,27 +651,15 @@ class _AddLessonViewState extends State<AddLessonView> {
   }
 
   String _formatSize(int bytes) {
-    if (bytes < 1024) return '${bytes} B';
+    if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  String _videoContentType(String fileName) {
-    final ext = fileName.toLowerCase().split('.').last;
-    switch (ext) {
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      case 'avi':
-        return 'video/x-msvideo';
-      case 'mkv':
-        return 'video/x-matroska';
-      case 'webm':
-        return 'video/webm';
-      default:
-        return 'video/mp4';
-    }
+  /// Video MIME type accepted by the upload backend, or null if unsupported.
+  String? _videoContentType(String fileName) {
+    final type = S3Service.contentTypeFor(fileName);
+    return (type != null && type.startsWith('video/')) ? type : null;
   }
 }
 

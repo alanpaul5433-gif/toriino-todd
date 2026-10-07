@@ -1,5 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,7 +16,9 @@ class StudentEditProfileView extends StatefulWidget {
 
 class _StudentEditProfileViewState extends State<StudentEditProfileView> {
   final _formKey = GlobalKey<FormState>();
-  String? bio;
+  final _nameCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
+  bool _saving = false;
   String? educationLevel;
   String? selectedLanguage;
 
@@ -33,6 +39,54 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
     'Japanese',
     'Other',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill from the cached profile when the profile screen loaded it.
+    if (Get.isRegistered<ProfileViewmodel>()) {
+      final p = Get.find<ProfileViewmodel>().rxProfile.value.data;
+      if (p != null) {
+        _nameCtrl.text = p.name ?? '';
+        _bioCtrl.text = p.bio ?? '';
+        if (educationLevels.contains(p.educationLevel)) {
+          educationLevel = p.educationLevel;
+        }
+        if (languages.contains(p.language)) selectedLanguage = p.language;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _bioCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _saving = true);
+    try {
+      await UserRepo().updateProfile({
+        'name': _nameCtrl.text.trim(),
+        'bio': _bioCtrl.text.trim(),
+        if (educationLevel != null) 'educationLevel': educationLevel,
+        if (selectedLanguage != null) 'language': selectedLanguage,
+      });
+      if (Get.isRegistered<ProfileViewmodel>()) {
+        Get.find<ProfileViewmodel>().fetchProfile();
+      }
+      Utils.toastMassage('Profile updated');
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      Utils.toastMassage(Utils.errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,7 +105,10 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    SvgPicture.asset("assets/icons/Arrow - Right 3.svg"),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: SvgPicture.asset("assets/icons/Arrow - Right 3.svg"),
+                    ),
                   ],
                 ),
                 SizedBox(height: 8),
@@ -72,6 +129,7 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                   ),
                 ),
                 SizedBox(height: 8),TextFormField(
+                  controller: _nameCtrl,
                   style: GoogleFonts.rethinkSans(
                     color: AppColor.white,
                     fontWeight: FontWeight.w500,
@@ -107,16 +165,16 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your bio';
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your name';
                     }
                     return null;
                   },
-                  onSaved: (value) => bio = value,
                 ),
                 SizedBox(height: 8),
 
                 TextFormField(
+                  controller: _bioCtrl,
                   style: GoogleFonts.rethinkSans(
                     color: AppColor.white,
                     fontWeight: FontWeight.w500,
@@ -152,12 +210,11 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your bio';
                     }
                     return null;
                   },
-                  onSaved: (value) => bio = value,
                 ),
                 SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -276,7 +333,7 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     GestureDetector(
-                      onTap: ()=>Navigator.pop(context),
+                      onTap: _saving ? null : _save,
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(28),
@@ -289,8 +346,20 @@ class _StudentEditProfileViewState extends State<StudentEditProfileView> {
                           ),
                           child: Row(
                             children: [
+                              if (_saving)
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 8),
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColor.white,
+                                    ),
+                                  ),
+                                ),
                               Text(
-                                "Continue",
+                                _saving ? "Saving..." : "Save",
                                 style: GoogleFonts.dmSans(
                                   fontSize: 14,
                                   color: AppColor.white,

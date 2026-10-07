@@ -14,7 +14,7 @@ import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
 import 'package:toriino_todd/view/users/student_view/home_view.dart';
 import 'package:toriino_todd/view/users/student_view/browse_mentor.dart';
 import 'package:toriino_todd/view/users/student_view/course_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/settings.dart';
 import 'package:toriino_todd/view/users/student_view/sessions.dart';
 import 'package:toriino_todd/view/users/student_view/student_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
@@ -98,7 +98,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const Settings(),
                       ),
                     );
                   },

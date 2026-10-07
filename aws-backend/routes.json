@@ -1,0 +1,89 @@
+{
+  "$comment": "Source of truth for API Gateway pq8cu94cfd routes, applied by scripts/deploy-api-routes.mjs. Every route gets the Cognito authorizer unless \"auth\": \"NONE\" — the ONLY public route allowed is POST /stripe/webhook (OPTIONS preflights are always public MOCKs). Static resources (e.g. /sessions/token) win over sibling {params}; The catch-all /{proxy+} (Cognito) is a MOCK 404: an unknown path, or a method a resource does not define, must never fall through to the old torino-api monolith (its unguarded write handlers). torino-api now serves only POST /sessions/token.",
+  "region": "us-east-1",
+  "restApiId": "pq8cu94cfd",
+  "stage": "prod",
+  "authorizerName": "CognitoAdminAuth",
+  "routes": [
+    { "path": "/auth/set-role", "methods": ["POST"], "lambda": "toriino-auth" },
+    { "path": "/auth/logout", "methods": ["POST"], "lambda": "toriino-auth" },
+    { "path": "/auth/{proxy+}", "methods": ["ANY"], "lambda": "toriino-auth" },
+
+    { "path": "/users/profile", "methods": ["GET", "PUT"], "lambda": "toriino-users" },
+    { "path": "/users/role", "methods": ["PUT"], "lambda": "toriino-users" },
+    { "path": "/users/avatar", "methods": ["POST"], "lambda": "toriino-users" },
+    { "path": "/users/account", "methods": ["DELETE"], "lambda": "toriino-users" },
+    { "path": "/students/search", "methods": ["GET"], "lambda": "toriino-student-search" },
+
+    { "path": "/courses", "methods": ["GET", "POST"], "lambda": "toriino-courses" },
+    { "path": "/courses/my-courses", "methods": ["GET"], "lambda": "toriino-courses" },
+    { "path": "/courses/my-created", "methods": ["GET"], "lambda": "toriino-courses" },
+    { "path": "/courses/upload-url", "methods": ["GET"], "lambda": "toriino-upload-url" },
+    { "path": "/courses/{id}", "methods": ["GET", "PUT", "DELETE"], "lambda": "toriino-courses" },
+    { "path": "/courses/{id}/lessons", "methods": ["GET", "POST"], "lambda": "toriino-courses" },
+    { "path": "/courses/{id}/lessons/{lessonId}", "methods": ["PUT", "DELETE"], "lambda": "toriino-courses" },
+    { "path": "/courses/{id}/enroll", "methods": ["POST"], "lambda": "toriino-courses" },
+
+    { "path": "/sessions", "methods": ["GET", "POST"], "lambda": "toriino-sessions" },
+    { "path": "/sessions/token", "methods": ["POST"], "lambda": "torino-api" },
+    { "path": "/sessions/{id}", "methods": ["GET", "PUT"], "lambda": "toriino-sessions" },
+    { "path": "/sessions/{id}/status", "methods": ["PATCH", "PUT"], "lambda": "toriino-sessions" },
+    { "path": "/sessions/{id}/recording", "methods": ["GET"], "lambda": "toriino-agora-recording" },
+    { "path": "/sessions/{id}/recording/start", "methods": ["POST"], "lambda": "toriino-agora-recording" },
+    { "path": "/sessions/{id}/recording/stop", "methods": ["POST"], "lambda": "toriino-agora-recording" },
+    { "path": "/sessions/{id}/transcript", "methods": ["GET", "POST"], "lambda": "toriino-ai-transcripts" },
+    { "path": "/sessions/{id}/summary", "methods": ["GET", "POST"], "lambda": "toriino-ai-summaries" },
+
+    { "path": "/mentors", "methods": ["GET"], "lambda": "toriino-mentors" },
+    { "path": "/mentors/availability", "methods": ["PUT"], "lambda": "toriino-mentors" },
+    { "path": "/mentors/{id}", "methods": ["GET"], "lambda": "toriino-mentors" },
+    { "path": "/mentors/{id}/availability", "methods": ["GET"], "lambda": "toriino-mentors" },
+
+    { "path": "/reviews", "methods": ["POST"], "lambda": "toriino-reviews" },
+    { "path": "/reviews/{targetId}", "methods": ["GET"], "lambda": "toriino-reviews" },
+
+    { "path": "/notifications", "methods": ["GET"], "lambda": "toriino-notifications" },
+    { "path": "/notifications/read-all", "methods": ["PATCH"], "lambda": "toriino-notifications" },
+    { "path": "/notifications/{sortKey}/read", "methods": ["PATCH"], "lambda": "toriino-notifications" },
+    { "path": "/notifications/fcm-token", "methods": ["POST"], "lambda": "toriino-register-device" },
+
+    { "path": "/earnings", "methods": ["GET"], "lambda": "toriino-earnings" },
+    { "path": "/earnings/history", "methods": ["GET"], "lambda": "toriino-earnings" },
+    { "path": "/earnings/withdraw", "methods": ["POST"], "lambda": "toriino-earnings" },
+
+    { "path": "/upload-url", "methods": ["GET"], "lambda": "toriino-upload-url" },
+    { "path": "/payments/create-intent", "methods": ["POST"], "lambda": "toriino-payments" },
+    { "path": "/stripe/webhook", "methods": ["POST"], "lambda": "toriino-stripe-webhook", "auth": "NONE" },
+
+    { "path": "/wallet", "methods": ["GET"], "lambda": "toriino-wallet" },
+    { "path": "/wallet/deduct", "methods": ["POST"], "lambda": "toriino-wallet" },
+
+    { "path": "/ai/chat/{userId}", "methods": ["GET", "POST"], "lambda": "toriino-ai-chat" },
+    { "path": "/ai/twins/{userId}", "methods": ["GET", "POST"], "lambda": "toriino-ai-twins" },
+    { "path": "/ai/twins/{userId}/ask", "methods": ["POST"], "lambda": "toriino-ai-twins" },
+    { "path": "/ai/memory/{userId}", "methods": ["GET", "PUT"], "lambda": "toriino-ai-memory" },
+    { "path": "/ai/memory/{userId}/graph", "methods": ["GET", "POST"], "lambda": "toriino-ai-memory" },
+    { "path": "/ai/memory/{userId}/recommend", "methods": ["POST"], "lambda": "toriino-ai-memory" },
+
+    { "path": "/admin/stats", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/users", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/users/{id}", "methods": ["DELETE"], "lambda": "toriino-admin" },
+    { "path": "/admin/users/{id}/status", "methods": ["PUT"], "lambda": "toriino-admin" },
+    { "path": "/admin/users/{id}/role", "methods": ["PUT"], "lambda": "toriino-admin" },
+    { "path": "/admin/courses", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/courses/{id}", "methods": ["DELETE"], "lambda": "toriino-admin" },
+    { "path": "/admin/courses/{id}/status", "methods": ["PUT"], "lambda": "toriino-admin" },
+    { "path": "/admin/sessions", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/sessions/{id}/status", "methods": ["PUT"], "lambda": "toriino-admin" },
+    { "path": "/admin/sessions/{id}/summary", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/mentors", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/mentors/{id}/approval", "methods": ["PUT"], "lambda": "toriino-admin" },
+    { "path": "/admin/earnings", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/reviews", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/reviews/{targetId}/{reviewId}", "methods": ["DELETE"], "lambda": "toriino-admin" },
+    { "path": "/admin/ai/stats", "methods": ["GET"], "lambda": "toriino-admin" },
+    { "path": "/admin/notifications/broadcast", "methods": ["POST"], "lambda": "toriino-admin" },
+
+    { "path": "/{proxy+}", "methods": ["ANY"], "mock404": true }
+  ]
+}

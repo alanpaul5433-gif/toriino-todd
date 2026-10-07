@@ -33,7 +33,7 @@ class ProfileViewmodel extends GetxController {
       bioController.text = profile.bio ?? '';
       locationController.text = profile.location ?? '';
     }).onError((error, _) {
-      rxProfile.value = ApiResponse.error(error.toString());
+      rxProfile.value = ApiResponse.error(Utils.errorMessage(error));
     });
   }
 
@@ -52,7 +52,7 @@ class ProfileViewmodel extends GetxController {
       fetchProfile();
     }).onError((error, _) {
       saving.value = false;
-      Utils.toastMassage(error.toString());
+      Utils.toastMassage(Utils.errorMessage(error));
     });
   }
 

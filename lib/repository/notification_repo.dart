@@ -22,11 +22,13 @@ class NotificationRepo {
     );
   }
 
-  Future<dynamic> registerFcmToken(String fcmToken) async {
+  /// POST /notifications/fcm-token with {token, platform}.
+  /// [platform] is 'android' or 'ios'.
+  Future<dynamic> registerFcmToken(String token, {required String platform}) async {
     final headers = await AuthInterceptor.getAuthHeaders();
     return await _apiServices.getPostApiResponse(
       AppUrl.registerFcmToken,
-      {'fcmToken': fcmToken},
+      {'token': token, 'platform': platform},
       headers,
     );
   }

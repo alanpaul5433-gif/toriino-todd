@@ -1,9 +1,20 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
+import 'package:toriino_todd/data/app_exception.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 
 class Utils {
+  /// Human-readable message for an error thrown by the network layer.
+  static String errorMessage(Object? error) {
+    if (error is AppException) {
+      final msg = error.massage;
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    }
+    final text = error?.toString() ?? 'Something went wrong';
+    return text.startsWith('Exception: ') ? text.substring(11) : text;
+  }
+
   static void fieldFoucsChnage(
     BuildContext context,
     FocusNode current,

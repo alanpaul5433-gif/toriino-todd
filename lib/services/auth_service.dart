@@ -210,6 +210,92 @@ class AuthService {
     }
   }
 
+  // ── Change Password (signed-in user) ────────────────
+  // Uses Cognito ChangePassword with the current access token. After an app
+  // restart there is no in-memory CognitoUser, so the session is rebuilt
+  // from the tokens in secure storage (and refreshed if expired).
+  static Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = await _restoreCognitoUser();
+      if (user == null) {
+        return {
+          'success': false,
+          'message': 'Your session has expired. Please log in again.',
+        };
+      }
+      await user.changePassword(oldPassword, newPassword);
+      return {'success': true, 'message': 'Password changed successfully'};
+    } on CognitoClientException catch (e) {
+      return {
+        'success': false,
+        'message': _changePasswordError(e),
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static String _changePasswordError(CognitoClientException e) {
+    switch (e.code) {
+      case 'NotAuthorizedException':
+        return 'Current password is incorrect.';
+      case 'InvalidPasswordException':
+        return e.message ?? 'New password does not meet the password policy.';
+      case 'InvalidParameterException':
+        return e.message ?? 'New password does not meet the password policy.';
+      case 'LimitExceededException':
+      case 'TooManyRequestsException':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return e.message ?? 'Password change failed';
+    }
+  }
+
+  /// Returns a CognitoUser with a valid session, restoring it from stored
+  /// tokens if needed. Returns null if no usable session exists.
+  static Future<CognitoUser?> _restoreCognitoUser() async {
+    final current = _cognitoUser;
+    final currentSession = _session;
+    if (current != null && currentSession != null && currentSession.isValid()) {
+      return current;
+    }
+
+    final idToken = await _storage.read(key: 'id_token');
+    final accessToken = await _storage.read(key: 'access_token');
+    final refreshTokenStr = await _storage.read(key: 'refresh_token');
+    final email = await _getEmailFromToken();
+    if (idToken == null || accessToken == null || email == null) return null;
+
+    final refreshToken = (refreshTokenStr != null && refreshTokenStr.isNotEmpty)
+        ? CognitoRefreshToken(refreshTokenStr)
+        : null;
+    var session = CognitoUserSession(
+      CognitoIdToken(idToken),
+      CognitoAccessToken(accessToken),
+      refreshToken: refreshToken,
+    );
+    final user = CognitoUser(email, _userPool, signInUserSession: session);
+
+    if (!session.isValid()) {
+      if (refreshToken == null) return null;
+      final refreshed = await user.refreshSession(refreshToken);
+      if (refreshed == null || !refreshed.isValid()) return null;
+      session = refreshed;
+      await _storage.write(key: 'id_token', value: session.idToken.jwtToken);
+      await _storage.write(
+        key: 'access_token',
+        value: session.accessToken.jwtToken,
+      );
+    }
+
+    _cognitoUser = user;
+    _session = session;
+    return user;
+  }
+
   // ── Check if Logged In ───────────────────────────────
   static Future<bool> isLoggedIn() async {
     final token = await _storage.read(key: 'access_token');

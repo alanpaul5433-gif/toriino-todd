@@ -1,10 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/widgets/components/button_large.dart';
 import 'package:toriino_todd/widgets/components/edit.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class EditMentorProfileView extends StatefulWidget {
@@ -35,7 +38,7 @@ class EditMentorProfileView extends StatefulWidget {
 
 class _EditMentorProfileViewState extends State<EditMentorProfileView> {
   final _formKey = GlobalKey<FormState>();
-  String? bio;
+  bool _saving = false;
   String? educationLevel;
   String? selectedLanguage;
   String? selectedIndustry;
@@ -66,6 +69,83 @@ class _EditMentorProfileViewState extends State<EditMentorProfileView> {
     'Japanese',
     'Other',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill from the mentor's cached profile.
+    if (Get.isRegistered<MentorHomeViewmodel>()) {
+      final p = Get.find<MentorHomeViewmodel>().rxProfile.value.data;
+      if (p != null) {
+        widget.nameController.text = p.name ?? '';
+        widget.titleController.text = p.title ?? '';
+        widget.experienceController.text = p.experience ?? '';
+        widget.bioController.text = p.bio ?? '';
+        if (p.hourlyRate != null) {
+          widget.priceController.text = p.hourlyRate!.toStringAsFixed(
+            p.hourlyRate! % 1 == 0 ? 0 : 2,
+          );
+        }
+        widget.expertiseController.text = (p.expertise ?? []).join(', ');
+        if (selectedIndustries.contains(p.industry)) {
+          selectedIndustry = p.industry;
+        }
+        if (educationLevels.contains(p.educationLevel)) {
+          educationLevel = p.educationLevel;
+        }
+        if (languages.contains(p.language)) selectedLanguage = p.language;
+      }
+    }
+  }
+
+  List<String> _splitList(String text) => text
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final name = widget.nameController.text.trim();
+    if (name.isEmpty) {
+      Utils.toastMassage('Please enter your name');
+      return;
+    }
+    final priceText = widget.priceController.text.trim();
+    final price = priceText.isEmpty
+        ? null
+        : double.tryParse(priceText.replaceAll(RegExp(r'[^0-9.]'), ''));
+    if (priceText.isNotEmpty && price == null) {
+      Utils.toastMassage('Please enter a valid price per hour');
+      return;
+    }
+    final expertise = _splitList(widget.expertiseController.text);
+
+    setState(() => _saving = true);
+    try {
+      await UserRepo().updateProfile({
+        'name': name,
+        'title': widget.titleController.text.trim(),
+        'experience': widget.experienceController.text.trim(),
+        'bio': widget.bioController.text.trim(),
+        if (price != null) 'hourlyRate': price,
+        if (selectedIndustry != null) 'industry': selectedIndustry,
+        if (expertise.isNotEmpty) 'expertise': expertise,
+        if (educationLevel != null) 'educationLevel': educationLevel,
+        if (selectedLanguage != null) 'language': selectedLanguage,
+      });
+      if (Get.isRegistered<MentorHomeViewmodel>()) {
+        Get.find<MentorHomeViewmodel>().fetchProfile();
+      }
+      Utils.toastMassage('Profile updated');
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      Utils.toastMassage(Utils.errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -247,13 +327,10 @@ class _EditMentorProfileViewState extends State<EditMentorProfileView> {
                       selectedIndustry = newValue;
                     });
                   },
-                  validator:
-                      (value) =>
-                          value == null ? 'Please select a language' : null,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
-                  text: 'Expertise',
+                  text: 'Expertise (comma separated)',
                   controller: widget.expertiseController,
                   focusNode: widget.expertiseFoucsNode,
                   nextfocusNode: widget.expertiseFoucsNode,
@@ -313,11 +390,6 @@ class _EditMentorProfileViewState extends State<EditMentorProfileView> {
                       educationLevel = newValue;
                     });
                   },
-                  validator:
-                      (value) =>
-                          value == null
-                              ? 'Please select education level'
-                              : null,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 DropdownButtonFormField<String>(
@@ -372,14 +444,11 @@ class _EditMentorProfileViewState extends State<EditMentorProfileView> {
                       selectedLanguage = newValue;
                     });
                   },
-                  validator:
-                      (value) =>
-                          value == null ? 'Please select a language' : null,
                 ),
                 SizedBox(height: 32),
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: buttonLarge(context, "Continue"),
+                  onTap: _saving ? null : _save,
+                  child: buttonLarge(context, _saving ? "Saving..." : "Save"),
                 ),
               ],
             ),

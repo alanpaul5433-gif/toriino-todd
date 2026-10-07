@@ -1,3 +1,14 @@
+/**
+ * users Lambda — /users/*  (Cognito authorizer on every route)
+ *
+ *   GET    /users/profile   caller's profile (stub created from JWT claims on first call)
+ *   PUT    /users/profile   update allowed profile fields
+ *   PUT    /users/role      set role (Student | Teacher | Mentor) on the profile record
+ *   POST   /users/avatar    legacy: pre-signed avatar upload (app now uses GET /upload-url)
+ *   DELETE /users/account   delete the Cognito user, then the profile record
+ *
+ * Env: USERS_TABLE, COGNITO_USER_POOL_ID
+ */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
   DynamoDBDocumentClient,
@@ -6,17 +17,17 @@ const {
   UpdateCommand,
   DeleteCommand,
 } = require("@aws-sdk/lib-dynamodb");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const {
+  CognitoIdentityProviderClient,
+  AdminDeleteUserCommand,
+} = require("@aws-sdk/client-cognito-identity-provider");
 
-const REGION = process.env.AWS_REGION || "us-east-2";
-const TABLE = process.env.USERS_TABLE || "toriino-users";
-const S3_BUCKET = process.env.S3_BUCKET || "toriino-uploads";
+const REGION = process.env.AWS_REGION || "us-east-1";
+const TABLE = process.env.USERS_TABLE;
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
 
-const dynamodb = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: REGION })
-);
-const s3 = new S3Client({ region: REGION });
+const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
+const cognito = new CognitoIdentityProviderClient({ region: REGION });
 
 const headers = {
   "Content-Type": "application/json",
@@ -29,159 +40,138 @@ function response(statusCode, body) {
   return { statusCode, headers, body: JSON.stringify(body) };
 }
 
-function getUserId(event) {
-  return event.requestContext?.authorizer?.claims?.sub;
+function log(level, message, extra = {}) {
+  console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
 }
 
+const ROLES = { student: "Student", teacher: "Teacher", mentor: "Mentor" };
+
+const PROFILE_FIELDS = [
+  "name", "phone", "bio", "interests", "avatarUrl", "dateOfBirth", "location",
+  "experience", "language", "hourlyRate", "expertise", "specialties", "goals",
+  "educationLevel", "title", "skills", "industry",
+];
+
 exports.handler = async (event) => {
-  const path = event.path;
   const method = event.httpMethod;
-  const body = event.body ? JSON.parse(event.body) : {};
-  const userId = getUserId(event);
-
   if (method === "OPTIONS") return response(200, {});
-  if (!userId) return response(401, { error: "Unauthorized" });
 
+  const claims = event.requestContext?.authorizer?.claims || {};
+  const userId = claims.sub;
+  if (!userId) return response(401, { error: "Unauthorized" });
+  if (!TABLE) return response(503, { error: "Users service not configured (USERS_TABLE)" });
+
+  let body = {};
+  try { body = event.body ? JSON.parse(event.body) : {}; } catch {
+    return response(400, { error: "Invalid JSON body" });
+  }
+
+  const path = event.path;
   try {
-    if (path === "/users/profile" && method === "GET") {
-      return await getProfile(userId);
-    }
-    if (path === "/users/profile" && method === "PUT") {
-      return await updateProfile(userId, body);
-    }
-    if (path === "/users/role" && method === "PUT") {
-      return await updateRole(userId, body);
-    }
+    if (path === "/users/profile" && method === "GET") return await getProfile(userId, claims);
+    if (path === "/users/profile" && method === "PUT") return await updateProfile(userId, body);
+    if (path === "/users/role" && method === "PUT") return await updateRole(userId, body);
     if (path === "/users/avatar" && method === "POST") {
-      return await getAvatarUploadUrl(userId, body);
+      return response(410, { error: "Use GET /upload-url?folder=profiles to upload an avatar" });
     }
-    if (path === "/users/account" && method === "DELETE") {
-      return await deleteAccount(userId);
-    }
+    if (path === "/users/account" && method === "DELETE") return await deleteAccount(userId, claims);
     return response(404, { error: "Route not found" });
   } catch (error) {
-    console.error("Users error:", error);
-    return response(500, { error: error.message });
+    log("ERROR", "Users handler error", { error: error.message, path, method });
+    return response(500, { error: "Users request failed" });
   }
 };
 
-// ── Get Profile ────────────────────────────────────────────
-async function getProfile(userId) {
-  const result = await dynamodb.send(
-    new GetCommand({ TableName: TABLE, Key: { userId } })
-  );
+async function getProfile(userId, claims) {
+  const result = await dynamodb.send(new GetCommand({ TableName: TABLE, Key: { userId } }));
+  if (result.Item) return response(200, result.Item);
 
-  if (!result.Item) {
-    return response(404, { error: "User not found" });
+  // First call after sign-up: create the profile from the verified token claims.
+  const role = ROLES[String(claims["custom:role"] || "").toLowerCase()] || "Student";
+  const stub = {
+    userId,
+    email: claims.email || "",
+    name: claims.name || "",
+    role,
+    status: "active",
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    await dynamodb.send(new PutCommand({
+      TableName: TABLE,
+      Item: stub,
+      ConditionExpression: "attribute_not_exists(userId)",
+    }));
+  } catch (err) {
+    if (err.name !== "ConditionalCheckFailedException") throw err;
+    const again = await dynamodb.send(new GetCommand({ TableName: TABLE, Key: { userId } }));
+    return response(200, again.Item);
   }
-
-  return response(200, result.Item);
+  return response(200, stub);
 }
 
-// ── Update Profile ─────────────────────────────────────────
 async function updateProfile(userId, data) {
-  const allowedFields = [
-    "name",
-    "phone",
-    "bio",
-    "interests",
-    "avatarUrl",
-    "dateOfBirth",
-    "location",
-    "experience",
-    "language",
-    "hourlyRate",
-  ];
-
-  const expressionParts = [];
-  const expressionValues = {};
-  const expressionNames = {};
-
-  for (const field of allowedFields) {
+  const sets = [];
+  const values = {};
+  const names = {};
+  for (const field of PROFILE_FIELDS) {
     if (data[field] !== undefined) {
-      expressionParts.push(`#${field} = :${field}`);
-      expressionValues[`:${field}`] = data[field];
-      expressionNames[`#${field}`] = field;
+      sets.push(`#${field} = :${field}`);
+      values[`:${field}`] = data[field];
+      names[`#${field}`] = field;
     }
   }
+  if (sets.length === 0) return response(400, { error: "No valid fields to update" });
 
-  if (expressionParts.length === 0) {
-    return response(400, { error: "No valid fields to update" });
-  }
+  sets.push("#updatedAt = :updatedAt");
+  values[":updatedAt"] = new Date().toISOString();
+  names["#updatedAt"] = "updatedAt";
 
-  // Always update the updatedAt timestamp
-  expressionParts.push("#updatedAt = :updatedAt");
-  expressionValues[":updatedAt"] = new Date().toISOString();
-  expressionNames["#updatedAt"] = "updatedAt";
-
-  const result = await dynamodb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { userId },
-      UpdateExpression: `SET ${expressionParts.join(", ")}`,
-      ExpressionAttributeNames: expressionNames,
-      ExpressionAttributeValues: expressionValues,
-      ReturnValues: "ALL_NEW",
-    })
-  );
-
+  const result = await dynamodb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { userId },
+    UpdateExpression: `SET ${sets.join(", ")}`,
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+    ReturnValues: "ALL_NEW",
+  }));
   return response(200, result.Attributes);
 }
 
-// ── Update Role ────────────────────────────────────────────
 async function updateRole(userId, { role }) {
-  if (!role || !["Student", "Teacher", "Mentor"].includes(role)) {
-    return response(400, {
-      error: "role must be Student, Teacher, or Mentor",
-    });
-  }
+  const normalized = ROLES[String(role || "").toLowerCase()];
+  if (!normalized) return response(400, { error: "role must be Student, Teacher, or Mentor" });
 
-  const result = await dynamodb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { userId },
-      UpdateExpression: "SET #role = :role, #updatedAt = :updatedAt",
-      ExpressionAttributeNames: { "#role": "role", "#updatedAt": "updatedAt" },
-      ExpressionAttributeValues: {
-        ":role": role,
-        ":updatedAt": new Date().toISOString(),
-      },
-      ReturnValues: "ALL_NEW",
-    })
-  );
-
+  const result = await dynamodb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { userId },
+    UpdateExpression: "SET #role = :role, #updatedAt = :updatedAt",
+    ExpressionAttributeNames: { "#role": "role", "#updatedAt": "updatedAt" },
+    ExpressionAttributeValues: { ":role": normalized, ":updatedAt": new Date().toISOString() },
+    ReturnValues: "ALL_NEW",
+  }));
   return response(200, result.Attributes);
 }
 
-// ── Get Avatar Upload URL (Presigned S3) ───────────────────
-async function getAvatarUploadUrl(userId, { fileType }) {
-  if (!fileType) {
-    return response(400, { error: "fileType is required (e.g. image/jpeg)" });
+async function deleteAccount(userId, claims) {
+  if (!USER_POOL_ID) return response(503, { error: "Account deletion not configured (COGNITO_USER_POOL_ID)" });
+  const username = claims["cognito:username"] || userId;
+
+  // Cognito first: if that fails nothing is deleted and the user can retry.
+  try {
+    await cognito.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: username }));
+  } catch (err) {
+    if (err.name !== "UserNotFoundException") {
+      log("ERROR", "Cognito delete failed", { userId, error: err.message });
+      return response(502, { error: "Could not delete the sign-in account; nothing was deleted" });
+    }
   }
-
-  const extension = fileType.split("/")[1] || "jpg";
-  const key = `avatars/${userId}/avatar.${extension}`;
-
-  const command = new PutObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: key,
-    ContentType: fileType,
-  });
-
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
-
-  return response(200, {
-    uploadUrl,
-    key,
-    publicUrl: `https://${S3_BUCKET}.s3.${REGION}.amazonaws.com/${key}`,
-  });
-}
-
-// ── Delete Account ─────────────────────────────────────────
-async function deleteAccount(userId) {
-  await dynamodb.send(
-    new DeleteCommand({ TableName: TABLE, Key: { userId } })
-  );
-
+  try {
+    await dynamodb.send(new DeleteCommand({ TableName: TABLE, Key: { userId } }));
+  } catch (err) {
+    log("ERROR", "Profile delete failed after Cognito delete", { userId, error: err.message });
+    return response(500, { error: "Sign-in account deleted but the profile record could not be removed" });
+  }
+  log("INFO", "Account deleted", { userId });
   return response(200, { message: "Account deleted" });
 }

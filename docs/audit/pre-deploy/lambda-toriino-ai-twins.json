@@ -1,0 +1,44 @@
+{
+  "FunctionName": "toriino-ai-twins",
+  "FunctionArn": "arn:aws:lambda:us-east-1:888245942659:function:toriino-ai-twins",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::888245942659:role/toriino-lambda-role",
+  "Handler": "index.handler",
+  "CodeSize": 2356,
+  "Description": "",
+  "Timeout": 60,
+  "MemorySize": 256,
+  "LastModified": "2026-10-06T21:22:53.000+0000",
+  "CodeSha256": "V+wAjNceDndDXIfBJU/rF6L1zxUSIDW6WrZ8wE27KIk=",
+  "Version": "$LATEST",
+  "Environment": {
+    "Variables": {
+      "TWINS_TABLE": "toriino-ai-twins",
+      "GEMINI_API_KEY": "<empty>"
+    }
+  },
+  "TracingConfig": {
+    "Mode": "PassThrough"
+  },
+  "RevisionId": "e0d8138c-4545-4d85-8e8b-b77b12e26579",
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "PackageType": "Zip",
+  "Architectures": [
+    "x86_64"
+  ],
+  "EphemeralStorage": {
+    "Size": 512
+  },
+  "SnapStart": {
+    "ApplyOn": "None",
+    "OptimizationStatus": "Off"
+  },
+  "RuntimeVersionConfig": {
+    "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:18671876e7cc385452255180c58ca50cf8763398a4248ae92ed14410d196b942"
+  },
+  "LoggingConfig": {
+    "LogFormat": "Text",
+    "LogGroup": "/aws/lambda/toriino-ai-twins"
+  }
+}

@@ -1,11 +1,14 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/widgets/components/button_large.dart';
 import 'package:toriino_todd/widgets/components/edit.dart';
 import 'package:toriino_todd/widgets/components/expertise_selection_widget.dart';
+import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherProfileEditView extends StatefulWidget {
@@ -36,7 +39,8 @@ class TeacherProfileEditView extends StatefulWidget {
 
 class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
   final _formKey = GlobalKey<FormState>();
-  String? bio;
+  bool _saving = false;
+  List<String> _expertise = [];
   String? educationLevel;
   String? selectedLanguage;
   String? selectedIndustry;
@@ -67,6 +71,51 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
     'Japanese',
     'Other',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill from the cached profile loaded by the teacher profile screen.
+    if (Get.isRegistered<ProfileViewmodel>()) {
+      final p = Get.find<ProfileViewmodel>().rxProfile.value.data;
+      if (p != null) {
+        widget.nameController.text = p.name ?? '';
+        widget.titleController.text = p.title ?? '';
+        widget.bioController.text = p.bio ?? '';
+        _expertise = List<String>.from(p.expertise ?? const []);
+        if (languages.contains(p.language)) selectedLanguage = p.language;
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final name = widget.nameController.text.trim();
+    if (name.isEmpty) {
+      Utils.toastMassage('Please enter your name');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await UserRepo().updateProfile({
+        'name': name,
+        'title': widget.titleController.text.trim(),
+        'bio': widget.bioController.text.trim(),
+        'expertise': _expertise,
+        if (selectedLanguage != null) 'language': selectedLanguage,
+      });
+      if (Get.isRegistered<ProfileViewmodel>()) {
+        Get.find<ProfileViewmodel>().fetchProfile();
+      }
+      Utils.toastMassage('Profile updated');
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      Utils.toastMassage(Utils.errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,11 +230,9 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
                 // ),
                 SizedBox(height: Responsive.h(1)),
                 ExpertiseSelectionWidget(
-                  initialExpertise:
-                      [], // You can pre-populate with existing expertise if needed
+                  initialExpertise: _expertise,
                   onExpertiseChanged: (List<String> expertiseList) {
-                    // Handle the updated list of expertise
-                    // You might want to store this in your state
+                    _expertise = List<String>.from(expertiseList);
                   },
                 ),
                 SizedBox(height: Responsive.h(1)),
@@ -241,14 +288,11 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
                       selectedLanguage = newValue;
                     });
                   },
-                  validator:
-                      (value) =>
-                          value == null ? 'Please select a language' : null,
                 ),
                 SizedBox(height: 32),
                 GestureDetector(
-                  onTap: ()=>Navigator.pop(context),
-                  child: buttonLarge(context, "Continue")),
+                  onTap: _saving ? null : _save,
+                  child: buttonLarge(context, _saving ? "Saving..." : "Save")),
               ],
             ),
           ),

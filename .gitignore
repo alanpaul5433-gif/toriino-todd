@@ -70,3 +70,6 @@ android/.gradle/
 # Admin panel build output
 admin-panel/out/
 admin-panel/.next/
+
+# SAM build output
+aws-backend/.aws-sam/

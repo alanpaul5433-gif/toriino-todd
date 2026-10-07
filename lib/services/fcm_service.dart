@@ -1,12 +1,9 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:toriino_todd/data/appURL/app_url.dart';
-import 'package:toriino_todd/data/network/auth_interceptor.dart';
-import 'package:toriino_todd/data/network/network_api_services.dart';
+import 'package:toriino_todd/repository/notification_repo.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -16,7 +13,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 class FcmService {
   static final _messaging = FirebaseMessaging.instance;
-  static final _api = NetworkApiServices();
 
   static Future<void> init() async {
     if (Firebase.apps.isEmpty) {
@@ -106,11 +102,9 @@ class FcmService {
 
   static Future<void> _registerToken(String token) async {
     try {
-      final headers = await AuthInterceptor.getAuthHeaders();
-      await _api.getPostApiResponse(
-        AppUrl.registerFcmToken,
-        {'token': token, 'platform': Platform.isAndroid ? 'android' : 'ios'},
-        headers,
+      await NotificationRepo().registerFcmToken(
+        token,
+        platform: Platform.isAndroid ? 'android' : 'ios',
       );
     } catch (e) {
       debugPrint('FCM register token error: $e');

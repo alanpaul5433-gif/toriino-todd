@@ -1,0 +1,48 @@
+{
+  "FunctionName": "toriino-admin",
+  "FunctionArn": "arn:aws:lambda:us-east-1:888245942659:function:toriino-admin",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::888245942659:role/toriino-lambda-role",
+  "Handler": "index.handler",
+  "CodeSize": 3947,
+  "Description": "",
+  "Timeout": 30,
+  "MemorySize": 256,
+  "LastModified": "2026-10-06T21:09:42.000+0000",
+  "CodeSha256": "DObviWnYdqtxN1rz5ZDXEhfdYNMn7ox2PNXKv11Pnt0=",
+  "Version": "$LATEST",
+  "Environment": {
+    "Variables": {
+      "MENTORS_TABLE": "toriino-mentors",
+      "COURSES_TABLE": "toriino-courses",
+      "USERS_TABLE": "toriino-users",
+      "EARNINGS_TABLE": "toriino-earnings",
+      "COGNITO_USER_POOL_ID": "us-east-1_CAiea51iC",
+      "SESSIONS_TABLE": "toriino-sessions"
+    }
+  },
+  "TracingConfig": {
+    "Mode": "PassThrough"
+  },
+  "RevisionId": "4371219a-151e-42bd-a5b8-2b51a81575d3",
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "PackageType": "Zip",
+  "Architectures": [
+    "x86_64"
+  ],
+  "EphemeralStorage": {
+    "Size": 512
+  },
+  "SnapStart": {
+    "ApplyOn": "None",
+    "OptimizationStatus": "Off"
+  },
+  "RuntimeVersionConfig": {
+    "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:18671876e7cc385452255180c58ca50cf8763398a4248ae92ed14410d196b942"
+  },
+  "LoggingConfig": {
+    "LogFormat": "Text",
+    "LogGroup": "/aws/lambda/toriino-admin"
+  }
+}

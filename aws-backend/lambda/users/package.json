@@ -1,0 +1,9 @@
+{
+  "name": "toriino-users",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toriino Todd users Lambda (packaged by sam build; the AWS SDK v3 comes from the nodejs22.x runtime)",
+  "main": "index.js",
+  "files": ["index.js"],
+  "dependencies": {}
+}
