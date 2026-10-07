@@ -124,11 +124,6 @@ class _MentorPublicProfileState extends State<MentorPublicProfile> {
                                     letterSpacing: -0.30,
                                   ),
                                 ),
-                                SizedBox(width: Responsive.w(2)),
-
-                                SvgPicture.asset(
-                                  'assets/icons/bitcoin-icons_verify-filled (1).svg',
-                                ),
                               ],
                             ),
                             Text(

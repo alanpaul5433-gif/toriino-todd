@@ -364,8 +364,8 @@ export const handler = async (event) => {
       // POST /sessions/token  â€" Agora RTC token (must come before generic session routes)
       if (method === "POST" && sessionId === "token") {
         const appId = process.env.AGORA_APP_ID;
-        const appCert = process.env.AGORA_APP_CERTIFICATE;
-        if (!appId || !appCert) return res(500, { message: "Agora not configured" });
+        const appCert = await getSecret("AGORA_APP_CERTIFICATE"); // SSM SecureString, cached
+        if (!appId || !appCert) return res(503, { message: "Agora not configured" });
         const { channelName, uid = 0, role = "publisher" } = body;
         if (!channelName) return res(400, { message: "channelName required" });
         const expireTs = Math.floor(Date.now() / 1000) + 3600;

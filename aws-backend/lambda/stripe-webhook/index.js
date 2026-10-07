@@ -9,9 +9,10 @@
  *   payment_intent.succeeded          → enroll student or confirm session, credit earnings
  *   payment_intent.payment_failed     → mark payment failed on relevant order
  *   charge.refunded                   → reverse earnings, mark enrollment/session refunded
- *   customer.subscription.created     → activate subscription
- *   customer.subscription.updated     → update subscription status
- *   customer.subscription.deleted     → deactivate subscription
+ *   customer.subscription.created/updated, invoice.paid
+ *                                     → (re)activate or update the plan (SUBSCRIPTIONS_TABLE)
+ *   customer.subscription.deleted, invoice.payment_failed
+ *                                     → deactivate the plan
  *
  * Idempotency:
  *   - Event-level: every event.id is stored in toriino-stripe-events before processing.
@@ -380,24 +381,73 @@ async function handleChargeRefunded(charge) {
   }
 }
 
-async function handleSubscription(subscription, action) {
-  const { metadata = {} } = subscription;
-  const { userId } = metadata;
-  if (!userId) return;
-  await db.send(new UpdateCommand({
-    TableName: USERS_TABLE,
-    Key: { userId },
-    UpdateExpression: 'SET subscription = :sub, updatedAt = :u',
-    ExpressionAttributeValues: {
-      ':sub': {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-        action,
-        updatedAt: new Date().toISOString(),
-      },
-      ':u': new Date().toISOString(),
-    },
-  }));
+// ── Subscriptions: the ONLY place a plan is activated or deactivated ─────────────
+// The record (SUBSCRIPTIONS_TABLE, PK userId) is written from the Stripe subscription
+// object itself. premium = status active/trialing (never after deletion or a failed
+// invoice). Out-of-order events are ignored (lastEventAt), and an event about some other,
+// inactive subscription (e.g. an abandoned checkout) can never switch a live plan off.
+const SUBSCRIPTIONS_TABLE = process.env.SUBSCRIPTIONS_TABLE || 'toriino-subscriptions';
+const ACTIVE_SUB_STATUSES = new Set(['active', 'trialing']);
+
+async function syncSubscription(sub, eventCreated, { deleted = false, paymentFailed = false } = {}) {
+  const userId = sub.metadata?.userId;
+  if (!userId) {
+    log('WARN', 'Subscription without metadata.userId — ignored', { subscriptionId: sub.id });
+    return;
+  }
+  const status = deleted ? 'canceled' : (paymentFailed && ACTIVE_SUB_STATUSES.has(sub.status) ? 'past_due' : sub.status);
+  const premium = !deleted && !paymentFailed && ACTIVE_SUB_STATUSES.has(status);
+  const periodEnd = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
+  const now = new Date().toISOString();
+
+  const values = {
+    ':plan': sub.metadata.planId || 'unknown',
+    ':aud': sub.metadata.audience || 'unknown',
+    ':sid': sub.id,
+    ':cid': typeof sub.customer === 'string' ? sub.customer : sub.customer?.id || 'unknown',
+    ':st': status,
+    ':pr': premium,
+    ':cap': Boolean(sub.cancel_at_period_end),
+    ':t': eventCreated,
+    ':now': now,
+  };
+  let set = 'SET planId = :plan, audience = :aud, stripeSubscriptionId = :sid, stripeCustomerId = :cid, '
+    + '#s = :st, premium = :pr, cancelAtPeriodEnd = :cap, lastEventAt = :t, updatedAt = :now, createdAt = if_not_exists(createdAt, :now)';
+  if (periodEnd) { set += ', currentPeriodEnd = :pe'; values[':pe'] = new Date(periodEnd * 1000).toISOString(); }
+
+  let condition = '(attribute_not_exists(lastEventAt) OR lastEventAt <= :t)';
+  if (!premium) condition += ' AND (attribute_not_exists(stripeSubscriptionId) OR stripeSubscriptionId = :sid OR premium = :false)';
+  if (!premium) values[':false'] = false;
+
+  try {
+    await db.send(new UpdateCommand({
+      TableName: SUBSCRIPTIONS_TABLE,
+      Key: { userId },
+      UpdateExpression: set,
+      ConditionExpression: condition,
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: values,
+    }));
+    log('INFO', 'Subscription synced', { userId, subscriptionId: sub.id, status, premium });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      log('INFO', 'Stale or unrelated subscription event ignored', { userId, subscriptionId: sub.id, status });
+      return;
+    }
+    throw err;
+  }
+}
+
+function invoiceSubscriptionId(invoice) {
+  const v = invoice.subscription || invoice.parent?.subscription_details?.subscription;
+  return typeof v === 'string' ? v : v?.id;
+}
+
+async function handleInvoice(invoice, eventCreated, paymentFailed) {
+  const subId = invoiceSubscriptionId(invoice);
+  if (!subId) return; // not a subscription invoice
+  const sub = await stripe.subscriptions.retrieve(subId);
+  await syncSubscription(sub, eventCreated, { paymentFailed });
 }
 
 // ── Handler entry point ────────────────────────────────────────────────────────
@@ -462,13 +512,19 @@ exports.handler = async (event) => {
         await handleChargeRefunded(stripeEvent.data.object);
         break;
       case 'customer.subscription.created':
-        await handleSubscription(stripeEvent.data.object, 'created');
+        await syncSubscription(stripeEvent.data.object, stripeEvent.created);
         break;
       case 'customer.subscription.updated':
-        await handleSubscription(stripeEvent.data.object, 'updated');
+        await syncSubscription(stripeEvent.data.object, stripeEvent.created);
         break;
       case 'customer.subscription.deleted':
-        await handleSubscription(stripeEvent.data.object, 'deleted');
+        await syncSubscription(stripeEvent.data.object, stripeEvent.created, { deleted: true });
+        break;
+      case 'invoice.paid':
+        await handleInvoice(stripeEvent.data.object, stripeEvent.created, false);
+        break;
+      case 'invoice.payment_failed':
+        await handleInvoice(stripeEvent.data.object, stripeEvent.created, true);
         break;
       default:
         log('INFO', 'Unhandled webhook event type', { type: stripeEvent.type });

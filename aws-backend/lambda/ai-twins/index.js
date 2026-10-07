@@ -27,6 +27,36 @@ async function getSecret(name) {
   secretCache[name] = { value, at: Date.now() };
   return value;
 }
+// ── Premium gate (configurable, no redeploy) ─────────────────────────────────
+// SSM String PREMIUM_FEATURES (JSON list of feature keys) says which features need an
+// active subscription. Empty list → nothing gated. The subscription record is written only
+// by the Stripe webhook (SUBSCRIPTIONS_TABLE, PK userId); the app's view is never trusted.
+const { GetCommand: GateGetCommand } = require("@aws-sdk/lib-dynamodb");
+let premiumFeaturesCache;
+async function premiumFeatures() {
+  if (premiumFeaturesCache && Date.now() - premiumFeaturesCache.at < 5 * 60 * 1000) return premiumFeaturesCache.value;
+  let value = [];
+  try {
+    const out = await ssm.send(new GetParameterCommand({ Name: `${process.env.SSM_PREFIX}PREMIUM_FEATURES` }));
+    const parsed = JSON.parse(out.Parameter?.Value || "[]");
+    value = Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch (err) {
+    if (err.name !== "ParameterNotFound") console.error(JSON.stringify({ level: "ERROR", message: "PREMIUM_FEATURES unreadable", error: err.message }));
+  }
+  premiumFeaturesCache = { value, at: Date.now() };
+  return value;
+}
+// Returns an HTTP response to send when the caller may not use `feature`, else null.
+async function requirePremium(userId, feature) {
+  if (!(await premiumFeatures()).includes(feature)) return null;
+  const table = process.env.SUBSCRIPTIONS_TABLE;
+  if (!table) return response(503, { error: "Subscriptions not configured" });
+  const { Item: r } = await dynamodb.send(new GateGetCommand({ TableName: table, Key: { userId } }));
+  const active = r && r.premium === true && ["active", "trialing"].includes(r.status)
+    && (!r.currentPeriodEnd || Date.parse(r.currentPeriodEnd) > Date.now());
+  return active ? null : response(402, { error: "premium required", feature });
+}
+
 function notConfigured(message) {
   const err = new Error(message);
   err.code = "NOT_CONFIGURED";
@@ -78,12 +108,18 @@ exports.handler = async (event) => {
     if (twinMatch) {
       const targetUserId = twinMatch[1];
       if (method === "GET") return await getTwin(targetUserId);
-      if (method === "POST") return await buildOrUpdateTwin(userId, targetUserId, body);
+      if (method === "POST") {
+        const gate = await requirePremium(userId, "ai_twins");
+        if (gate) return gate;
+        return await buildOrUpdateTwin(userId, targetUserId, body);
+      }
     }
 
     // POST /ai/twins/{userId}/ask
     const askMatch = path.match(/^\/ai\/twins\/([^/]+)\/ask$/);
     if (askMatch && method === "POST") {
+      const gate = await requirePremium(userId, "ai_twins");
+      if (gate) return gate;
       return await askTwin(askMatch[1], body);
     }
 

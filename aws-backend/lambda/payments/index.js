@@ -17,7 +17,7 @@
  *         wallet event, session confirmed, mentor earning) → { paidWithWallet: true, … }
  *         otherwise → Stripe PaymentIntent for the full price (the wallet is not touched;
  *         there are no partial wallet+card splits)
- *     { amount, currency?, description? }     generic charge (cents, >= 50), no metadata trust
+ *   Anything else → 400. The app never sends an amount (subscriptions use /subscriptions).
  *
  * Fee model: one value, SSM String PLATFORM_FEE_PERCENT under SSM_PREFIX. The student pays
  * the price; platformFee = price × % and teacherShare = price − platformFee. Both are fixed
@@ -361,16 +361,7 @@ exports.handler = async (event) => {
       return await handleCoursePurchase(stripe, userId, { ...body, courseId: body.courseId || meta.courseId });
     }
 
-    const { amount, currency = 'usd', description = '' } = body;
-    if (!amount || typeof amount !== 'number' || amount < 50) {
-      return res(400, { error: 'amount must be a number >= 50 (cents)' });
-    }
-    return await createIntent(stripe, {
-      amount: Math.round(amount),
-      currency: String(currency).toLowerCase(),
-      description: String(description).slice(0, 500),
-      metadata: { type: 'generic', userId },
-    }, { userId });
+    return res(400, { error: "type must be 'course_purchase' or 'session_booking'" });
   } catch (err) {
     if (err.code === 'NOT_CONFIGURED') return res(503, { error: err.message });
     log('ERROR', 'Payments handler error', { error: err.message });

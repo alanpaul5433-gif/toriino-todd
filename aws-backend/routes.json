@@ -57,6 +57,10 @@
     { "path": "/upload-url", "methods": ["GET"], "lambda": "toriino-upload-url" },
     { "path": "/payments/create-intent", "methods": ["POST"], "lambda": "toriino-payments" },
     { "path": "/payments/quote", "methods": ["GET"], "lambda": "toriino-payments" },
+    { "path": "/subscriptions", "methods": ["POST"], "lambda": "toriino-subscriptions" },
+    { "path": "/subscriptions/plans", "methods": ["GET"], "lambda": "toriino-subscriptions" },
+    { "path": "/subscriptions/me", "methods": ["GET"], "lambda": "toriino-subscriptions" },
+    { "path": "/subscriptions/cancel", "methods": ["POST"], "lambda": "toriino-subscriptions" },
     { "path": "/stripe/webhook", "methods": ["POST"], "lambda": "toriino-stripe-webhook", "auth": "NONE" },
 
     { "path": "/wallet", "methods": ["GET"], "lambda": "toriino-wallet" },

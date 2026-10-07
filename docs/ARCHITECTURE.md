@@ -31,7 +31,7 @@ SSM placeholders → Lambda import → `sam build` / `sam deploy` (stack `torino
   `aws-backend/lambda/torino-api/`) only serves `POST /sessions/token` (Agora RTC token).
 - **Cognito** — user pool `us-east-1_CAiea51iC`, `custom:role` claim; admins = `Admins` group.
 - **Secrets** — SSM SecureStrings under `/torino/prod/` (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `GEMINI_API_KEY`, `AGORA_CUSTOMER_ID`, `AGORA_CUSTOMER_SECRET`), read at runtime with a 5-minute
+  `GEMINI_API_KEY`, `AGORA_CUSTOMER_ID`, `AGORA_CUSTOMER_SECRET`, `AGORA_APP_CERTIFICATE`), read at runtime with a 5-minute
   cache by only the Lambdas that need them. The value `NOT_SET` means "not configured" → HTTP 503.
 
 ### DynamoDB tables
@@ -98,6 +98,26 @@ migrated, change that one parameter and redeploy.
 
   Otherwise the full price goes to Stripe and the wallet is untouched. There are no partial splits, so
   nothing is ever reserved for an abandoned card payment.
+
+### Subscriptions and premium
+
+- **Plans** live in SSM String `/torino/prod/SUBSCRIPTION_PLANS` (JSON). Each plan has `planId`, `name`,
+  `audience` (student / teacher / mentor), `months`, `price`, `currency`, `stripePriceId`, `active`.
+- **Offered plans:** a plan is offered only if `active` is true, `stripePriceId` is a real Price ID (not `NOT_SET`)
+  and the price is valid. `GET /subscriptions/plans` returns only offered plans for the caller's role (or `comingSoon`).
+  It includes `savings`, computed from real prices against the same audience's monthly plan, and only when there is
+  a real saving. The seeded plans are all inactive ($9.99 / $49.99 / $99.99 per audience, unconfirmed).
+- **Checkout:** `POST /subscriptions { planId }` creates the Stripe subscription server-side (`default_incomplete`)
+  and returns the payment client secret. The app never sends an amount.
+- **Activation is webhook-only:** `customer.subscription.created/updated` and `invoice.paid` (re-read from Stripe)
+  write `toriino-subscriptions` (PK `userId`). `customer.subscription.deleted` and `invoice.payment_failed`
+  deactivate it.
+  - Stale events are ignored (`lastEventAt`).
+  - An event about another, inactive subscription can't turn off a live plan.
+  - `premium` = status active or trialing and the period has not ended.
+- **Gating:** SSM String `/torino/prod/PREMIUM_FEATURES` is a JSON list of feature keys (`ai_chat`, `ai_twins`,
+  `ai_recommendations`, `ai_summary`). It is empty for now. When a key is listed, that action returns
+  **402 "premium required"** without an active record. Changes take effect within 5 minutes, with no redeploy.
 
 ### Files (S3 `torino-app-storage`, private, Block Public Access on)
 

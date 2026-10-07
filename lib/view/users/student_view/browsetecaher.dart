@@ -211,7 +211,6 @@ class _MentorCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SvgPicture.asset("assets/icons/bitcoin-icons_verify-filled.svg"),
                 ],
               ),
               const SizedBox(height: 10),

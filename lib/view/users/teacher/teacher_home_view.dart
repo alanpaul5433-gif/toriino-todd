@@ -377,9 +377,6 @@ class TeacherHomeView extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              SvgPicture.asset(
-                                "assets/icons/bitcoin-icons_verify-filled.svg",
-                              ),
                             ],
                           ),
                           Text(

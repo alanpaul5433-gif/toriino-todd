@@ -99,6 +99,12 @@ class AppUrl {
   static const String paymentsQuote = '$baseUrl/payments/quote';
   static const String paymentsCreateIntent = '$baseUrl/payments/create-intent';
 
+  // Subscriptions — plans, prices and premium state are all server-owned.
+  static const String subscriptions = '$baseUrl/subscriptions';
+  static const String subscriptionPlans = '$baseUrl/subscriptions/plans';
+  static const String subscriptionMe = '$baseUrl/subscriptions/me';
+  static const String subscriptionCancel = '$baseUrl/subscriptions/cancel';
+
   // Student search (mentor 1-on-1 session scheduling)
   static String studentSearch(String query) =>
       '$baseUrl/students/search?q=${Uri.encodeQueryComponent(query)}';

@@ -1,5 +1,6 @@
-// Deploys the two Lambdas that cannot be fully managed by SAM because their env holds
-// AGORA_APP_CERTIFICATE, which must never be written into aws-backend/template.yaml:
+// Deploys the two Lambdas that are not in the SAM stack (torino-api has a bundled
+// node_modules build and both predate the stack). Since 2026-10-07 every secret they use
+// (GEMINI_API_KEY, AGORA_CUSTOMER_*, AGORA_APP_CERTIFICATE) is read from SSM at runtime:
 //
 //   toriino-agora-recording  ← aws-backend/lambda/agora-recording
 //   torino-api               ← aws-backend/lambda/torino-api   (npm ci --omit=dev)
@@ -31,14 +32,16 @@ const TARGETS = [
   {
     name: 'toriino-agora-recording',
     dir: 'aws-backend/lambda/agora-recording',
-    removeEnv: ['AGORA_CUSTOMER_ID', 'AGORA_CUSTOMER_SECRET'],
+    removeEnv: ['AGORA_CUSTOMER_ID', 'AGORA_CUSTOMER_SECRET', 'AGORA_APP_CERTIFICATE'],
     roleOutput: 'AgoraRecordingRoleArn',
   },
   {
     name: 'torino-api',
     dir: 'aws-backend/lambda/torino-api',
     npm: true,
-    removeEnv: ['GEMINI_API_KEY'],
+    removeEnv: ['GEMINI_API_KEY', 'AGORA_APP_CERTIFICATE'],
+    // Non-secret config fixes (values may be printed).
+    setEnv: { SESSIONS_TABLE: 'torino-sessions' },
   },
 ];
 
@@ -137,15 +140,18 @@ for (const t of TARGETS) {
   for (const k of t.removeEnv) delete env[k];
   const addPrefix = env.SSM_PREFIX !== SSM_PREFIX;
   env.SSM_PREFIX = SSM_PREFIX;
+  const changedSet = Object.entries(t.setEnv || {}).filter(([k, v]) => env[k] !== v).map(([k, v]) => `${k}=${v}`);
+  Object.assign(env, t.setEnv || {});
   const role = t.roleOutput ? outputs[t.roleOutput] : cfg.Role;
   if (t.roleOutput && !role) throw new Error(`stack output ${t.roleOutput} missing — run sam deploy first`);
 
-  if (!removed.length && !addPrefix && role === cfg.Role) {
+  if (!removed.length && !addPrefix && !changedSet.length && role === cfg.Role) {
     console.log(`${t.name}: configuration unchanged`);
     continue;
   }
   console.log(`${DRY ? '[dry-run] would update' : 'updating'} ${t.name} configuration:`
     + `${removed.length ? ` remove env ${removed.join(', ')};` : ''}${addPrefix ? ' set SSM_PREFIX;' : ''}`
+    + `${changedSet.length ? ` set ${changedSet.join(', ')};` : ''}`
     + `${role !== cfg.Role ? ` role → ${role.split('/').pop()}` : ''}`);
   if (!DRY) {
     // Env goes through a temp file so no value ever appears on a command line or in output.

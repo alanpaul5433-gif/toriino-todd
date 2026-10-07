@@ -1,5 +1,22 @@
 # Backend Verification — /prod
 
+## Re-verification, round 6 (2026-10-07, branch `fix/remediation-v1`)
+
+`node scripts/verify-backend.mjs` (checker commit `dd35776`) against deployment `hy855y`: **20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED, exit 0.**
+The first attempt had three `0 "fetch failed"` results, all network errors from this machine with no HTTP response. An immediate re-run passed.
+
+### New in this round
+| Item | Result |
+|---|---|
+| `AGORA_APP_CERTIFICATE` | Copied from the Lambda env into SSM SecureString `/torino/prod/AGORA_APP_CERTIFICATE` (verified byte-identical; the value was never printed). `torino-api` reads it at runtime and returns 503 "Agora not configured" if missing. The env copies were removed from `torino-api` and `toriino-agora-recording` (which never used it). Live: `POST /sessions/token` → 200 |
+| torino-api `SESSIONS_TABLE` | `toriino-sessions` (which doesn't exist) → `torino-sessions` |
+| Subscriptions | Plans in SSM `SUBSCRIPTION_PLANS`: 9 seeded, all inactive with Price IDs `NOT_SET`. New endpoints `GET /subscriptions/plans` (role-filtered, server-computed savings, `comingSoon`), `GET /subscriptions/me`, `POST /subscriptions` (server-side checkout, never activates) and `POST /subscriptions/cancel`. Activation and deactivation happen only in the Stripe webhook (`customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`), which writes `toriino-subscriptions`; stale or unrelated events are ignored. Live: plans → comingSoon, `/me` → none, checkout of an inactive plan → 404 |
+| Premium gating | SSM `PREMIUM_FEATURES` = `[]`. `requirePremium` is wired into AI chat send, twins, recommendations and summary generation, returning 402 when a listed feature is used without an active record. Configurable without a redeploy |
+| No client amounts | The generic `{ amount }` charge was removed from `/payments/create-intent`. The app's hardcoded $9.99/$49.99/$99.99 and "Save 17%" are gone; one server-driven plans screen replaces them |
+| App | "Upgrade to Premium" opens the plans screen (or shows "Premium active"). The Verified Badge promo and the always-shown verified icons are hidden, since there is no verification feature |
+
+---
+
 ## Re-verification, round 5 (2026-10-07, branch `fix/remediation-v1`)
 
 `node scripts/verify-backend.mjs` against deployment `lh7md9`: **20 WORKS · 7 BLOCKED · 0 BROKEN · 0 NOT DEPLOYED, exit 0.** The BLOCKED items are unchanged (Stripe, Agora, Gemini, Firebase).

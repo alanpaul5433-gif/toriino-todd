@@ -7,7 +7,6 @@ import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/student_stats.dart';
-import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
@@ -210,98 +209,7 @@ class MentorHomeView extends StatelessWidget {
                   }),
                   SizedBox(height: Responsive.hp(2)),
 
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColor.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: Responsive.padding(
-                        left: 2,
-                        right: 2,
-                        bottom: 2,
-                        top: 2,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Stand out with a Verified Badge',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.sp(14),
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
-                              ),
-                              SvgPicture.asset(
-                                "assets/icons/bitcoin-icons_verify-filled.svg",
-                              ),
-                            ],
-                          ),
-                          Text(
-                            'Boost your profile and get listed as a featured mentor to increase your bookings.',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          SizedBox(height: Responsive.hp(2)),
-
-                          GestureDetector(
-                            onTap:
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => MentorSubcirptionView(),
-                                  ),
-                                ),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: ShapeDecoration(
-                                color: const Color(0xFFE73121),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                spacing: 8,
-                                children: [
-                                  Text(
-                                    'Boost Now',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.dmSans(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 14,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: -0.20,
-                                    ),
-                                  ),
-                                  SvgPicture.asset("assets/icons/arrow.svg"),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: Responsive.hp(2)),
+                  // "Verified Badge" promo removed: there is no verification feature.
 
                   Text(
                     'Upcoming Sessions',

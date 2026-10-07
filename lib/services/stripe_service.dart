@@ -17,66 +17,17 @@ class StripeService {
     Stripe.merchantIdentifier = 'merchant.com.torino.app';
   }
 
-  // ── Create payment intent via Lambda ─────────────────
-  // Lambda calls Stripe with the secret key and returns a clientSecret.
-  static Future<Map<String, dynamic>> _createPaymentIntent({
-    required int amountInCents,
-    required String currency,
-    required String description,
-    Map<String, String>? metadata,
-  }) async {
+  // ── Subscription checkout ────────────────────────────
+  // Presents the PaymentSheet for a clientSecret returned by
+  // POST /subscriptions. Success means only that the sheet completed — the
+  // plan is activated by the Stripe webhook; callers must poll
+  // GET /subscriptions/me and never mark anything active locally.
+  //
+  // Returns {success, message} and, when the user dismissed the sheet,
+  // {cancelled: true}.
+  static Future<Map<String, dynamic>> presentSubscriptionSheet(
+      String clientSecret) async {
     try {
-      final token = await AuthService.getToken();
-      final body = <String, dynamic>{
-        'amount': amountInCents,
-        'currency': currency,
-        'description': description,
-        if (metadata != null) 'metadata': metadata,
-      };
-      final response = await http.post(
-        Uri.parse('${AppUrl.baseUrl}/payments/create-intent'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'success': true, 'data': jsonDecode(response.body)};
-      }
-      return {
-        'success': false,
-        'message': _serverError(response.body) ??
-            'Failed to create payment intent: ${response.statusCode}',
-      };
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
-    }
-  }
-
-  // ── Full payment flow (show Stripe sheet) ────────────
-  // amount: in the smallest currency unit (e.g. 1000 = $10.00 USD)
-  static Future<Map<String, dynamic>> processPayment({
-    required double amount,
-    required String currency,
-    required String description,
-    Map<String, String>? metadata,
-  }) async {
-    try {
-      final amountInCents = (amount * 100).toInt();
-
-      final intentResult = await _createPaymentIntent(
-        amountInCents: amountInCents,
-        currency: currency,
-        description: description,
-        metadata: metadata,
-      );
-
-      if (intentResult['success'] != true) return intentResult;
-
-      final clientSecret = intentResult['data']['clientSecret'] as String;
-
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: clientSecret,
@@ -84,17 +35,19 @@ class StripeService {
           style: ThemeMode.dark,
         ),
       );
-
       await Stripe.instance.presentPaymentSheet();
-
-      return {'success': true, 'message': 'Payment successful'};
+      return {'success': true, 'message': 'Payment received'};
     } on StripeException catch (e) {
+      final cancelled = e.error.code == FailureCode.Canceled;
       return {
         'success': false,
-        'message': e.error.localizedMessage ?? 'Payment cancelled',
+        'cancelled': cancelled,
+        'message': cancelled
+            ? 'Payment cancelled'
+            : (e.error.localizedMessage ?? 'Payment failed'),
       };
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': Utils.errorMessage(e)};
     }
   }
 

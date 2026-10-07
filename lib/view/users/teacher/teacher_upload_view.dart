@@ -64,7 +64,7 @@ class _TeacherUploadViewState extends State<TeacherUploadView> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => TeacherSubcribption(),
+                                  builder: (_) => const TeacherSubcribption(isOnboarding: true),
                                 ),
                               );
                             },

@@ -145,11 +145,6 @@ class TeacherProfilePrivateView extends StatelessWidget {
                                     ),
                                   );
                                 }),
-                                SizedBox(width: Responsive.w(2)),
-
-                                SvgPicture.asset(
-                                  'assets/icons/bitcoin-icons_verify-filled (1).svg',
-                                ),
                               ],
                             ),
                             Obx(() {

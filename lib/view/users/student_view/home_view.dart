@@ -11,6 +11,7 @@ import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/student_stats.dart';
+import 'package:toriino_todd/view/subscriptions/plans_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_public_profile.dart';
 import 'package:toriino_todd/view/users/student_view/availability_view.dart';
 import 'package:toriino_todd/view/users/student_view/browsetecaher.dart';
@@ -22,6 +23,7 @@ import 'package:toriino_todd/view/users/student_view/student_private_profile_vie
 import 'package:toriino_todd/view/users/student_view/teacher_profile.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/viewmodel/controller/student/home_viewmodel.dart';
+import 'package:toriino_todd/viewmodel/controller/subscription/subscription_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
 import 'package:toriino_todd/widgets/components/custom_recent_quiz.dart';
 import 'package:toriino_todd/widgets/custom_button.dart';
@@ -40,6 +42,24 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   UsersPrefrence usersPrefrence = UsersPrefrence();
   final HomeViewmodel homeController = Get.put(HomeViewmodel());
+  final SubscriptionViewModel subscriptionVm =
+      Get.isRegistered<SubscriptionViewModel>()
+          ? Get.find<SubscriptionViewModel>()
+          : Get.put(SubscriptionViewModel());
+
+  @override
+  void initState() {
+    super.initState();
+    // Premium state comes only from GET /subscriptions/me.
+    subscriptionVm.fetchMe();
+  }
+
+  void _openPlans() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PlansView()),
+    ).then((_) => subscriptionVm.fetchMe(silent: true));
+  }
 
   static String? _firstNonEmpty(List<String>? values) {
     for (final v in values ?? const <String>[]) {
@@ -269,13 +289,22 @@ class _HomeViewState extends State<HomeView> {
                             ),
                           ),
                           SizedBox(height: 10.h),
-                          CustomButton(
-                            width: 191.w,
-                            backgroundColor: AppColor.red,
-                            textColor: AppColor.secconderyColor,
-                            text: 'Upgrade to Premium',
-                            onTap: () {},
-                          ),
+                          Obx(() {
+                            final me = subscriptionVm.rxMe.value.data;
+                            final premium = me?.premium == true;
+                            return CustomButton(
+                              key: const Key('home_premium_button'),
+                              width: 191.w,
+                              backgroundColor: premium
+                                  ? AppColor.white.withValues(alpha: 0.2)
+                                  : AppColor.red,
+                              textColor: AppColor.secconderyColor,
+                              text: premium
+                                  ? 'Premium active'
+                                  : 'Upgrade to Premium',
+                              onTap: _openPlans,
+                            );
+                          }),
                         ],
                       ),
                     ],

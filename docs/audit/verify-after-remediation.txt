@@ -1,4 +1,4 @@
-Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T21:39:40.214Z
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T23:13:26.403Z
 
  1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
       ok   Cognito login student ok, custom:role=student
@@ -18,6 +18,17 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /users/profile as student → 200
       ok   GET /users/profile as teacher → 200
       ok   GET /users/profile as mentor → 200
+      ok   route GET /users/x (GET /users/{id} → toriino-users) has Cognito authorizer
+      ok   GET /users/{id} unrelated teacher → test student → 403
+      ok   GET /users/{id} unrelated teacher → test student: no email/phone in the response
+      ok   GET /users/{id} test student → another student → 403
+      ok   GET /users/{id} test student → another student: no email/phone in the response
+      ok   GET /users/{id} related mentor → test student → 200
+      ok   GET /users/{id} related mentor → test student: no email/phone in the response
+      ok   GET /users/{id} student → test teacher (public profile) → 200
+      ok   GET /users/{id} student → test teacher (public profile): no email/phone in the response
+      ok   GET /users/{id} test student → self → 200
+      ok   GET /users/{id} test student → self: no email/phone in the response
 
  4. [WORKS] Profile edit / change password / delete account
       ok   app: lib/view/users/student_view/edit_profile_view.dart calls updateProfile()
@@ -65,6 +76,10 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda toriino-payments: handler file index.js present
       ok   Lambda toriino-payments: STRIPE_SECRET_KEY is an SSM parameter (value not read)
       FAIL (blocker) POST /payments/create-intent with an empty body → 503 "Stripe not configured"
+      ok   route GET /payments/quote (GET /payments/quote → toriino-payments) has Cognito authorizer
+      ok   PLATFORM_FEE_PERCENT = 25%
+      ok   GET /payments/quote?courseId=course_001 → price 49.99, fee 12.5 (25%), teacher 37.49 — matches
+      ok   GET /payments/quote?mentorId=…&duration=45 (hourlyRate 200) → price 150, fee 37.5 (25%), teacher 112.5 — matches
 
 11. [BLOCKED] Stripe webhook (P1-3)
       ok   Lambda toriino-stripe-webhook: handler file index.js present
@@ -98,11 +113,14 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /sessions?role=student → 1 session(s), all the caller's
       ok   GET /sessions?role=teacher → 1 session(s), all the caller's
       ok   GET /sessions?role=mentor → 1 session(s), all the caller's
+      ok   booking with client price 1 eur → stored 100 usd = server price (hourlyRate 200 × 30 min)
+      ok   booking response pricing.price = 100
+      ok   write test cleanup: deleted 1 test session(s)
 
 16. [WORKS] Live-session Agora token
       ok   route POST /sessions/token (POST /sessions/token → torino-api) has Cognito authorizer
       ok   Lambda torino-api: env AGORA_APP_ID is set
-      ok   Lambda torino-api: env AGORA_APP_CERTIFICATE is set
+      ok   Lambda torino-api: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
       ok   POST /sessions/token → 200
 
 17. [BLOCKED] Session recording
@@ -111,9 +129,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   route POST /sessions/x/recording/stop (POST /sessions/{id}/recording/stop → toriino-agora-recording) has Cognito authorizer
       ok   Lambda toriino-agora-recording: handler file index.js present
       ok   Lambda toriino-agora-recording: env AGORA_APP_ID is set
-      ok   Lambda toriino-agora-recording: env AGORA_APP_CERTIFICATE is set
       ok   Lambda toriino-agora-recording: env RECORDING_TABLE is set
       ok   Lambda toriino-agora-recording: env RECORDING_S3_BUCKET is set
+      ok   Lambda toriino-agora-recording: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
       ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_ID is an SSM parameter (value not read)
       ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_SECRET is an SSM parameter (value not read)
       ok   table toriino-recordings exists

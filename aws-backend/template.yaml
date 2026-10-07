@@ -163,6 +163,21 @@ Resources:
       KeySchema:
         - { AttributeName: eventId, KeyType: HASH }
 
+  # Server-side subscription record (PK userId). Written ONLY by the Stripe webhook
+  # (plus a pending "incomplete" row from the subscriptions Lambda at checkout).
+  SubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: toriino-subscriptions
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+
   # Per-payment earnings ledger written by the Stripe webhook (idempotent earningId).
   EarningEntriesTable:
     Type: AWS::DynamoDB::Table
@@ -291,7 +306,9 @@ Resources:
         Statement:
           - Effect: Allow
             Action: ssm:GetParameter
-            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            Resource:
+              - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+              - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}AGORA_APP_CERTIFICATE
           - Effect: Allow
             Action: kms:Decrypt
             Resource: "*"
@@ -613,7 +630,12 @@ Resources:
           ENROLLMENTS_TABLE: !Ref EnrollmentsTable
           SESSIONS_TABLE: !Ref SessionsTable
           USERS_TABLE: !Ref UsersTable
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt SubscriptionsTable.Arn
         - DynamoDBCrudPolicy: { TableName: !Ref StripeEventsTable }
         - DynamoDBCrudPolicy: { TableName: !Ref EarningEntriesTable }
         - DynamoDBCrudPolicy: { TableName: !Ref EnrollmentsTable }
@@ -649,7 +671,15 @@ Resources:
         Variables:
           CHAT_TABLE: !Ref AiChatTable
           SSM_PREFIX: !Ref SsmPrefix
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt SubscriptionsTable.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PREMIUM_FEATURES
         - DynamoDBCrudPolicy: { TableName: !Ref AiChatTable }
         - Statement:
             - Effect: Allow
@@ -674,7 +704,15 @@ Resources:
         Variables:
           TWINS_TABLE: !Ref AiTwinsTable
           SSM_PREFIX: !Ref SsmPrefix
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt SubscriptionsTable.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PREMIUM_FEATURES
         - DynamoDBCrudPolicy: { TableName: !Ref AiTwinsTable }
         - Statement:
             - Effect: Allow
@@ -700,7 +738,15 @@ Resources:
           MEMORY_TABLE: !Ref AiMemoryTable
           KNOWLEDGE_GRAPH_TABLE: !Ref KnowledgeGraphTable
           SSM_PREFIX: !Ref SsmPrefix
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt SubscriptionsTable.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PREMIUM_FEATURES
         - DynamoDBCrudPolicy: { TableName: !Ref AiMemoryTable }
         - DynamoDBCrudPolicy: { TableName: !Ref KnowledgeGraphTable }
         - Statement:
@@ -727,7 +773,15 @@ Resources:
           SUMMARIES_TABLE: !Ref SummariesTable
           TRANSCRIPTS_TABLE: !Ref TranscriptsTable
           SSM_PREFIX: !Ref SsmPrefix
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt SubscriptionsTable.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}PREMIUM_FEATURES
         - DynamoDBCrudPolicy: { TableName: !Ref SummariesTable }
         - DynamoDBReadPolicy: { TableName: !Ref TranscriptsTable }
         - Statement:
@@ -771,6 +825,37 @@ Resources:
             - Effect: Allow
               Action: ssm:GetParameter
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}GEMINI_API_KEY
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+  SubscriptionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: toriino-subscriptions
+      CodeUri: lambda/subscriptions/
+      Timeout: 20
+      Environment:
+        Variables:
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+          USERS_TABLE: !Ref UsersTable
+          SSM_PREFIX: !Ref SsmPrefix
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Resource: !GetAtt SubscriptionsTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UsersTable}
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}SUBSCRIPTION_PLANS
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}STRIPE_SECRET_KEY
             - Effect: Allow
               Action: kms:Decrypt
               Resource: "*"
