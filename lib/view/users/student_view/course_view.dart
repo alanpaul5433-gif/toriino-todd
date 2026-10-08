@@ -10,6 +10,7 @@ import 'package:toriino_todd/view/users/student_view/bottom_filter.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/view/widgets/course_enroll_sheet.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 
 export 'package:toriino_todd/view/widgets/course_enroll_sheet.dart'
     show showCourseEnrollSheet;
@@ -175,6 +176,11 @@ class CourseView extends StatelessWidget {
                     return Center(child: Text('Error loading courses', style: TextStyle(color: AppColor.white)));
                   }
                   final courses = response.data?.courses ?? [];
+                  // Enrolled courses show "Open" instead of "Enroll" (UAT L6).
+                  final enrolledIds = {
+                    for (final c in courseController.rxMyCourses.value.data?.courses ?? const <CourseModel>[])
+                      if ((c.courseId ?? '').isNotEmpty) c.courseId!,
+                  };
                   return ListView.builder(
                   itemCount: courses.length,
                   itemBuilder: ((context, index) {
@@ -222,7 +228,16 @@ class CourseView extends StatelessWidget {
                                   ),
                                   GestureDetector(
                                     onTap: () {
-                                      showCourseEnrollSheet(context, courses[index]);
+                                      if (enrolledIds.contains(courses[index].courseId)) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => MyTakenCousreView(course: courses[index]),
+                                          ),
+                                        );
+                                      } else {
+                                        showCourseEnrollSheet(context, courses[index]);
+                                      }
                                     },
                                     child: Container(
                                       decoration: BoxDecoration(
@@ -237,7 +252,7 @@ class CourseView extends StatelessWidget {
                                         child: Row(
                                           children: [
                                             Text(
-                                              "Enroll",
+                                              enrolledIds.contains(courses[index].courseId) ? "Open" : "Enroll",
                                               style: TextStyle(
                                                 fontSize: 14.sp,
                                                 color: AppColor.white,

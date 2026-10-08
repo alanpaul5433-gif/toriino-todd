@@ -88,9 +88,13 @@ class _CourseEnrollSheetState extends State<_CourseEnrollSheet> {
     final feePercent = pricing?.platformFeePercent ?? quote?.platformFeePercent;
     final isFree = price != null && price <= 0;
 
+    // The sheet's MediaQuery has no system-bar padding: add the window's navigation-bar
+    // height so "Enroll for Free" is not drawn under it (UAT L6).
+    final view = View.of(context);
+    final navBarInset = view.viewPadding.bottom / view.devicePixelRatio;
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.of(context).viewInsets.bottom + navBarInset,
         left: Responsive.w(5),
         right: Responsive.w(5),
         top: Responsive.h(3),
