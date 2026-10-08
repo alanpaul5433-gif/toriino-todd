@@ -8,7 +8,9 @@ import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/services/course_enrollment_service.dart';
 import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
+import 'package:toriino_todd/viewmodel/controller/student/home_viewmodel.dart';
 
 /// Runs the real enrollment flow for [course] (free → enroll, paid → Stripe
 /// PaymentSheet then wait for the webhook) behind a blocking progress dialog,
@@ -63,8 +65,12 @@ Future<EnrollResult?> runCourseEnrollment(
     AnalyticsService.logEnroll(courseId: course.courseId ?? '');
   }
   if (result.isEnrolled || result.outcome == EnrollOutcome.pendingConfirmation) {
+    // Catalog buttons and home stats read the enrolled list: refresh both (UAT L6).
     if (Get.isRegistered<CourseViewmodel>()) {
       Get.find<CourseViewmodel>().fetchMyCourses();
+    }
+    if (Get.isRegistered<HomeViewmodel>()) {
+      Get.find<HomeViewmodel>().fetchMyCourses();
     }
   }
 
@@ -74,9 +80,12 @@ Future<EnrollResult?> runCourseEnrollment(
       _showResultDialog(
         context,
         title: "You're Enrolled!",
-        body: 'You now have access to "${course.title ?? 'this course'}". '
-            'Head to My Courses to start learning.',
+        body: 'You now have access to "${course.title ?? 'this course'}".',
         success: true,
+        // "Start Learning" opens the course (it only closed the dialog — UAT L7).
+        onSuccess: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => MyTakenCousreView(course: course)),
+        ),
       );
       break;
     case EnrollOutcome.pendingConfirmation:
@@ -148,6 +157,7 @@ void _showResultDialog(
   required String title,
   required String body,
   required bool success,
+  void Function(BuildContext context)? onSuccess,
 }) {
   showDialog<void>(
     context: context,
@@ -182,7 +192,10 @@ void _showResultDialog(
             ),
             const SizedBox(height: 20),
             GestureDetector(
-              onTap: () => Navigator.of(dialogContext).pop(),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                if (success && onSuccess != null && context.mounted) onSuccess(context);
+              },
               child: Container(
                 width: double.infinity,
                 padding:
