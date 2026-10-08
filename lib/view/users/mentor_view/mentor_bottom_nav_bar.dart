@@ -143,7 +143,7 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                         .hideDrawer();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SupportView()),
+                      MaterialPageRoute(builder: (_) => const SupportView()),
                     );
                   },
                   leading: SvgPicture.asset(

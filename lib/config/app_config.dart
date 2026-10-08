@@ -35,4 +35,12 @@ class AppConfig {
     'STRIPE_PK',
     defaultValue: '',
   );
+
+  // ── Support contact ─────────────────────────────────
+  // Shown on Help & Support. There is no ticket backend; until the client provides the
+  // address (--dart-define=SUPPORT_EMAIL=...), the screen says support is not available yet.
+  static const String supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: '',
+  );
 }

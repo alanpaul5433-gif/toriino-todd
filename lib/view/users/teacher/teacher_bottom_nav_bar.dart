@@ -116,7 +116,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
                         .hideDrawer();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SupportView()),
+                      MaterialPageRoute(builder: (_) => const SupportView()),
                     );
                   },
                   leading: SvgPicture.asset(
