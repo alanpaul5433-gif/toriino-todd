@@ -13,9 +13,31 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const APP = 'com.torino.todd';
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// fail() throws instead of calling process.exit(): on Windows, exiting while fetch sockets or
+// readline handles are still closing aborts Node with a UV_HANDLE_CLOSING assertion. run()
+// catches it, prints the message, sets the exit code and lets the event loop drain.
+export class UatError extends Error {}
 export function fail(message) {
-  console.error(`ERROR: ${message}`);
-  process.exit(1);
+  throw new UatError(message);
+}
+export async function run(main) {
+  try {
+    await main();
+  } catch (e) {
+    console.error(`ERROR: ${e instanceof UatError ? e.message : e?.stack || e}`);
+    process.exitCode = 1;
+  }
+}
+
+// Asks a question on the terminal; the readline interface is always closed before returning.
+export async function ask(question) {
+  const { createInterface } = await import('readline/promises');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
 }
 
 // ── .env.test ────────────────────────────────────────────────
@@ -43,8 +65,12 @@ export function writeEnvKeys(pairs) {
 // ── adb ──────────────────────────────────────────────────────
 function findAdb() {
   // An explicit ADB path must exist: never fall back to another adb behind the user's back.
+  // (Module load time, outside run(), so this one exits directly; nothing is open yet.)
   if (process.env.ADB) {
-    if (!fs.existsSync(process.env.ADB)) fail(`ADB=${process.env.ADB} does not exist`);
+    if (!fs.existsSync(process.env.ADB)) {
+      console.error(`ERROR: ADB=${process.env.ADB} does not exist`);
+      process.exit(1);
+    }
     return process.env.ADB;
   }
   const candidates = [
