@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
+import 'package:toriino_todd/model/course/course_teacher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -385,15 +387,15 @@ class _HomeViewState extends State<HomeView> {
                   );
                 }),
 
-                // Recommended teacher: real data of the next listed mentor;
-                // hidden when there is none.
+                // Recommended teacher: the owner of a published course (never a mentor —
+                // GET /mentors returns mentors); hidden when the catalog has no teacher yet.
                 Obx(() {
-                  final mentorsResponse = homeController.rxMentors.value;
-                  final mentors = mentorsResponse.status == Status.success
-                      ? (mentorsResponse.data?.mentors ?? const <MentorModel>[])
-                      : const <MentorModel>[];
-                  if (mentors.length < 2) return const SizedBox.shrink();
-                  final teacher = mentors[1];
+                  final coursesResponse = homeController.rxCourses.value;
+                  final teachers = coursesResponse.status == Status.success
+                      ? CourseTeacher.fromCourses(coursesResponse.data?.courses ?? const <CourseModel>[])
+                      : const <CourseTeacher>[];
+                  if (teachers.isEmpty) return const SizedBox.shrink();
+                  final teacher = teachers.first;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -405,17 +407,12 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                       CustomRecommendedTeacher(
-                        avatarUrl: teacher.avatarUrl,
-                        name: (teacher.name ?? '').trim().isNotEmpty
-                            ? teacher.name!.trim()
-                            : 'Teacher',
-                        role: _firstNonEmpty(teacher.expertise),
-                        rating: teacher.rating,
-                        description: teacher.bio,
-                        languages: teacher.language,
-                        pricePerHour: _hourly(teacher),
+                        name: teacher.name,
+                        role: teacher.categories.isEmpty ? null : teacher.categories.first,
+                        rating: teacher.averageRating,
+                        description: '${teacher.courseCount} published course${teacher.courseCount == 1 ? '' : 's'}',
                         onViewProfileTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherProfile(teacherId: teacher.userId ?? '')));
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherProfile(teacherId: teacher.teacherId)));
                         },
                       ),
                     ],
