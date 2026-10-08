@@ -121,8 +121,10 @@ class CourseView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      // Filters the loaded catalog (the field did nothing before — UAT Round 6).
+                      onChanged: (v) => courseController.searchQuery.value = v,
                       decoration: InputDecoration(
-                        hintText: "Search by title, mentor, or tag",
+                        hintText: "Search by title, teacher, or category",
                         hintStyle: TextStyle(
                           color: AppColor.secconderyColor,
                           fontSize: 14.sp,
@@ -175,13 +177,30 @@ class CourseView extends StatelessWidget {
                   if (response.status == Status.error) {
                     return Center(child: Text('Error loading courses', style: TextStyle(color: AppColor.white)));
                   }
-                  final courses = response.data?.courses ?? [];
+                  final courses = courseController.filterCourses(response.data?.courses ?? []);
+                  if (courses.isEmpty && courseController.searchQuery.value.trim().isNotEmpty) {
+                    return Center(
+                      child: Text(
+                        courseController.hasMoreCourses
+                            ? 'No loaded course matches. Scroll the full list to load more.'
+                            : 'No courses match your search.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColor.white),
+                      ),
+                    );
+                  }
                   // Enrolled courses show "Open" instead of "Enroll" (UAT L6).
                   final enrolledIds = {
                     for (final c in courseController.rxMyCourses.value.data?.courses ?? const <CourseModel>[])
                       if ((c.courseId ?? '').isNotEmpty) c.courseId!,
                   };
-                  return ListView.builder(
+                  return NotificationListener<ScrollNotification>(
+                  // Near the end of the list, fetch the next catalog page.
+                  onNotification: (n) {
+                    if (n.metrics.extentAfter < 600) courseController.loadMoreCourses();
+                    return false;
+                  },
+                  child: ListView.builder(
                   itemCount: courses.length,
                   itemBuilder: ((context, index) {
                     return Padding(
@@ -316,6 +335,7 @@ class CourseView extends StatelessWidget {
                       ),
                     );
                   }),
+                  ),
                 );
                 }),
               ),

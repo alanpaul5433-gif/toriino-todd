@@ -24,13 +24,55 @@ class CourseViewmodel extends GetxController {
     fetchMyCourses();
   }
 
+  // Catalog paging: GET /courses returns a page plus lastKey. The Courses tab used to load
+  // only the first page, so later courses could never be reached (UAT Round 6).
+  String? _lastCourseKey;
+  String? _category;
+  bool _loadingMore = false;
+  bool get hasMoreCourses => _lastCourseKey != null;
+
+  /// Free-text filter for the Courses tab (title, teacher, category, level).
+  final searchQuery = ''.obs;
+
   void fetchCourses({String? category}) {
+    _category = category;
+    _lastCourseKey = null;
     rxCourses.value = ApiResponse.loading();
     _courseRepo.getCourses(category: category).then((value) {
       rxCourses.value = ApiResponse.success(CourseListResponse.fromJson(value));
+      _lastCourseKey = value['lastKey'] as String?;
     }).onError((error, _) {
       rxCourses.value = ApiResponse.error(error.toString());
     });
+  }
+
+  /// Appends the next catalog page, if there is one.
+  Future<void> loadMoreCourses() async {
+    final key = _lastCourseKey;
+    if (key == null || _loadingMore) return;
+    _loadingMore = true;
+    try {
+      final value = await _courseRepo.getCourses(category: _category, lastKey: key);
+      final page = CourseListResponse.fromJson(value);
+      final existing = rxCourses.value.data?.courses ?? const <CourseModel>[];
+      rxCourses.value = ApiResponse.success(CourseListResponse(
+        courses: [...existing, ...page.courses],
+        count: page.count,
+      ));
+      _lastCourseKey = value['lastKey'] as String?;
+    } catch (_) {
+      // Keep what is shown; the next scroll to the end retries.
+    } finally {
+      _loadingMore = false;
+    }
+  }
+
+  /// [courses] filtered by [searchQuery] (case-insensitive substring).
+  List<CourseModel> filterCourses(List<CourseModel> courses) {
+    final q = searchQuery.value.trim().toLowerCase();
+    if (q.isEmpty) return courses;
+    return courses.where((c) => [c.title, c.teacherName, c.category, c.level]
+        .any((f) => (f ?? '').toLowerCase().contains(q))).toList();
   }
 
   void fetchMyCourses() {
