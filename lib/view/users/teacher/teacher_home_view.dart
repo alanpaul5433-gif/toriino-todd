@@ -243,87 +243,8 @@ class TeacherHomeView extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                                Flexible(
-                                  child: SizedBox(
-                                    width: 178,
-                                    height: 43,
-                                    child: Stack(
-                                      children: [
-                                        Positioned(
-                                          left: 122,
-                                          top: 10.75,
-                                          child: Container(
-                                            width: 11,
-                                            height: 11,
-                                            decoration: ShapeDecoration(
-                                              color: const Color(0xFFE73121),
-                                              shape: RoundedRectangleBorder(
-                                                side: BorderSide(
-                                                  width: 1.50,
-                                                  color: Colors.white,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(39),
-                                              ),
-                                              shadows: [
-                                                BoxShadow(
-                                                  color: Color(0x7FE73121),
-                                                  blurRadius: 7.10,
-                                                  offset: Offset(0, 1),
-                                                  spreadRadius: 0,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 143.42,
-                                          top: 0,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            spacing: 3,
-                                            children: [
-                                              Text(
-                                                'Month',
-                                                style: GoogleFonts.dmSans(
-                                                  color: Colors.white,
-                                                  fontSize: 8,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 3,
-                                          top: 0,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            spacing: 3,
-                                            children: [
-                                              Text(
-                                                '+1.5 ',
-                                                style: GoogleFonts.dmSans(
-                                                  color: Colors.white,
-                                                  fontSize: 8,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                // (A decorative mini-chart with a hard-coded "+1.5 / Month" trend was
+                                // here; removed until there is real monthly-growth data — UAT M9.)
                               ],
                             ),
                           ),

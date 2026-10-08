@@ -335,34 +335,34 @@ class TeacherProfilePrivateView extends StatelessWidget {
                 ),
                 SizedBox(height: Responsive.h(2)),
 
-                //Skill cipsviewview
-                Wrap(
-                  spacing: 5,
-                  runSpacing: 10,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
+                // Expertise chips from the saved profile (were hard-coded "Data Science" /
+                // "Machine Learning" placeholders — UAT Round 4b M9).
+                Obx(() {
+                  final skills = (profileVm.rxProfile.value.data?.expertise ?? const <String>[])
+                      .where((e) => e.trim().isNotEmpty)
+                      .toList();
+                  if (skills.isEmpty) {
+                    return Text(
+                      'No expertise added yet. Add it with Edit Profile.',
+                      style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 12),
+                    );
+                  }
+                  return Wrap(
+                    spacing: 5,
+                    runSpacing: 10,
+                    children: [
+                      for (final skill in skills)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: ShapeDecoration(
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(width: 1, color: Colors.white.withValues(alpha: 0.40)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Data Science',
-                            style: TextStyle(
+                          child: Text(
+                            skill,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontFamily: 'DM Sans',
@@ -370,110 +370,10 @@ class TeacherProfilePrivateView extends StatelessWidget {
                               height: 1.50,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Machine Learning',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Resume Review',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Career Guidance',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  );
+                }),
                 SizedBox(height: Responsive.h(2)),
 
                 Row(

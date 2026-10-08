@@ -151,12 +151,19 @@ class _TeacherProfileEditViewState extends State<TeacherProfileEditView> {
                 ),
                 SizedBox(height: Responsive.h(2)),
 
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage: AssetImage(
-                    "assets/icons/Frame 1171275882.png",
-                  ),
-                ),
+                // The user's own photo, or a neutral placeholder (was a stock photo for
+                // everyone — UAT Round 4b M9). There is no photo picker yet.
+                Builder(builder: (_) {
+                  final url = Get.isRegistered<ProfileViewmodel>()
+                      ? (Get.find<ProfileViewmodel>().rxProfile.value.data?.avatarUrl ?? '')
+                      : '';
+                  return CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.white12,
+                    backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+                    child: url.isEmpty ? const Icon(Icons.person, size: 48, color: Colors.white54) : null,
+                  );
+                }),
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
                   text: 'Full Name',
