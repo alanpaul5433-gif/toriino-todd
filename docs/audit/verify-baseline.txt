@@ -1,4 +1,4 @@
-Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-07T21:56:28.091Z
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-08T00:26:39.414Z
 
  1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
       ok   Cognito login student ok, custom:role=student
@@ -120,8 +120,8 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
 16. [WORKS] Live-session Agora token
       ok   route POST /sessions/token (POST /sessions/token → torino-api) has Cognito authorizer
       ok   Lambda torino-api: env AGORA_APP_ID is set
-      ok   Lambda torino-api: env AGORA_APP_CERTIFICATE is set
-      ok   POST /sessions/token → 200
+      ok   Lambda torino-api: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
+      ok   POST /sessions/token → 200, token = 007 + App ID + signed payload
 
 17. [BLOCKED] Session recording
       ok   route GET /sessions/x/recording (GET /sessions/{id}/recording → toriino-agora-recording) has Cognito authorizer
@@ -131,7 +131,7 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   Lambda toriino-agora-recording: env AGORA_APP_ID is set
       ok   Lambda toriino-agora-recording: env RECORDING_TABLE is set
       ok   Lambda toriino-agora-recording: env RECORDING_S3_BUCKET is set
-      ok   Lambda toriino-agora-recording: env AGORA_APP_CERTIFICATE is set
+      ok   Lambda toriino-agora-recording: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
       ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_ID is an SSM parameter (value not read)
       ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_SECRET is an SSM parameter (value not read)
       ok   table toriino-recordings exists
@@ -260,6 +260,27 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /admin/ai/stats as admin → 200
       ok   GET /admin/stats as student (expect 403) → 403 "Forbidden: admin access required"
 
+28. [BLOCKED] Subscriptions + premium gate (P5-2)
+      ok   route GET /subscriptions/plans (GET /subscriptions/plans → toriino-subscriptions) has Cognito authorizer
+      ok   route GET /subscriptions/me (GET /subscriptions/me → toriino-subscriptions) has Cognito authorizer
+      ok   route POST /subscriptions (POST /subscriptions → toriino-subscriptions) has Cognito authorizer
+      ok   route POST /subscriptions/cancel (POST /subscriptions/cancel → toriino-subscriptions) has Cognito authorizer
+      ok   Lambda toriino-subscriptions: handler file index.js present
+      ok   Lambda toriino-subscriptions: env SUBSCRIPTIONS_TABLE names an existing table
+      ok   Lambda toriino-subscriptions: env USERS_TABLE names an existing table
+      ok   SUBSCRIPTION_PLANS: 9 server-defined plan(s)
+      ok   GET /subscriptions/plans as student → audience student, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) student plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      ok   GET /subscriptions/plans as teacher → audience teacher, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) teacher plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      ok   GET /subscriptions/plans as mentor → audience mentor, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) mentor plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      FAIL (blocker) POST /subscriptions {planId: student-monthly} as student → 404 "Plan not available" (Stripe Price ID NOT_SET, so the plan is not offered and the Stripe check is never reached)
+      ok   GET /subscriptions/me → premium=false, status=none
+      ok   checkout attempt activated nothing (subscription record and stripeCustomerId unchanged)
+      ok   PREMIUM_FEATURES = []
+      ok   premium-gated call with ai_recommendations not listed → 503 "Gemini not configured" (allowed through the gate)
+
 Summary
    1. WORKS        Sign-up / login / OTP (P3-5, P3-6)
    2. WORKS        Role selection → set-role (P3-3)
@@ -288,6 +309,7 @@ Summary
   25. BLOCKED      FCM token registration (P9-1)
   26. WORKS        Reviews + one-per-student rule (P2-5)
   27. WORKS        Admin panel (P10-7, P1-2)
+  28. BLOCKED      Subscriptions + premium gate (P5-2)
 
-TOTAL: 20 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 7 BLOCKED  (of 27)
+TOTAL: 20 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 8 BLOCKED  (of 28)
 RESULT: PASS (every feature WORKS or BLOCKED)

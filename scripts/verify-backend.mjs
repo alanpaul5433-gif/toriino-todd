@@ -1,6 +1,6 @@
 // Backend verification for the /prod API (API Gateway pq8cu94cfd, us-east-1).
 //
-// For each of the 27 features in docs/audit/backend-verification.md it checks:
+// For each of the 27 features in docs/audit/backend-verification.md (+ subscriptions) it checks:
 //   - the /prod route exists and has the Cognito authorizer (public routes are allow-listed below)
 //   - every Lambda behind it has its handler file in the deployed package
 //   - required env var NAMES are set (values are never printed)
@@ -638,7 +638,105 @@ async function checkBookingPrice(c, U) {
   }
 }
 
-// ── Features (same 27 as docs/audit/backend-verification.md) ─
+// ── Subscriptions + premium gate ────────────────────────────
+// Plans live in SSM SUBSCRIPTION_PLANS (String JSON; not a secret). A plan is offered
+// only if active, with a real Stripe Price ID and a valid price.
+const ssmString = async (lambda, name) => {
+  const prefix = (await lambdaInfo(lambda)).env?.SSM_PREFIX;
+  const r = prefix && awsTry(['ssm', 'get-parameter', '--name', `${prefix}${name}`]);
+  return r?.ok ? r.data.Parameter.Value : null;
+};
+const planOffered = p => p && p.active === true && ['student', 'teacher', 'mentor'].includes(p.audience)
+  && p.stripePriceId && p.stripePriceId !== 'NOT_SET' && Number(p.price) > 0;
+
+async function checkSubscriptions(c, U) {
+  for (const [m, p] of [['GET', '/subscriptions/plans'], ['GET', '/subscriptions/me'], ['POST', '/subscriptions'], ['POST', '/subscriptions/cancel']])
+    c.route(m, p, { lambda: 'toriino-subscriptions' });
+  await c.lambda('toriino-subscriptions');
+  await c.envTable('toriino-subscriptions', 'SUBSCRIPTIONS_TABLE');
+  await c.envTable('toriino-subscriptions', 'USERS_TABLE');
+  let plans = null;
+  try { plans = JSON.parse(await ssmString('toriino-subscriptions', 'SUBSCRIPTION_PLANS')); } catch { }
+  if (!c.check(Array.isArray(plans), 'defect', `SUBSCRIPTION_PLANS: ${plans?.length} server-defined plan(s)`, 'SUBSCRIPTION_PLANS is missing or not a JSON array')) return;
+
+  // 1. Plans: only the server's offered plans for the caller's own role.
+  for (const r of ['STUDENT', 'TEACHER', 'MENTOR']) {
+    const role = r.toLowerCase();
+    const res = await api('GET', '/subscriptions/plans', U[r]);
+    if (!is2xx(res)) { c.live(`GET /subscriptions/plans as ${role}`, res, () => false); continue; }
+    const got = list(res, 'plans') || [];
+    const expected = plans.filter(p => p.audience === role && planOffered(p));
+    const bad = got.filter(g => { const s = plans.find(p => p.planId === g.planId);
+      return !s || s.audience !== role || !planOffered(s) || Number(g.price) !== Number(s.price); });
+    const missing = expected.filter(e => !got.some(g => g.planId === e.planId));
+    c.check(res.json.audience === role && bad.length === 0 && missing.length === 0 && res.json.comingSoon === (expected.length === 0), 'defect',
+      `GET /subscriptions/plans as ${role} → audience ${res.json.audience}, ${got.length} plan(s), comingSoon=${res.json.comingSoon} — matches server config`,
+      `GET /subscriptions/plans as ${role} → audience ${res.json.audience}, plans ${JSON.stringify(got.map(g => g.planId))}, comingSoon=${res.json.comingSoon}; `
+      + `expected ${JSON.stringify(expected.map(e => e.planId))}${bad.length ? `, not server-offered: ${bad.map(b => b.planId)}` : ''}`);
+    if (expected.length === 0) {
+      const mine = plans.filter(p => p.audience === role);
+      if (mine.length && mine.every(p => !p.stripePriceId || p.stripePriceId === 'NOT_SET'))
+        c.fail('blocker', `${role} plans are "coming soon": Stripe Price IDs are NOT_SET (${mine.length} plan(s) defined, none offered)`);
+      else if (!mine.length) c.fail('defect', `no ${role} plans defined in SUBSCRIPTION_PLANS`);
+      else c.pass(`${role} plans are "coming soon": defined but switched off (active=false)`);
+    }
+  }
+
+  // 2. Checkout must never activate anything. Probed only when it cannot create a real
+  //    Stripe subscription: the plan is not offered, or Stripe is not configured.
+  const S = U.STUDENT;
+  const plan = plans.filter(p => p.audience === 'student').sort((a, b) => String(a.planId).localeCompare(String(b.planId)))[0];
+  if (!plan) return c.fail('defect', 'checkout not checked: no student plan defined');
+  const stripeUnset = (await api('POST', '/payments/create-intent', S, {})).status === 503;
+  if (planOffered(plan) && !stripeUnset) return c.fail('note', `checkout not probed: ${plan.planId} is offered and Stripe is configured, so it would create a real Stripe subscription`);
+  const subTable = (await lambdaInfo('toriino-subscriptions')).env?.SUBSCRIPTIONS_TABLE;
+  const key = JSON.stringify({ userId: { S: S.sub } });
+  const snap = () => ({
+    sub: subTable && tableExists(subTable) ? aws(['dynamodb', 'get-item', '--table-name', subTable, '--key', key])?.Item : undefined,
+    cust: aws(['dynamodb', 'get-item', '--table-name', 'torino-users', '--key', key, '--projection-expression', 'stripeCustomerId'])?.Item,
+  });
+  const before = snap();
+  const label = `POST /subscriptions {planId: ${plan.planId}} as student`;
+  try {
+    const res = await api('POST', '/subscriptions', S, { planId: plan.planId });
+    const detail = `${res.status}${res.msg ? ` "${res.msg}"` : ''}`;
+    if (res.status === 503 && /stripe not configured/i.test(res.msg)) c.fail('blocker', `${label} → ${detail}`);
+    else if (!planOffered(plan) && res.status === 404) {
+      if (!plan.stripePriceId || plan.stripePriceId === 'NOT_SET')
+        c.fail('blocker', `${label} → ${detail} (Stripe Price ID NOT_SET, so the plan is not offered and the Stripe check is never reached)`);
+      else c.pass(`${label} → ${detail} (plan switched off; refused)`);
+    }
+    else c.fail('defect', `${label} → ${detail}; expected 503 "Stripe not configured" or 404 for a plan that is not offered`);
+    const me = await api('GET', '/subscriptions/me', S);
+    c.check(is2xx(me) && me.json?.premium === false, 'defect', `GET /subscriptions/me → premium=${me.json?.premium}, status=${me.json?.status}`,
+      `GET /subscriptions/me → ${me.status} premium=${me.json?.premium} after a checkout attempt`);
+    const after = snap();
+    c.check(JSON.stringify(after) === JSON.stringify(before), 'defect', 'checkout attempt activated nothing (subscription record and stripeCustomerId unchanged)',
+      'checkout attempt changed the subscription record or stripeCustomerId');
+  } finally {
+    const after = snap();
+    if (subTable && JSON.stringify(after.sub) !== JSON.stringify(before.sub)) {
+      if (before.sub) aws(['dynamodb', 'put-item', '--table-name', subTable, '--item', JSON.stringify(before.sub)]);
+      else aws(['dynamodb', 'delete-item', '--table-name', subTable, '--key', key]);
+      c.pass('write test cleanup: restored the subscription record');
+    }
+  }
+
+  // 3. Premium gate: POST /ai/memory/{self}/recommend is gated as "ai_recommendations" and is
+  //    read-only. The gate runs before Gemini, so "allowed" shows as anything but 402.
+  let features = null;
+  try { features = JSON.parse(await ssmString('toriino-ai-memory', 'PREMIUM_FEATURES')); } catch { }
+  if (!c.check(Array.isArray(features), 'defect', `PREMIUM_FEATURES = ${JSON.stringify(features)}`, 'PREMIUM_FEATURES is missing or not a JSON array')) return;
+  const gated = features.includes('ai_recommendations');
+  const res = await api('POST', `/ai/memory/${S.sub}/recommend`, S, {});
+  const detail = `${res.status}${res.msg ? ` "${res.msg}"` : ''}`;
+  if (gated) c.check(res.status === 402, 'defect', `premium-gated call (ai_recommendations listed) as non-premium student → 402`,
+    `premium-gated call (ai_recommendations listed) as non-premium student → ${detail}, expected 402`);
+  else c.check(res.status !== 402 && res.status > 0, 'defect', `premium-gated call with ai_recommendations not listed → ${detail} (allowed through the gate)`,
+    `premium-gated call with ai_recommendations not listed → ${detail}, expected it to pass the gate`);
+}
+
+// ── Features (same 27 as docs/audit/backend-verification.md, + subscriptions) ─
 const FEATURES = [
   ['Sign-up / login / OTP (P3-5, P3-6)', async (c, U) => {
     for (const [r, u] of Object.entries(U)) {
@@ -789,8 +887,16 @@ const FEATURES = [
     await c.envVars(MONOLITH, ['AGORA_APP_ID']);
     // Plain env var or SSM parameter under the Lambda's SSM_PREFIX; not an allowed blocker.
     await c.secret(MONOLITH, 'AGORA_APP_CERTIFICATE', 'defect');
-    c.live('POST /sessions/token', await api('POST', '/sessions/token', U.STUDENT, { channelName: 'verify-backend-probe', uid: 0 }),
-      r => is2xx(r) && typeof r.json?.token === 'string');
+    // torino-api reads the certificate at runtime (503 if it cannot); a 200 with a
+    // well-formed token means it loaded one. Signature validity needs Agora itself.
+    const appId = (await lambdaInfo(MONOLITH)).env?.AGORA_APP_ID || '';
+    const res = await api('POST', '/sessions/token', U.STUDENT, { channelName: 'verify-backend-probe', uid: 0 });
+    // Not an allowed blocker: a 503 here (certificate missing) is BROKEN.
+    const t = res.json?.token;
+    const ok = is2xx(res) && typeof t === 'string' && appId && t.startsWith(`007${appId}`)
+      && Buffer.from(t.slice(3 + appId.length), 'base64').length > 32;
+    c.check(ok, 'defect', `POST /sessions/token → ${res.status}, token = 007 + App ID + signed payload`,
+      `POST /sessions/token → ${res.status}${res.msg ? ` "${res.msg}"` : ''}; expected a token starting 007 + App ID`);
   }],
   ['Session recording', async (c, U) => {
     for (const [m, p] of [['GET', '/sessions/x/recording'], ['POST', '/sessions/x/recording/start'], ['POST', '/sessions/x/recording/stop']])
@@ -900,6 +1006,7 @@ const FEATURES = [
     for (const e of eps) c.live(`GET /admin/${e} as admin`, await api('GET', `/admin/${e}`, U.ADMIN), is2xx);
     c.live('GET /admin/stats as student (expect 403)', await api('GET', '/admin/stats', U.STUDENT), r => r.status === 403);
   }],
+  ['Subscriptions + premium gate (P5-2)', async (c, U) => { await checkSubscriptions(c, U); }],
 ];
 
 // ── Run ─────────────────────────────────────────────────────
