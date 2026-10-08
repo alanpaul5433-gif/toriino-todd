@@ -61,6 +61,11 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  # Pinned: url_launcher_android >= 6.3.26 requires androidx.core 1.17 / androidx.browser 1.9,
+  # which need Android Gradle Plugin 8.9.1+; this project builds with AGP 8.7.0.
+  # 6.3.25 is the newest release on androidx.core 1.13.1 / androidx.browser 1.8.0.
+  # Unpin when AGP is upgraded to 8.9.1+.
+  url_launcher_android: 6.3.25
 dev_dependencies:
   flutter_test:
     sdk: flutter
