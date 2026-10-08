@@ -114,15 +114,18 @@ class TeacherEarinigView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     // Align to right if needed
                     children: [
-                      Obx(() {
-                        final summary = earningsVm.rxSummary.value.data;
-                        final available = summary?.availableBalance;
+                      // Not inside Obx: rebuilding the button while earnings load could drop a tap, so it
+                      // sometimes needed a second tap (UAT L10). The balance is read when tapped.
+                      Builder(builder: (_) {
                         return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () => showWithdrawSheet(
                             context,
-                            availableBalance: available,
+                            availableBalance: earningsVm.rxSummary.value.data?.availableBalance,
                           ),
                           child: Container(
+                            constraints: const BoxConstraints(minHeight: 40),
+                            alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: AppColor.red,
                               borderRadius: BorderRadius.circular(18),
