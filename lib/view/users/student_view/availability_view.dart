@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/widgets/session_booking_sheet.dart';
 
 /// Student-side 1-on-1 booking: pick a date and a start/end time, then open the
@@ -42,7 +41,7 @@ class _AvailabilityViewState extends State<AvailabilityView> {
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) setState(() { _date = picked; _formError = null; });
   }
 
   Future<void> _selectStartTime() async {
@@ -50,7 +49,7 @@ class _AvailabilityViewState extends State<AvailabilityView> {
       context: context,
       initialTime: _startTime ?? const TimeOfDay(hour: 10, minute: 0),
     );
-    if (picked != null) setState(() => _startTime = picked);
+    if (picked != null) setState(() { _startTime = picked; _formError = null; });
   }
 
   Future<void> _selectEndTime() async {
@@ -58,7 +57,7 @@ class _AvailabilityViewState extends State<AvailabilityView> {
       context: context,
       initialTime: _endTime ?? _startTime ?? const TimeOfDay(hour: 11, minute: 0),
     );
-    if (picked != null) setState(() => _endTime = picked);
+    if (picked != null) setState(() { _endTime = picked; _formError = null; });
   }
 
   /// Session length in minutes from the chosen times (default 60 when no end
@@ -72,26 +71,32 @@ class _AvailabilityViewState extends State<AvailabilityView> {
     return minutes > 0 ? minutes : null;
   }
 
+  /// Shown in red above the Book button; a toast was easy to miss (UAT L10).
+  String? _formError;
+
+  void _showFormError(String message) => setState(() => _formError = message);
+
   void _openBooking() {
+    setState(() => _formError = null);
     final date = _date;
     final start = _startTime;
     if (date == null || start == null) {
-      Utils.toastMassage('Please choose a date and a start time');
+      _showFormError('Please choose a date and a start time');
       return;
     }
     final scheduledAt =
         DateTime(date.year, date.month, date.day, start.hour, start.minute);
     if (!scheduledAt.isAfter(DateTime.now())) {
-      Utils.toastMassage('Please choose a time in the future');
+      _showFormError('Please choose a time in the future');
       return;
     }
     final duration = _durationMinutes;
     if (duration == null) {
-      Utils.toastMassage('End time must be after the start time');
+      _showFormError('End time must be after the start time');
       return;
     }
     if (duration < _minDuration || duration > _maxDuration) {
-      Utils.toastMassage(
+      _showFormError(
           'Sessions must be between $_minDuration minutes and ${_maxDuration ~/ 60} hours');
       return;
     }
@@ -169,6 +174,19 @@ class _AvailabilityViewState extends State<AvailabilityView> {
                   hint: 'End Time (default 1 hour)',
                   onTap: _selectEndTime,
                 ),
+                if (_formError != null) ...[
+                  SizedBox(height: Responsive.h(1)),
+                  Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColor.red, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(_formError!,
+                            style: const TextStyle(color: AppColor.red, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                ],
                 SizedBox(height: Responsive.h(2)),
                 GestureDetector(
                   onTap: _openBooking,
