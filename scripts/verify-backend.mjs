@@ -213,7 +213,7 @@ async function login(email, password) {
   if (!j.AuthenticationResult) return { err: `${j.__type}: ${j.message}` };
   const id = j.AuthenticationResult.IdToken;
   const claims = JSON.parse(Buffer.from(id.split('.')[1], 'base64url').toString());
-  return { id, sub: claims.sub, role: claims['custom:role'], email };
+  return { id, access: j.AuthenticationResult.AccessToken, sub: claims.sub, role: claims['custom:role'], email };
 }
 
 async function api(method, p, user, body) {
@@ -638,6 +638,149 @@ async function checkBookingPrice(c, U) {
   }
 }
 
+// ── Agora AccessToken2 decoder ──────────────────────────────
+// Layout (agora-token AccessToken2, little-endian): "007" + base64(zlib(
+//   string signature, string appId, u32 issueTs, u32 expire, u32 salt, u16 serviceCount,
+//   services: u16 type, map<u16,u32> privileges, then for RTC (type 1): string channel, string uid)).
+// string = u16 length + bytes. Returns a list of problems (empty = valid).
+function validateAgoraToken2(token, { appId, channelName, uid, role }) {
+  const problems = [];
+  if (!token.startsWith('007')) return ['does not start with version "007"'];
+  let buf;
+  try { buf = zlib.inflateSync(Buffer.from(token.slice(3), 'base64')); }
+  catch { return ['payload after "007" is not zlib-compressed base64 (legacy 006-style layout?)']; }
+  let p = 0;
+  const u16 = () => { const v = buf.readUInt16LE(p); p += 2; return v; };
+  const u32 = () => { const v = buf.readUInt32LE(p); p += 4; return v; };
+  const str = () => { const n = u16(); const v = buf.subarray(p, p + n); p += n; return v; };
+  try {
+    const sig = str(), tokAppId = str().toString(), issueTs = u32(), expire = u32(), salt = u32(), count = u16();
+    if (sig.length !== 32) problems.push(`signature is ${sig.length} bytes, expected 32 (HMAC-SHA256)`);
+    if (tokAppId !== appId) problems.push('App ID inside the token does not match AGORA_APP_ID');
+    const now = Date.now() / 1000;
+    if (Math.abs(issueTs - now) > 600) problems.push(`issue time is ${Math.round(issueTs - now)}s from now`);
+    if (!(expire > 0 && expire <= 7 * 86400)) problems.push(`token lifetime ${expire}s is not in (0, 7 days]`);
+    if (!(salt >= 1 && salt <= 99999999)) problems.push('salt out of range');
+    let rtc = null;
+    for (let i = 0; i < count; i++) {
+      const type = u16(), privs = {};
+      for (let n = u16(), j = 0; j < n; j++) { const k = u16(); privs[k] = u32(); }
+      if (type !== 1) { problems.push(`unexpected service type ${type}`); break; }
+      rtc = { privs, channel: str().toString(), uid: str().toString() };
+    }
+    if (!rtc) problems.push('no RTC service');
+    else {
+      if (rtc.channel !== channelName) problems.push('channel name does not match the request');
+      if (rtc.uid !== (uid === 0 ? '' : String(uid))) problems.push('uid does not match the request');
+      const need = role === 'publisher' ? [1, 2, 3, 4] : [1];
+      const missing = need.filter(k => !(rtc.privs[k] > 0));
+      if (missing.length) problems.push(`missing privilege(s) ${missing.join(',')} (1 join, 2-4 publish)`);
+    }
+    if (p !== buf.length) problems.push(`${buf.length - p} unexpected trailing bytes`);
+  } catch (e) { problems.push(`truncated payload (${e.message})`); }
+  return problems;
+}
+
+// ── Set-role rules and custom:role protection ───────────────
+// Snapshot a user's Cognito custom:role and users-table row; restore() puts both back exactly.
+function roleSnapshot(email, sub) {
+  const attr = () => (aws(['cognito-idp', 'admin-get-user', '--user-pool-id', USER_POOL, '--username', email]).UserAttributes || [])
+    .find(a => a.Name === 'custom:role')?.Value;
+  const ukey = JSON.stringify({ userId: { S: sub } });
+  const row = () => aws(['dynamodb', 'get-item', '--table-name', 'torino-users', '--key', ukey])?.Item;
+  const before = { role: attr(), row: row() };
+  return {
+    before, attr,
+    restore(c) {
+      const now = attr();
+      if (now !== before.role) {
+        if (before.role) aws(['cognito-idp', 'admin-update-user-attributes', '--user-pool-id', USER_POOL, '--username', email,
+          '--user-attributes', JSON.stringify([{ Name: 'custom:role', Value: before.role }])]);
+        else aws(['cognito-idp', 'admin-delete-user-attributes', '--user-pool-id', USER_POOL, '--username', email, '--user-attribute-names', 'custom:role']);
+        c.pass(`cleanup: restored ${email.split('@')[0]}'s Cognito custom:role`);
+      }
+      const r = row();
+      if (JSON.stringify(r) !== JSON.stringify(before.row)) {
+        if (before.row) aws(['dynamodb', 'put-item', '--table-name', 'torino-users', '--item', JSON.stringify(before.row)]);
+        else aws(['dynamodb', 'delete-item', '--table-name', 'torino-users', '--key', ukey]);
+        c.pass(`cleanup: restored ${email.split('@')[0]}'s users-table row`);
+      }
+    },
+  };
+}
+
+async function checkSetRole(c, U) {
+  const S = U.STUDENT, M = U.MENTOR, A = U.ADMIN;
+  const setRole = (u, role) => api('POST', '/auth/set-role', u, { role });
+  const expectStatus = (label, res, want) => c.check(res.status === want, 'defect', `${label} → ${res.status}${res.msg ? ` "${res.msg}"` : ''}`,
+    `${label} → ${res.status}${res.msg ? ` "${res.msg}"` : ''}, expected ${want}`);
+
+  // Refusals (no change expected; anything that slips through is undone).
+  const sSnap = roleSnapshot(S.email, S.sub), aSnap = roleSnapshot(A.email, A.sub);
+  try {
+    expectStatus('set-role: student (role already set) → Teacher', await setRole(S, 'Teacher'), 409);
+    expectStatus('set-role: student → admin', await setRole(S, 'admin'), 403);
+    expectStatus('set-role: admin → Student', await setRole(A, 'Student'), 403);
+  } finally { sSnap.restore(c); aSnap.restore(c); }
+
+  // Mentor allowed once: clear the test mentor's custom:role, pick Mentor (200), then any
+  // second pick is 409. The mentor's Cognito attribute and users row are restored exactly.
+  const mSnap = roleSnapshot(M.email, M.sub);
+  if (mSnap.before.role !== 'mentor') return c.fail('defect', `mentor-once test skipped: test mentor's custom:role is "${mSnap.before.role}", expected "mentor"`);
+  try {
+    aws(['cognito-idp', 'admin-delete-user-attributes', '--user-pool-id', USER_POOL, '--username', M.email, '--user-attribute-names', 'custom:role']);
+    const first = await setRole(M, 'Mentor');
+    c.check(is2xx(first) && mSnap.attr() === 'mentor', 'defect', `set-role: user with no role → Mentor → ${first.status}, custom:role = mentor`,
+      `set-role: user with no role → Mentor → ${first.status}${first.msg ? ` "${first.msg}"` : ''}, custom:role = ${mSnap.attr()}`);
+    expectStatus('set-role: same user again → Teacher', await setRole(M, 'Teacher'), 409);
+  } finally { mSnap.restore(c); }
+
+  // custom:role must not be writable by the user through Cognito itself.
+  const client = aws(['cognito-idp', 'describe-user-pool-client', '--user-pool-id', USER_POOL, '--client-id', CLIENT_ID]).UserPoolClient;
+  c.check(Array.isArray(client.WriteAttributes) && !client.WriteAttributes.includes('custom:role'), 'defect',
+    'app client WriteAttributes does not include custom:role',
+    client.WriteAttributes ? 'app client WriteAttributes includes custom:role' : 'app client has no WriteAttributes list (all writable attributes allowed)');
+  const snap = roleSnapshot(S.email, S.sub);
+  try {
+    const r = await fetch(`https://cognito-idp.${REGION}.amazonaws.com/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'AWSCognitoIdentityProviderService.UpdateUserAttributes' },
+      body: JSON.stringify({ AccessToken: S.access, UserAttributes: [{ Name: 'custom:role', Value: 'teacher' }] }),
+    });
+    const j = await r.json().catch(() => ({}));
+    c.check(r.status >= 400 && snap.attr() === snap.before.role, 'defect',
+      `Cognito UpdateUserAttributes custom:role with the student's access token → ${r.status} ${j.__type || ''} (refused)`,
+      `Cognito UpdateUserAttributes custom:role with the student's access token → ${r.status}; custom:role is now ${snap.attr()}`);
+  } finally { snap.restore(c); }
+}
+
+// ── Withdraw: bank fields must be rejected ──────────────────
+async function checkWithdrawBankFields(c, U) {
+  c.route('POST', '/earnings/withdraw');
+  const M = U.MENTOR, wTable = 'toriino-withdrawals';
+  const mine = () => tableExists(wTable) ? aws(['dynamodb', 'query', '--table-name', wTable, '--key-condition-expression', 'userId = :u',
+    '--expression-attribute-values', JSON.stringify({ ':u': { S: M.sub } })]).Items || [] : [];
+  const before = new Set(mine().map(i => i.withdrawalId.S));
+  try {
+    // Obviously fake values; the API must refuse them before anything else.
+    const res = await api('POST', '/earnings/withdraw', M, {
+      amount: 1, bankDetails: { accountNumber: 'TEST-NOT-A-REAL-ACCOUNT', routingNumber: 'TEST-NOT-A-REAL-ROUTING' }, iban: 'TEST-NOT-A-REAL-IBAN',
+    });
+    const rejected = res.json?.rejectedFields || [];
+    c.check(res.status === 400 && ['bankDetails', 'iban'].every(f => rejected.includes(f)), 'defect',
+      `POST /earnings/withdraw with bank fields → 400, rejectedFields ${JSON.stringify(rejected)}`,
+      `POST /earnings/withdraw with bank fields → ${res.status}${res.msg ? ` "${res.msg}"` : ''}, expected 400 naming the bank fields`);
+  } finally {
+    const created = mine().filter(i => !before.has(i.withdrawalId.S));
+    for (const i of created) aws(['dynamodb', 'delete-item', '--table-name', wTable, '--key', JSON.stringify({ userId: i.userId, withdrawalId: i.withdrawalId })]);
+    if (created.length) c.fail('defect', `withdraw with bank fields created ${created.length} withdrawal(s) (deleted)`);
+  }
+  // No stored withdrawal may carry bank data.
+  const leaked = tableExists(wTable) ? aws(['dynamodb', 'scan', '--table-name', wTable, '--select', 'COUNT', '--filter-expression',
+    'attribute_exists(bankDetails) OR attribute_exists(accountNumber) OR attribute_exists(routingNumber) OR attribute_exists(iban)']).Count : 0;
+  c.check(leaked === 0, 'defect', `${wTable}: no stored withdrawal contains bank fields`, `${wTable}: ${leaked} withdrawal(s) contain bank fields`);
+}
+
 // ── Subscriptions + premium gate ────────────────────────────
 // Plans live in SSM SUBSCRIPTION_PLANS (String JSON; not a secret). A plan is offered
 // only if active, with a real Stripe Price ID and a valid price.
@@ -747,6 +890,7 @@ const FEATURES = [
   ['Role selection → set-role (P3-3)', async (c, U) => {
     c.route('POST', '/auth/set-role');
     c.live('GET /auth/set-role (route probe)', await api('GET', '/auth/set-role', U.STUDENT), r => r.status !== 404);
+    await checkSetRole(c, U);
   }],
   ['User profile (home screens, profile screen)', async (c, U) => {
     c.route('GET', '/users/profile', { lambda: 'toriino-users' });
@@ -887,16 +1031,17 @@ const FEATURES = [
     await c.envVars(MONOLITH, ['AGORA_APP_ID']);
     // Plain env var or SSM parameter under the Lambda's SSM_PREFIX; not an allowed blocker.
     await c.secret(MONOLITH, 'AGORA_APP_CERTIFICATE', 'defect');
-    // torino-api reads the certificate at runtime (503 if it cannot); a 200 with a
-    // well-formed token means it loaded one. Signature validity needs Agora itself.
-    const appId = (await lambdaInfo(MONOLITH)).env?.AGORA_APP_ID || '';
-    const res = await api('POST', '/sessions/token', U.STUDENT, { channelName: 'verify-backend-probe', uid: 0 });
     // Not an allowed blocker: a 503 here (certificate missing) is BROKEN.
-    const t = res.json?.token;
-    const ok = is2xx(res) && typeof t === 'string' && appId && t.startsWith(`007${appId}`)
-      && Buffer.from(t.slice(3 + appId.length), 'base64').length > 32;
-    c.check(ok, 'defect', `POST /sessions/token → ${res.status}, token = 007 + App ID + signed payload`,
-      `POST /sessions/token → ${res.status}${res.msg ? ` "${res.msg}"` : ''}; expected a token starting 007 + App ID`);
+    const appId = (await lambdaInfo(MONOLITH)).env?.AGORA_APP_ID || '';
+    const req = { channelName: 'verify-backend-probe', uid: 4242, role: 'publisher' };
+    const res = await api('POST', '/sessions/token', U.STUDENT, req);
+    if (!is2xx(res) || typeof res.json?.token !== 'string')
+      return c.fail('defect', `POST /sessions/token → ${res.status}${res.msg ? ` "${res.msg}"` : ''}; expected a token`);
+    const problems = validateAgoraToken2(res.json.token, { appId, ...req });
+    c.check(problems.length === 0, 'defect',
+      `POST /sessions/token → 200, valid AccessToken2: App ID, channel, uid 4242, RTC join + publish privileges, fresh issue time, 32-byte signature`,
+      `POST /sessions/token → 200 but the token is not a valid AccessToken2: ${problems.join('; ')}`);
+    c.fail('note', 'token signature not verified: that needs the App Certificate (SSM SecureString), which this script never reads');
   }],
   ['Session recording', async (c, U) => {
     for (const [m, p] of [['GET', '/sessions/x/recording'], ['POST', '/sessions/x/recording/start'], ['POST', '/sessions/x/recording/stop']])
@@ -970,6 +1115,7 @@ const FEATURES = [
         c.check(f in (res.json || {}), 'defect', `GET /earnings returns ${f}`, `GET /earnings response has no ${f} field`);
     }
     c.live('GET /earnings/history', await api('GET', '/earnings/history', U.TEACHER), r => is2xx(r) && list(r, 'history'));
+    await checkWithdrawBankFields(c, U);
   }],
   ['Notifications (P8-4)', async (c, U) => {
     const r = c.route('GET', '/notifications');

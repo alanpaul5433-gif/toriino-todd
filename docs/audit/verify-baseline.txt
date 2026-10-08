@@ -1,4 +1,4 @@
-Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-08T00:26:39.414Z
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-08T21:33:40.357Z
 
  1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
       ok   Cognito login student ok, custom:role=student
@@ -9,6 +9,14 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
  2. [WORKS] Role selection → set-role (P3-3)
       ok   route POST /auth/set-role (POST /auth/set-role → toriino-auth) has Cognito authorizer
       ok   GET /auth/set-role (route probe) → 405 "Method not allowed; use POST"
+      ok   set-role: student (role already set) → Teacher → 409 "Role already set"
+      ok   set-role: student → admin → 403 "The admin role cannot be self-assigned"
+      ok   set-role: admin → Student → 403 "Admin role cannot be changed"
+      ok   set-role: user with no role → Mentor → 200, custom:role = mentor
+      ok   set-role: same user again → Teacher → 409 "Role already set"
+      ok   cleanup: restored mentor's users-table row
+      ok   app client WriteAttributes does not include custom:role
+      ok   Cognito UpdateUserAttributes custom:role with the student's access token → 400 NotAuthorizedException (refused)
 
  3. [WORKS] User profile (home screens, profile screen)
       ok   route GET /users/profile (GET /users/profile → toriino-users) has Cognito authorizer
@@ -67,9 +75,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   route GET /courses/my-courses (GET /courses/my-courses → toriino-courses) has Cognito authorizer
       ok   table toriino-enrollments exists
       ok   GET /courses/my-courses → 200
-      ok   write test: POST /courses/crs_1791056065760/enroll (free course) → 201, read back from toriino-enrollments and GET /courses/my-courses
+      ok   write test: POST /courses/crs_1791059573554/enroll (free course) → 201, read back from toriino-enrollments and GET /courses/my-courses
       ok   write test cleanup: deleted 1 test enrollment(s)
-      ok   write test cleanup: restored crs_1791056065760 enrollments counter
+      ok   write test cleanup: restored crs_1791059573554 enrollments counter
 
 10. [BLOCKED] Stripe payment intent (P5-1/2/3)
       ok   route POST /payments/create-intent (POST /payments/create-intent → toriino-payments) has Cognito authorizer
@@ -121,7 +129,8 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   route POST /sessions/token (POST /sessions/token → torino-api) has Cognito authorizer
       ok   Lambda torino-api: env AGORA_APP_ID is set
       ok   Lambda torino-api: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
-      ok   POST /sessions/token → 200, token = 007 + App ID + signed payload
+      ok   POST /sessions/token → 200, valid AccessToken2: App ID, channel, uid 4242, RTC join + publish privileges, fresh issue time, 32-byte signature
+      note (note) token signature not verified: that needs the App Certificate (SSM SecureString), which this script never reads
 
 17. [BLOCKED] Session recording
       ok   route GET /sessions/x/recording (GET /sessions/{id}/recording → toriino-agora-recording) has Cognito authorizer
@@ -207,6 +216,9 @@ Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/
       ok   GET /earnings returns totalWithdrawn
       ok   GET /earnings returns availableBalance
       ok   GET /earnings/history → 200
+      ok   route POST /earnings/withdraw (POST /earnings/withdraw → toriino-earnings) has Cognito authorizer
+      ok   POST /earnings/withdraw with bank fields → 400, rejectedFields ["bankDetails","iban"]
+      ok   toriino-withdrawals: no stored withdrawal contains bank fields
 
 24. [WORKS] Notifications (P8-4)
       ok   route GET /notifications (GET /notifications → toriino-notifications) has Cognito authorizer
