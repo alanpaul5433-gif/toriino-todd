@@ -8,6 +8,7 @@ import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/resources/routes/routes_name.dart';
+import 'package:toriino_todd/view/auth/admin_notice_view.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/view/auth/sign_up_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
@@ -80,7 +81,10 @@ class _LoginviewState extends State<Loginview> {
       if (!mounted) return;
       try { Get.find<CustomDrawerController>().changeIndex(0); } catch (_) {}
       FcmService.registerAfterLogin();
-      if (savedRole == 'student') {
+      if (savedRole == 'admin') {
+        // Admins use the web panel; never offer them the role picker.
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminNoticeView()));
+      } else if (savedRole == 'student') {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainWrapper()));
       } else if (savedRole == 'mentor') {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MentorBottomNavBar()));

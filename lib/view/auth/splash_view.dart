@@ -5,6 +5,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
+import 'package:toriino_todd/view/auth/admin_notice_view.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
@@ -54,7 +55,10 @@ class _SplashViewState extends State<SplashView> {
     final prefs = UsersPrefrence();
     final role = (await prefs.getUserRole())?.toLowerCase();
 
-    if (role == 'mentor') {
+    if (role == 'admin') {
+      // Admins use the web panel; never offer them the role picker.
+      _goTo(const AdminNoticeView());
+    } else if (role == 'mentor') {
       _goTo(MentorBottomNavBar());
     } else if (role == 'teacher') {
       _goTo(TeacherBottomNavBar());
