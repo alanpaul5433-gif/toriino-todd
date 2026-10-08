@@ -85,13 +85,21 @@ class AiTutorViewmodel extends GetxController {
           timestamp: DateTime.now(),
         ));
       } else {
-        throw Exception('HTTP ${response.statusCode}');
+        throw _AiHttpError(response.statusCode);
       }
-    } catch (_) {
+    } catch (e) {
       isTyping.value = false;
+      // 503 = the AI backend is not configured yet (Gemini key NOT_SET); 402 = premium required.
+      // Say so instead of a generic "couldn't reach" (UAT L8).
+      final code = e is _AiHttpError ? e.statusCode : null;
+      final text = code == 503
+          ? 'The AI Tutor is not available yet: it has not been set up on the server.'
+          : code == 402
+              ? 'The AI Tutor is part of Premium. See Upgrade to Premium for plans.'
+              : 'Sorry, I couldn\'t reach the AI right now. Please try again.';
       messages.add(ChatMessageModel(
         id: _id(),
-        text: 'Sorry, I couldn\'t reach the AI right now. Please try again.',
+        text: text,
         isUser: false,
         timestamp: DateTime.now(),
       ));
@@ -121,4 +129,11 @@ class AiTutorViewmodel extends GetxController {
     messageController.dispose();
     super.onClose();
   }
+}
+
+class _AiHttpError implements Exception {
+  final int statusCode;
+  const _AiHttpError(this.statusCode);
+  @override
+  String toString() => 'HTTP $statusCode';
 }
