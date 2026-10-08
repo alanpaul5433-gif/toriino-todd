@@ -9,6 +9,7 @@ import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
 import 'package:toriino_todd/viewmodel/controller/teacher/teacher_course_viewmodel.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ── Material type labels ────────────────────────────────────────────────────
@@ -187,6 +188,10 @@ class _AddLessonViewState extends State<AddLessonView> {
         courseId,
         _lessons.map((l) => l.toMap()).toList(),
       );
+      // The course exists now: refresh My Courses and the home stats (Total Courses stayed 0
+      // until a restart — UAT Round 5 R5-L3).
+      _courseVm.fetchMyCourses();
+      if (Get.isRegistered<TeacherHomeViewmodel>()) Get.find<TeacherHomeViewmodel>().fetchMyCourses();
       if (!mounted) return;
       if (failures.isEmpty) {
         _courseCompleteAlert(context);
