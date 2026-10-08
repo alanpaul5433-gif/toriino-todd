@@ -329,7 +329,7 @@ class _LoginviewState extends State<Loginview> {
 }
 
 bool _looksLikeEmail(String value) =>
-    RegExp(r'^[^s@]+@[^s@]+.[^s@]{2,}$').hasMatch(value.trim());
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(value.trim());
 
 void _showForgotPasswordBottomSheet(
   BuildContext context,
