@@ -33,13 +33,17 @@ class MentorModel {
 
   factory MentorModel.fromJson(Map<String, dynamic> json) {
     return MentorModel(
-      userId: json['userId'],
+      // GET /mentors returns the mentor's Cognito sub as `mentorId` (the mentors table key);
+      // older payloads used `userId`. Reading only `userId` left it null, so booking and the
+      // profile links failed (UAT Round 4b H2).
+      userId: (json['userId'] ?? json['mentorId'])?.toString(),
       name: json['name'],
       email: json['email'],
       avatarUrl: json['avatarUrl'],
       bio: json['bio'],
-      expertise: json['expertise'] != null
-          ? List<String>.from(json['expertise'])
+      // The mentors table stores these as `specialties`.
+      expertise: (json['expertise'] ?? json['specialties']) != null
+          ? List<String>.from(json['expertise'] ?? json['specialties'])
           : null,
       hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
       rating: (json['rating'] as num?)?.toDouble(),

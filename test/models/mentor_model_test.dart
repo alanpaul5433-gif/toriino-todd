@@ -94,5 +94,16 @@ void main() {
       final result = MentorListResponse.fromJson({'mentors': null, 'count': 0});
       expect(result.mentors, isEmpty);
     });
+
+    test('GET /mentors shape: mentorId and specialties map to userId and expertise', () {
+      final result = MentorListResponse.fromJson({
+        'mentors': [
+          {'mentorId': 'sub-123', 'name': 'M', 'specialties': ['Math', 'Physics'], 'hourlyRate': 40}
+        ],
+        'count': 1,
+      });
+      expect(result.mentors.first.userId, 'sub-123');
+      expect(result.mentors.first.expertise, ['Math', 'Physics']);
+    });
   });
 }
