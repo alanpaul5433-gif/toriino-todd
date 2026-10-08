@@ -52,6 +52,10 @@ class _LoginviewState extends State<Loginview> {
       Utils.toastMassage("Please Enter Email First");
       return;
     }
+    if (!_looksLikeEmail(emailController.text)) {
+      Utils.toastMassage("Please enter a valid email address");
+      return;
+    }
     if (passwordController.text.isEmpty) {
       Utils.toastMassage("Please Enter Password First");
       return;
@@ -242,6 +246,8 @@ class _LoginviewState extends State<Loginview> {
                 ),
                 SizedBox(height: Responsive.h(1.5)),
                 GestureDetector(
+                  // The whole row is tappable, not only the glyphs of the text (UAT L2).
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     _showForgotPasswordBottomSheet(context, emailController);
                   },
@@ -322,6 +328,9 @@ class _LoginviewState extends State<Loginview> {
 
 }
 
+bool _looksLikeEmail(String value) =>
+    RegExp(r'^[^s@]+@[^s@]+.[^s@]{2,}$').hasMatch(value.trim());
+
 void _showForgotPasswordBottomSheet(
   BuildContext context,
   TextEditingController email,
@@ -334,98 +343,118 @@ void _showForgotPasswordBottomSheet(
     ),
     backgroundColor: AppColor.primaryColor,
     builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: Responsive.w(5),
-          right: Responsive.w(5),
-          top: Responsive.h(3),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Forgot Password?",
-              style: GoogleFonts.dmSans(
-                color: AppColor.white,
-                fontSize: Responsive.sp(18),
-                fontWeight: FontWeight.bold,
-              ),
+      String? error; // shown under the field: a toast was hidden behind the sheet (UAT L3)
+      bool sending = false;
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> send() async {
+            final value = email.text.trim();
+            if (value.isEmpty || !_looksLikeEmail(value)) {
+              setSheetState(() => error = value.isEmpty
+                  ? 'Please enter your email'
+                  : 'Please enter a valid email address');
+              return;
+            }
+            setSheetState(() { error = null; sending = true; });
+            final result = await AuthService.forgotPassword(email: value);
+            if (!context.mounted) return;
+            if (result['success'] == true) {
+              Navigator.pop(context);
+              Utils.toastMassage(result['message'] ?? "Reset code sent");
+              Get.toNamed(RoutesName.resetPassword, arguments: {'email': value});
+            } else {
+              // Never report success when the request failed.
+              setSheetState(() {
+                sending = false;
+                error = result['message'] ?? 'Could not send the reset code. Please try again.';
+              });
+            }
+          }
+
+          return Padding(
+            // Keyboard inset plus the system navigation bar, so the button is never covered (UAT L4).
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom +
+                  MediaQuery.of(context).viewPadding.bottom,
+              left: Responsive.w(5),
+              right: Responsive.w(5),
+              top: Responsive.h(3),
             ),
-            Text(
-              "Enter your registered email address. We’ll send you a link to reset your password.",
-              style: GoogleFonts.dmSans(
-                color: AppColor.white,
-                fontSize: Responsive.sp(10),
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            SizedBox(height: Responsive.h(2)),
-            SizedBox(
-              height: Responsive.h(6),
-              child: TextFormField(
-                style: TextStyle(color: AppColor.white),
-                controller: email,
-                cursorColor: AppColor.red,
-                cursorErrorColor: AppColor.red,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(
-                      Responsive.w(12),
-                    ), // 6% of width
-                    borderSide: BorderSide(color: AppColor.red),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(Responsive.w(12)),
-                    borderSide: BorderSide(color: AppColor.red),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColor.focusedBorder),
-                    borderRadius: BorderRadius.circular(Responsive.w(12)),
-                  ),
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(Responsive.w(3)), // 2% of width
-                    child: SvgPicture.asset("assets/icons/mail-02.svg"),
-                  ),
-                  filled: true,
-                  fillColor: AppColor.white.withValues(alpha: 0.08),
-                  hintText: "Email Address",
-                  hintStyle: GoogleFonts.dmSans(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Forgot Password?",
+                  style: GoogleFonts.dmSans(
                     color: AppColor.white,
-                    fontWeight: FontWeight.normal,
-                    fontSize: Responsive.sp(15),
+                    fontSize: Responsive.sp(18),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                Text(
+                  "Enter your registered email address. We’ll send you a code to reset your password.",
+                  style: GoogleFonts.dmSans(
+                    color: AppColor.white,
+                    fontSize: Responsive.sp(10),
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                SizedBox(height: Responsive.h(2)),
+                TextFormField(
+                  style: TextStyle(color: AppColor.white),
+                  controller: email,
+                  cursorColor: AppColor.red,
+                  cursorErrorColor: AppColor.red,
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (error != null) setSheetState(() => error = null);
+                  },
+                  decoration: InputDecoration(
+                    errorText: error,
+                    errorStyle: GoogleFonts.dmSans(color: AppColor.red, fontSize: Responsive.sp(10)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(Responsive.w(12)),
+                      borderSide: BorderSide(color: AppColor.red),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(Responsive.w(12)),
+                      borderSide: BorderSide(color: AppColor.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(Responsive.w(12)),
+                      borderSide: BorderSide(color: AppColor.red),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
+                      borderRadius: BorderRadius.circular(Responsive.w(12)),
+                    ),
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.all(Responsive.w(3)),
+                      child: SvgPicture.asset("assets/icons/mail-02.svg"),
+                    ),
+                    filled: true,
+                    fillColor: AppColor.white.withValues(alpha: 0.08),
+                    hintText: "Email Address",
+                    hintStyle: GoogleFonts.dmSans(
+                      color: AppColor.white,
+                      fontWeight: FontWeight.normal,
+                      fontSize: Responsive.sp(15),
+                    ),
+                  ),
+                ),
+                SizedBox(height: Responsive.h(2)),
+                AuthButton(
+                  buttontext: "Send Reset Code",
+                  onPress: sending ? () {} : send,
+                  loading: sending,
+                ),
+                SizedBox(height: Responsive.h(2)),
+              ],
             ),
-            SizedBox(height: Responsive.h(2)),
-            AuthButton(
-              buttontext: "Send Reset Code",
-              onPress: () async {
-                if (email.text.isEmpty) {
-                  Utils.toastMassage("Please enter your email");
-                  return;
-                }
-                final result = await AuthService.forgotPassword(
-                  email: email.text.trim(),
-                );
-                if (!context.mounted) return;
-                if (result['success'] == true) {
-                  Navigator.pop(context);
-                  Utils.toastMassage(result['message'] ?? "Reset code sent!");
-                  Get.toNamed(RoutesName.resetPassword, arguments: {'email': email.text.trim()});
-                } else {
-                  Utils.toastMassage(result['message'] ?? "Reset code sent!");
-                }
-              },
-              loading: false,
-            ),
-            SizedBox(height: Responsive.h(2)),
-          ],
-        ),
+          );
+        },
       );
     },
   );
