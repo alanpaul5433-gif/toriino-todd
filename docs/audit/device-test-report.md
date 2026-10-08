@@ -429,3 +429,112 @@ Trend across rounds: Round 1 ~445 MB → Round 2 ~467 MB → Round 3 ~406 MB (co
 | 10.2 | Deduct with sufficient balance                   | PASS   | 200 `{balance: 70, deducted: 30}` |
 | 10.3 | Deduct with insufficient balance returns 402     | PASS   | 402 `{error: "insufficient_balance"}` |
 | 10.4 | Same idempotencyKey → no double deduction        | PASS   | 200 `{message: "Already processed", balance: 70}` — balance unchanged |
+
+---
+
+## UAT Round 4 — Full Device UAT (2026-10-08)
+
+**Branch:** `fix/remediation-v1` at `adac8c9`
+**Device:** Samsung SM-A075F, serial R8VL2015Y6J, Android 16, 720×1600
+**Second device (Agora):** none. The emulator AVD `Medium_Phone_API_36.1` has no system image installed, and C: had too little free space to download one (see Environment).
+**APK:** `build/app/outputs/flutter-apk/app-debug.apk`, a debug build. The only dart-define is `AGORA_APP_ID`; no Gemini or Stripe keys. Firebase is a local-only stub (skip-worktree `build.gradle`, no `google-services.json`, not committed).
+**Method:** adb with UIAutomator dumps, taps and screencaps. Evidence is in [`evidence/uat4/`](evidence/uat4/).
+**Rule for this run:** bugs are recorded, not fixed. The one exception is GATE-04, fixed before the run on the owner's explicit instruction.
+
+### Why most logged-in tests are BLOCKED
+
+The assistant running this UAT does not type passwords into, or create accounts with, a hosted identity provider (AWS Cognito), even for test accounts. The owner did not log in on the device either. For the same reason, no temporary mailbox (mail.tm) and no admin-confirm were used for the new-teacher sign-up.
+
+As a result, every test that needs a signed-in session on the phone is **BLOCKED (credential entry needs a human)**. These are not failures. Each blocked row says what is needed to run it.
+
+API-level evidence for those flows comes from `scripts/verify-backend.mjs`, which authenticates with the `.env.test` accounts itself: **20 WORKS · 8 BLOCKED · 0 BROKEN of 28, exit 0** ([verifier_api_run.txt](evidence/uat4/verifier_api_run.txt)). That shows the backend works, not that the screens do.
+
+### Results — pre-login screens (device)
+
+| # | Test | Result | Evidence |
+|---|---|---|---|
+| A1 | Cold launch → splash → login screen | PASS | `00_splash.png`, `01_first_screen.png` |
+| A2 | Login with empty fields → "Please Enter Email First" | PASS | `02_login_empty_submit.png` |
+| A3 | Login with malformed email and no password → "Please Enter Password First" | PASS (see L1: email format isn't checked) | `03_login_invalid_email.png` |
+| A4 | Sign-up screen renders (name, email, phone, password, terms) | PASS | `04_signup_screen.png` |
+| A5 | Sign-up with nothing filled → "Please accept the Terms & Privacy to continue" | PASS | `05_signup_empty_submit.png` |
+| A6 | Sign-up with terms ticked, fields empty → "Please enter your full name" | PASS | `07_signup_terms_ticked_empty.png` |
+| A7 | "Terms & Privacy" text opens the terms | FAIL (Medium, M2): not tappable | `06_terms_link.png` |
+| A8 | "Forgot Password?" opens the reset sheet | PASS (Low, L2: only the text is tappable) | `08_forgot_password.png` |
+| A9 | Reset sheet, empty submit → validation message | FAIL (Low, L3): no visible feedback; button overlaps the nav bar (L4) | `09_forgot_empty_submit.png` |
+| A10 | Force-stop and cold restart while logged out → login screen, no crash | PASS | `10_cold_restart_logged_out.png`; Android crash buffer: 0 lines |
+
+### Results — signed-in flows (student / teacher / admin)
+
+| # | Flow | Device | API-level evidence |
+|---|---|---|---|
+| B1 | Login (student, teacher, admin) | BLOCKED: credential entry | Verifier #1 WORKS (all 4 Cognito logins, correct `custom:role`) |
+| B2 | Logout | BLOCKED: needs a session | — |
+| B3 | App restart keeps the session (GATE-02) | BLOCKED: needs a session | Last device evidence: Round 3 (2026-10-07), PASS on an older build |
+| B4 | Profile view and edit | BLOCKED | Verifier #3, #4 WORKS |
+| B5 | Course browse and free enroll | BLOCKED | Verifier #5, #9 WORKS (free-course enroll read back, then cleaned up) |
+| B6 | Lessons / video playback (signed 5-minute link) | BLOCKED | Verifier #6 WORKS; gate checks in `gate05_s3_checks.txt` |
+| B7 | Uploads: profile photo, course media (GATE-05, in-app part) | BLOCKED. No profile-photo picker exists in the app (known); course media goes through add-lesson upload | Verifier #7, #12 WORKS; unsigned access refused (below) |
+| B8 | Session booking (quote, wallet or card) | BLOCKED | Verifier #15 WORKS; card path BLOCKED (Stripe) |
+| B9 | Agora call, phone ↔ second device | BLOCKED: no second device | Verifier #16 WORKS (token issued from the SSM certificate) |
+| B10 | Wallet and payout screens (GATE-06) | BLOCKED on device; code and API PASS (below) | Verifier #21, #23 WORKS |
+| B11 | Notifications screen | BLOCKED | Verifier #24 WORKS |
+| B12 | Every drawer/menu item (all roles) | BLOCKED | — |
+| B13 | Admin: in-app behaviour after admin login | BLOCKED | Verifier #27 WORKS (8 admin endpoints, student → 403). The admin web panel was not tested: it needs a password login |
+
+### New teacher sign-up end to end (GATE-03)
+
+| Step | Result |
+|---|---|
+| Sign-up form with a new email | BLOCKED: creating a Cognito account needs a human |
+| Email verification code | BLOCKED: no mailbox access (mail.tm not used; admin-confirm not used) |
+| Choose Teacher → set-role → logout → login → teacher home | BLOCKED: depends on the steps above |
+
+Screens reachable without an account are recorded (A4–A6). Server side, `POST /auth/set-role` sets `custom:role` and the profile role (verifier #2 WORKS), and the test teacher's Cognito login returns `custom:role=teacher` (verifier #1).
+
+### Features blocked by third-party configuration
+
+| Feature | Expected clean state | Result |
+|---|---|---|
+| Stripe (course purchase, session card payment, subscriptions, webhook) | 503 "Stripe not configured" / "Plans coming soon" | BLOCKED. API confirmed (verifier #10, #11, #28); app screens not reached (login) |
+| Gemini (AI tutor, twins, recommendations, summaries) | 503 "Gemini not configured" | BLOCKED. API confirmed (verifier #18–#20) |
+| Agora cloud recording | 503 "Agora cloud recording not configured" | BLOCKED. API confirmed (verifier #17) |
+| Firebase (push) | App runs without `google-services.json` | BLOCKED. No crash on launch or restart (A1, A10) |
+
+### Audit gates
+
+| Gate | Check | Verdict | Evidence |
+|---|---|---|---|
+| GATE-01 | No Gemini (or other) key in the APK | **PASS** | APK unzipped and grepped for `AIza…`, the old `AQ.` key, `sk_live_`/`pk_live_`, `AKIA…` and `whsec_`: no matches |
+| GATE-02 | Session survives an app restart | **BLOCKED** (needs a signed-in session on the device). Last device result: PASS (Round 3, older build) | `10_cold_restart_logged_out.png` (restart itself is crash-free) |
+| GATE-03 | New teacher reaches teacher home after sign-up and re-login | **BLOCKED** (account creation and credential entry need a human) | A4–A6; verifier #1, #2 |
+| GATE-04 | Debug APK builds | **FAIL (found) → PASS (fixed in `adac8c9`)** | See "GATE-04" below |
+| GATE-05 | Uploads are authenticated; private media is not public | **PASS** (server). In-app upload BLOCKED | [gate05_s3_checks.txt](evidence/uat4/gate05_s3_checks.txt): unsigned PUTs → 403 and nothing written; private lesson video → 403 via S3 and CloudFront; `/upload-url` without a token → 401 |
+| GATE-06 | No plaintext bank data in the app or APIs | **PASS** (app code + API). Device screen BLOCKED. Latent risk M1 | `withdraw_sheet.dart` has no input fields ("Bank Payouts Coming Soon"); the app never calls `/earnings/withdraw`; the API strips `bankDetails` from every response; `toriino-withdrawals` holds 0 rows |
+
+#### GATE-04 — why it passed before and failed now
+
+GATE-04 passed in Round 2 (2026-10-06). Commit `7bc7cb6` (2026-10-07) then added `url_launcher: ^6.3.2` to open lesson materials. That resolved `url_launcher_android 6.3.30`, which declares `androidx.core:core:1.17.0` and `androidx.browser:browser:1.9.0`. Both need **Android Gradle Plugin 8.9.1+**, but the project builds with **AGP 8.7.0**, so `flutter build apk --debug` failed at `:app:checkDebugAarMetadata`. The rounds in between only ran `flutter analyze` and `flutter test`, which don't run that check, so it went unnoticed.
+
+**Fix (`adac8c9`):** pin `url_launcher_android: 6.3.25` in `pubspec.yaml`. That's the newest release on `androidx.core 1.13.1` / `androidx.browser 1.8.0`, with a note to unpin after an AGP upgrade. Only `pubspec.yaml` and `pubspec.lock` changed; no Gradle or skip-worktree files.
+
+**Proof:** `flutter clean`, `flutter pub get`, `flutter build apk --debug` → `√ Built build\app\outputs\flutter-apk\app-debug.apk`. The first attempt after the pin passed the AAR check and then hit "not enough space on the disk", which is an environment problem, not a code one.
+
+### Bugs found (ranked)
+
+| ID | Severity | Bug | Evidence |
+|---|---|---|---|
+| C1 | **Critical** (fixed) | Debug APK didn't build (GATE-04): `url_launcher_android` 6.3.30 needs AGP 8.9.1 | Fixed in `adac8c9` |
+| M1 | **Medium** | `POST /earnings/withdraw` stores a client-supplied `bankDetails` object in plain text in `toriino-withdrawals`. The app never sends it and responses never return it, but any client could store bank data at rest. Reject or ignore `bankDetails` until Stripe Connect exists | `aws-backend/lambda/earnings/index.js` line ~178 |
+| M2 | **Medium** | "Terms & Privacy" on sign-up isn't tappable, so users must agree to terms they can't open | `06_terms_link.png` |
+| L1 | Low | Login doesn't check email format before asking for the password (Cognito rejects it later) | `03_login_invalid_email.png` |
+| L2 | Low | "Forgot Password?" responds only to taps on the text itself, not its row | A8 |
+| L3 | Low | Reset sheet: empty submit shows no visible validation message | `09_forgot_empty_submit.png` |
+| L4 | Low | Reset sheet: "Send Reset Code" overlaps the Android navigation bar; the copy says "send you a link" but the button says "code" | `09_forgot_empty_submit.png` |
+
+No High-severity issue was observed in the parts that could be tested. Signed-in screens were not exercised on the device in this round.
+
+### Environment
+
+- **Disk:** C: had 0.11 GB free at the start. With the owner's approval, user Temp, Windows Temp, the project build output, and the Gradle caches/daemon were cleared (15.77 GB free). The Gradle re-download plus the build then used most of that again. Free space was checked against the 150 MB floor throughout and stayed far above it during the device run (≈12 GB).
+- **Emulator:** no system image in either Android SDK and not enough disk to install one, so there was no second device for the Agora call.
