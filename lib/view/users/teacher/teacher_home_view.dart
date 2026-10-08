@@ -7,6 +7,7 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
+import 'package:toriino_todd/view/users/teacher/teacher_course_lessons_view.dart';
 import 'package:toriino_todd/view/users/teacher/edit_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
@@ -534,7 +535,16 @@ void _courseCompleteAlert(BuildContext context, [CourseModel? course]) {
 }
 
 Widget recentSessionsHistoryCard(BuildContext context, [CourseModel? course]) {
-  return Padding(
+  return GestureDetector(
+    // Opens the course's lessons (play / open materials). Edit and Delete keep their own taps.
+    onTap: course == null
+        ? null
+        : () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => TeacherCourseLessonsView(course: course)),
+            ),
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
     padding: const EdgeInsets.symmetric(vertical: 4.0),
     child: Container(
       decoration: BoxDecoration(
@@ -701,6 +711,7 @@ Widget recentSessionsHistoryCard(BuildContext context, [CourseModel? course]) {
         ),
       ),
     ),
+  ),
   );
 }
 
