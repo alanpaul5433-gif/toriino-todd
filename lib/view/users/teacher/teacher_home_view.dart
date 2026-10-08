@@ -8,7 +8,6 @@ import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
 import 'package:toriino_todd/view/users/teacher/create_coure_view.dart';
 import 'package:toriino_todd/view/users/teacher/edit_coure_view.dart';
-import 'package:toriino_todd/view/users/teacher/teacher_subcribption.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
@@ -344,96 +343,8 @@ class TeacherHomeView extends StatelessWidget {
                       );
                     },
                   ),
-                  SizedBox(height: Responsive.hp(1)),
+                  // "Reach More Students / Get featured" promo hidden: there is no featuring feature yet.
 
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColor.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: Responsive.padding(
-                        left: 2,
-                        right: 2,
-                        bottom: 2,
-                        top: 2,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Reach More Students',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 20,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            'Get featured in search and recommendations. Reach more students.',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: Responsive.sp(10),
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          SizedBox(height: Responsive.hp(2)),
-
-                          GestureDetector(
-                            onTap:
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => TeacherSubcribption(),
-                                  ),
-                                ),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: ShapeDecoration(
-                                color: const Color(0xFFE73121),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                spacing: 8,
-                                children: [
-                                  Text(
-                                    'Boost Now',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.dmSans(
-                                      color: Colors.white,
-                                      fontSize: Responsive.textScaleFactor * 14,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: -0.20,
-                                    ),
-                                  ),
-                                  SvgPicture.asset("assets/icons/arrow.svg"),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   SizedBox(height: Responsive.hp(2)),
 
                   Text(

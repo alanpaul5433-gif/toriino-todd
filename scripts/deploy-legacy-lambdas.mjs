@@ -39,7 +39,8 @@ const TARGETS = [
     name: 'torino-api',
     dir: 'aws-backend/lambda/torino-api',
     npm: true,
-    removeEnv: ['GEMINI_API_KEY', 'AGORA_APP_CERTIFICATE'],
+    // STRIPE_* were empty and unused: payments run in the toriino-payments Lambda (Stripe key from SSM).
+    removeEnv: ['GEMINI_API_KEY', 'AGORA_APP_CERTIFICATE', 'STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'],
     // Non-secret config fixes (values may be printed).
     setEnv: { SESSIONS_TABLE: 'torino-sessions' },
   },

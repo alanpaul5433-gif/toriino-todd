@@ -7,6 +7,7 @@ import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
+import 'package:toriino_todd/view/subscriptions/plans_view.dart';
 import 'package:toriino_todd/view/users/common_view/privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/student_view/change_password_view.dart';
 import 'package:toriino_todd/view/users/student_view/setting_view.dart'
@@ -186,6 +187,17 @@ class Settings extends StatelessWidget {
                 ],
               ),
               SizedBox(height: Responsive.h(2)),
+              // Plans for the signed-in user's role (student or teacher), or "Plans coming soon".
+              _buildSwitchField(
+                path: 'assets/icons/setting.svg',
+                text: 'Subscription',
+                ontap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlansView()),
+                  );
+                },
+              ),
               _buildSwitchField(
                 path: 'assets/icons/notification.svg',
                 text: 'Notifications',
