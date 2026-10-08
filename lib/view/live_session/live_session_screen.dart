@@ -105,17 +105,45 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
     _start();
   }
 
+  /// True when the error overlay should offer "Open Settings" (permission permanently denied).
+  bool _needsSettings = false;
+
+  /// One permission flow at a time, even if _start() were triggered twice.
+  static Future<String?>? _permissionFlow;
+  static int _permissionRounds = 0;
+
   /// Camera and microphone are runtime permissions on Android 6+; without them Agora cannot
   /// open the devices. Returns a user-facing reason when they are not granted, else null.
-  Future<String?> _ensureMediaPermissions() async {
-    final statuses = await [Permission.camera, Permission.microphone].request();
-    if (statuses.values.every((s) => s.isGranted)) return null;
-    if (statuses.values.any((s) => s.isPermanentlyDenied)) {
-      return 'Camera and microphone access is turned off for Torino. '
-          'Turn both on in Settings › Apps › Torino › Permissions, then join again.';
+  Future<String?> _ensureMediaPermissions() {
+    return _permissionFlow ??= _requestMediaPermissions().whenComplete(() => _permissionFlow = null);
+  }
+
+  Future<String?> _requestMediaPermissions() async {
+    // Ask one permission at a time and stop at the first refusal, so a denial never leads to
+    // a second round of prompts (UAT Round 5 R5-L1).
+    for (final permission in [Permission.camera, Permission.microphone]) {
+      var status = await permission.status;
+      if (status.isGranted) continue;
+      _permissionRounds++;
+      debugPrint('[Permissions] request #$_permissionRounds: $permission (was $status)');
+      status = await permission.request();
+      debugPrint('[Permissions] $permission -> $status');
+      if (status.isGranted) continue;
+      // Android stops showing the dialog after repeated denials; the plugin may still report
+      // plain "denied". No rationale after a refusal means the system will not ask again.
+      final blocked = status.isPermanentlyDenied ||
+          status.isRestricted ||
+          !(await permission.shouldShowRequestRationale);
+      final what = permission == Permission.camera ? 'Camera' : 'Microphone';
+      if (blocked) {
+        _needsSettings = true;
+        return '$what access is turned off for Torino. Turn on Camera and Microphone in '
+            'Settings › Apps › Torino › Permissions, then join again.';
+      }
+      return 'Torino needs camera and microphone access for live sessions. '
+          'Allow both when asked, then join again.';
     }
-    return 'Torino needs camera and microphone access for live sessions. '
-        'Allow both when asked, then join again.';
+    return null;
   }
 
   /// Agora errors that end the call, as a message with the code; null for non-fatal ones.
@@ -409,6 +437,15 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
                         style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 20),
+                      if (_needsSettings)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColor.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () => openAppSettings(),
+                          child: Text('Open Settings', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                        ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text('Go Back', style: GoogleFonts.dmSans(color: AppColor.red)),
