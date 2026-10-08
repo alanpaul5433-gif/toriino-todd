@@ -19,6 +19,7 @@ import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_pre
 import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:toriino_todd/utils/insets.dart';
 
 class Loginview extends StatefulWidget {
   const Loginview({super.key});
@@ -335,11 +336,8 @@ void _showForgotPasswordBottomSheet(
   BuildContext context,
   TextEditingController email,
 ) {
-  // The modal sheet's MediaQuery has no system-bar padding, and the login page's context
-  // sits inside a SafeArea that already consumed it, so read the navigation-bar height from
-  // the window itself (UAT L4: the button sat under the nav bar).
-  final view = View.of(context);
-  final navBarInset = view.viewPadding.bottom / view.devicePixelRatio;
+  // See sheetBottomInset: clears the navigation bar even where Android under-reports it.
+  final navBarInset = sheetBottomInset(context);
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
