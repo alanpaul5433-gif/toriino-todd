@@ -110,7 +110,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                   ],
                 ),
                 const Text(
-                  'Your password must be at least six characters and should include a combination of numbers, letters and special characters (!\$@%)',
+                  'Your password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number and a special character (e.g. !\$@%).',
                   style: TextStyle(fontSize: 16, color: AppColor.white),
                 ),
 

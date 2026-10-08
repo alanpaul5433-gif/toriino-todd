@@ -100,8 +100,11 @@ class MentorSettingView extends StatelessWidget {
                               ),
                               onTap: () {
                                 Navigator.pop(ctx);
+                                // The app has no translations yet: say so instead of pretending the language changed (UAT M4).
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Language set to $lang')),
+                                  SnackBar(content: Text(lang == 'English'
+                                      ? 'The app is in English.'
+                                      : '$lang is not available yet. The app is in English for now.')),
                                 );
                               },
                             ),
