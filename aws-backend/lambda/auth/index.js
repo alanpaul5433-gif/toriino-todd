@@ -4,8 +4,11 @@
  * Sign-up, sign-in, verification and password reset go straight from the app to
  * Cognito, so this Lambda only handles calls made by a signed-in user:
  *
- *   POST /auth/set-role   { role: Student | Teacher | Mentor }
- *                         → Cognito custom:role (lowercase) + role on the users table
+ *   POST /auth/set-role   { role: Student | Teacher }
+ *                         → Cognito custom:role (lowercase) + role on the users table.
+ *                         Only once: allowed while the caller has no role yet (409 after).
+ *                         Mentor and admin roles are never self-assigned (admins use the
+ *                         Admins group; mentors are set by an admin).
  *   POST /auth/logout     global sign-out of the caller's access token (optional)
  *
  * Env: COGNITO_USER_POOL_ID, USERS_TABLE
@@ -41,7 +44,8 @@ function log(level, message, extra = {}) {
   console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
 }
 
-const ROLES = { student: "Student", teacher: "Teacher", mentor: "Mentor" };
+// Roles a user may pick for themselves. Mentor/admin are assigned by an admin only.
+const ROLES = { student: "Student", teacher: "Teacher" };
 
 exports.handler = async (event) => {
   const method = event.httpMethod;
@@ -70,15 +74,19 @@ exports.handler = async (event) => {
 
 async function setRole({ role }, claims) {
   const key = String(role || "").toLowerCase();
-  if (!ROLES[key]) return response(400, { error: "role must be Student, Teacher, or Mentor" });
+  if (key === "admin") return response(403, { error: "The admin role cannot be self-assigned" });
+  if (!ROLES[key]) return response(400, { error: "role must be Student or Teacher" });
   if (!USER_POOL_ID || !USERS_TABLE) return response(503, { error: "Auth service not configured" });
 
   const username = claims["cognito:username"] || claims.sub;
 
-  // Admin accounts are managed by the Admins group; their role is never changed here.
+  // The role is chosen once, right after sign-up. Any existing role (including admin) is final
+  // here; changing it later is an admin action. Cognito custom:role is the source of truth (the
+  // app client cannot write it — see scripts/ensure-cognito-client.mjs).
   const user = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: username }));
   const current = (user.UserAttributes || []).find((a) => a.Name === "custom:role")?.Value;
   if (current === "admin") return response(403, { error: "Admin role cannot be changed" });
+  if (current) return response(409, { error: "Role already set", role: current });
 
   await cognito.send(new AdminUpdateUserAttributesCommand({
     UserPoolId: USER_POOL_ID,

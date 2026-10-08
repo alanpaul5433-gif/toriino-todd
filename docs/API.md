@@ -13,7 +13,7 @@ All endpoints require `Authorization: Bearer <access_token>` except where noted.
 | POST | `/auth/refresh` | Refresh access token |
 | POST | `/auth/forgot-password` | Send reset code |
 | POST | `/auth/reset-password` | Confirm new password |
-| POST | `/auth/set-role` | Set student/teacher/mentor role |
+| POST | `/auth/set-role` | Set the caller's role once, while it is empty: `student` or `teacher` (409 if already set, 403 for admin, 400 otherwise). Mentor/admin roles are assigned by an admin |
 | POST | `/auth/logout` | Invalidate refresh token |
 
 ## Users
