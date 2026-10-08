@@ -66,6 +66,7 @@ dependencies:
   # 6.3.25 is the newest release on androidx.core 1.13.1 / androidx.browser 1.8.0.
   # Unpin when AGP is upgraded to 8.9.1+.
   url_launcher_android: 6.3.25
+  permission_handler: 12.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

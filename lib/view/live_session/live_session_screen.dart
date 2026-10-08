@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:toriino_todd/repository/session_repo.dart';
 import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
@@ -62,7 +63,11 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
       subjectArea: widget.subjectArea,
     );
     if (widget.isMentor) {
-      _showConsentDialog();
+      // showDialog needs a mounted context with inherited widgets, which initState does not
+      // have yet: calling it here threw, so the host's session never started (UAT H6).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showConsentDialog();
+      });
     } else {
       _start();
     }
@@ -95,15 +100,56 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
         ],
       ),
     );
+    if (!mounted) return;
     setState(() => _recordingEnabled = consent ?? false);
     _start();
   }
 
+  /// Camera and microphone are runtime permissions on Android 6+; without them Agora cannot
+  /// open the devices. Returns a user-facing reason when they are not granted, else null.
+  Future<String?> _ensureMediaPermissions() async {
+    final statuses = await [Permission.camera, Permission.microphone].request();
+    if (statuses.values.every((s) => s.isGranted)) return null;
+    if (statuses.values.any((s) => s.isPermanentlyDenied)) {
+      return 'Camera and microphone access is turned off for Torino. '
+          'Turn both on in Settings › Apps › Torino › Permissions, then join again.';
+    }
+    return 'Torino needs camera and microphone access for live sessions. '
+        'Allow both when asked, then join again.';
+  }
+
+  /// Agora errors that end the call, as a message with the code; null for non-fatal ones.
+  static String? _fatalAgoraError(ErrorCodeType code, String msg) {
+    final detail = msg.isEmpty ? '' : ' ($msg)';
+    switch (code) {
+      case ErrorCodeType.errInvalidToken:
+        return 'Could not join: the session token was rejected (Agora error 110)$detail.';
+      case ErrorCodeType.errTokenExpired:
+        return 'Could not join: the session token has expired (Agora error 109). Please rejoin.';
+      case ErrorCodeType.errInvalidAppId:
+        return 'Video calls are not configured correctly (Agora error 101: invalid App ID).';
+      case ErrorCodeType.errInvalidChannelName:
+        return 'Could not join: invalid session channel (Agora error 102).';
+      case ErrorCodeType.errJoinChannelRejected:
+        return 'Could not join the session (Agora error 17: join rejected).';
+      default:
+        debugPrint('[Agora] non-fatal error ${code.value()}: $msg');
+        return null;
+    }
+  }
+
   Future<void> _start() async {
     try {
+      final denied = await _ensureMediaPermissions();
+      if (denied != null) {
+        if (mounted) setState(() { _loading = false; _error = denied; });
+        return;
+      }
+
+      // A session is a two-way call: both sides publish camera and microphone.
       final data = await _repo.fetchAgoraToken(
         widget.sessionId,
-        role: widget.isMentor ? 'publisher' : 'subscriber',
+        role: 'publisher',
       );
       final token = data['token'] as String?;
       if (token == null || token.isEmpty) {
@@ -121,7 +167,8 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
           if (mounted) setState(() => _remoteUid = null);
         },
         onError: (code, msg) {
-          if (mounted) setState(() => _error = 'Agora error: $msg');
+          final fatal = _fatalAgoraError(code, msg);
+          if (fatal != null && mounted) setState(() { _loading = false; _error = fatal; });
         },
         onChatMessage: _onRemoteChat,
       );
@@ -130,7 +177,7 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
         token: token,
         channelName: widget.sessionId,
         uid: 0,
-        isBroadcaster: widget.isMentor,
+        isBroadcaster: true,
       );
 
       if (mounted) {
@@ -151,7 +198,8 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() { _loading = false; _error = e.toString(); });
+      final reason = e.toString().replaceFirst(RegExp(r'^Exception: '), '');
+      if (mounted) setState(() { _loading = false; _error = 'Could not start the session: $reason'; });
     }
   }
 
