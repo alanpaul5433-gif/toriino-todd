@@ -7,7 +7,6 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/view/auth/otp_verification_view.dart';
-import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 import 'package:toriino_todd/widgets/radio_button.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -82,7 +81,7 @@ class _SginupviewState extends State<Sginupview> {
 
     if (result['success'] == true) {
       Utils.toastMassage("Account created! Please verify your email.");
-      AnalyticsService.logSignUp(role: 'Student');
+      // sign_up is logged on the role screen, once the real role is known.
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -91,6 +90,7 @@ class _SginupviewState extends State<Sginupview> {
             email: emailController.text.trim(),
             name: nameController.text.trim(),
             role: 'Student',
+            password: passwordController.text.trim(),
           ),
         ),
       );

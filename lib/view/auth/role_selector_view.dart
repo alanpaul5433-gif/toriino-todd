@@ -2,10 +2,10 @@
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
@@ -38,6 +38,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       return;
     }
 
+    AnalyticsService.logSignUp(role: selectedRole!);
     await UsersPrefrence().saveUserRole(selectedRole!);
     if (!mounted) return;
     setState(() => _saving = false);
@@ -49,11 +50,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => MainWrapper()),
-      );
-    } else if (selectedRole == "Mentor") {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => MentorBottomNavBar()),
       );
     } else {
       Navigator.pushReplacement(
@@ -107,17 +103,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 20),
-                    RoleSelectionCard(
-                      svgImage: "assets/icons/mentoring.svg",
-                      title: "I’m a Mentor",
-                      isSelected: selectedRole == "Mentor",
-                      onTap: () {
-                        setState(() {
-                          selectedRole = "Mentor";
-                        });
-                      },
-                    ),
+                    // Mentor is not self-selectable: POST /auth/set-role accepts only
+                    // student or teacher; mentor accounts are set up by an admin.
                     const SizedBox(height: 20),
 
                     // Promoter option

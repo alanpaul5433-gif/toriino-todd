@@ -5,6 +5,7 @@ import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/widgets/auth_button.dart';
 
@@ -13,11 +14,16 @@ class OtpVerificationView extends StatefulWidget {
   final String name;
   final String role;
 
+  /// The password just used to sign up. Kept in memory only, so the user can be signed in
+  /// right after the code is confirmed (set-role needs a signed-in session).
+  final String? password;
+
   const OtpVerificationView({
     super.key,
     required this.email,
     required this.name,
     required this.role,
+    this.password,
   });
 
   @override
@@ -44,6 +50,7 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
   String get _otpCode => _controllers.map((c) => c.text).join();
 
   Future<void> _verifyOtp() async {
+    if (_loading) return; // auto-submit on the 6th digit and the Verify button can race
     if (_otpCode.length < 6) {
       Utils.toastMassage("Please enter the 6-digit code");
       return;
@@ -53,17 +60,32 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
       email: widget.email,
       code: _otpCode,
     );
-    setState(() => _loading = false);
 
-    if (result['success'] == true) {
-      Utils.toastMassage("Email verified successfully!");
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-      );
-    } else {
+    if (result['success'] != true) {
+      if (mounted) setState(() => _loading = false);
       Utils.toastMassage(result['message'] ?? "Verification failed");
+    } else {
+      // Confirming the code does not sign the user in. Sign in now so the role screen has
+      // tokens for POST /auth/set-role; otherwise send the user to login with a clear message.
+      final password = widget.password;
+      final signIn = password == null || password.isEmpty
+          ? const <String, dynamic>{'success': false}
+          : await AuthService.signIn(email: widget.email, password: password);
+      if (!mounted) return;
+      if (signIn['success'] == true) {
+        Utils.toastMassage("Email verified successfully!");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+        );
+      } else {
+        Utils.toastMassage("Email verified. Please log in to choose your role.");
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => Loginview()),
+          (_) => false,
+        );
+      }
     }
   }
 

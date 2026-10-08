@@ -154,9 +154,14 @@ class AuthService {
         await refreshSession();
         return {'success': true};
       }
+      // Show the server's reason (e.g. 409 "Role already set", 400 "role must be Student or Teacher").
+      String? serverMessage;
+      try {
+        serverMessage = (jsonDecode(response.body) as Map<String, dynamic>)['error'] as String?;
+      } catch (_) {}
       return {
         'success': false,
-        'message': 'Role update failed: ${response.statusCode}',
+        'message': serverMessage ?? 'Role update failed (${response.statusCode})',
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
