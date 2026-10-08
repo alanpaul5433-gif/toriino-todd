@@ -5,7 +5,10 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import Stripe from "stripe";
 import crypto from "crypto";
 import https from "https";
+import agoraToken from "agora-token";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+
+const { RtcTokenBuilder, RtcRole } = agoraToken;
 
 // Secrets come from SSM SecureStrings under SSM_PREFIX (cached 5 min); the
 // placeholder NOT_SET means "not configured" → HTTP 503. No secret env copies.
@@ -368,9 +371,12 @@ export const handler = async (event) => {
         if (!appId || !appCert) return res(503, { message: "Agora not configured" });
         const { channelName, uid = 0, role = "publisher" } = body;
         if (!channelName) return res(400, { message: "channelName required" });
-        const expireTs = Math.floor(Date.now() / 1000) + 3600;
-        const token = generateAgoraToken(appId, appCert, channelName, uid, role === "publisher" ? 1 : 2, expireTs);
-        return res(200, { token, expireTs });
+        // Official Agora AccessToken2 ("007") builder. The previous hand-written generator put the
+        // legacy 006 layout behind a 007 prefix, which Agora rejects with error 110 (invalid token).
+        const ttl = 3600;
+        const token = RtcTokenBuilder.buildTokenWithUid(appId, appCert, String(channelName), Number(uid) || 0,
+          role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER, ttl, ttl);
+        return res(200, { token, expireTs: Math.floor(Date.now() / 1000) + ttl });
       }
 
       // GET /sessions/{sessionId}
@@ -848,66 +854,3 @@ Respond with this exact JSON structure:
     return res(500, { message: "Internal server error", error: error.message });
   }
 };
-
-// â"€â"€ Agora RTC Token Generator (v3 algorithm) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-function generateAgoraToken(appId, appCertificate, channelName, uid, role, privilegeExpiredTs) {
-  const VERSION = "007";
-
-  const uidStr = uid === 0 ? "" : String(uid);
-  const salt = Math.floor(Math.random() * 0xFFFFFFFF);
-  const ts = Math.floor(Date.now() / 1000) + 24 * 3600;
-
-  const PRIVILEGE_JOIN_CHANNEL = 1;
-  const PRIVILEGE_PUBLISH_AUDIO = 2;
-  const PRIVILEGE_PUBLISH_VIDEO = 3;
-  const PRIVILEGE_PUBLISH_DATA = 4;
-
-  const privileges = { [PRIVILEGE_JOIN_CHANNEL]: privilegeExpiredTs };
-  if (role === 1) {
-    privileges[PRIVILEGE_PUBLISH_AUDIO] = privilegeExpiredTs;
-    privileges[PRIVILEGE_PUBLISH_VIDEO] = privilegeExpiredTs;
-    privileges[PRIVILEGE_PUBLISH_DATA] = privilegeExpiredTs;
-  }
-
-  const saltBuf = Buffer.alloc(4); saltBuf.writeUInt32LE(salt);
-  const tsBuf = Buffer.alloc(4); tsBuf.writeUInt32LE(ts);
-
-  const privEntries = Object.entries(privileges).sort(([a], [b]) => Number(a) - Number(b));
-  const privCount = Buffer.alloc(2); privCount.writeUInt16LE(privEntries.length);
-  const privBufs = privEntries.map(([k, v]) => {
-    const kb = Buffer.alloc(2); kb.writeUInt16LE(Number(k));
-    const vb = Buffer.alloc(4); vb.writeUInt32LE(v);
-    return Buffer.concat([kb, vb]);
-  });
-
-  const contentBuf = Buffer.concat([saltBuf, tsBuf, privCount, ...privBufs]);
-
-  const signStr = Buffer.concat([
-    Buffer.from(appId),
-    Buffer.from(channelName),
-    Buffer.from(uidStr),
-    contentBuf,
-  ]);
-
-  const sig = crypto.createHmac("sha256", Buffer.from(appCertificate)).update(signStr).digest();
-  const sigLen = Buffer.alloc(2); sigLen.writeUInt16LE(sig.length);
-
-  const crcChanBuf = Buffer.alloc(4); crcChanBuf.writeUInt32LE(crc32(Buffer.from(channelName)));
-  const crcUidBuf = Buffer.alloc(4); crcUidBuf.writeUInt32LE(crc32(Buffer.from(uidStr)));
-  const msgLen = Buffer.alloc(2); msgLen.writeUInt16LE(contentBuf.length);
-
-  const packed = Buffer.concat([sigLen, sig, crcChanBuf, crcUidBuf, msgLen, contentBuf]);
-  return VERSION + appId + Buffer.from(packed).toString("base64");
-}
-
-function crc32(buf) {
-  let crc = 0xFFFFFFFF;
-  for (const byte of buf) {
-    crc ^= byte;
-    for (let i = 0; i < 8; i++) {
-      crc = (crc & 1) ? (crc >>> 1) ^ 0xEDB88320 : crc >>> 1;
-    }
-  }
-  return (crc ^ 0xFFFFFFFF) >>> 0;
-}
-
