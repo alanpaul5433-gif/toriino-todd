@@ -68,15 +68,14 @@ void main() {
       expect(button.onPressed, isNotNull);
     });
 
-    // Mentor is not self-selectable (set-role accepts student/teacher; admins set mentors).
-    testWidgets('Student and Teacher cards are visible; no Mentor card', (tester) async {
+    testWidgets('All 3 role cards are visible', (tester) async {
       await tester.pumpWidget(
         GetMaterialApp(home: const RoleSelectionScreen()),
       );
       await tester.pump();
       expect(find.text("I’m a Student", skipOffstage: false), findsOneWidget);
       expect(find.text("I’m a Teacher", skipOffstage: false), findsOneWidget);
-      expect(find.text("I’m a Mentor", skipOffstage: false), findsNothing);
+      expect(find.text("I’m a Mentor", skipOffstage: false), findsOneWidget);
     });
   });
 
