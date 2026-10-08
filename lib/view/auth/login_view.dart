@@ -335,9 +335,11 @@ void _showForgotPasswordBottomSheet(
   BuildContext context,
   TextEditingController email,
 ) {
-  // Inside a modal sheet MediaQuery reports no system-bar padding, so read the navigation
-  // bar height from the page that opens it (UAT L4: the button sat under the nav bar).
-  final navBarInset = MediaQuery.of(context).viewPadding.bottom;
+  // The modal sheet's MediaQuery has no system-bar padding, and the login page's context
+  // sits inside a SafeArea that already consumed it, so read the navigation-bar height from
+  // the window itself (UAT L4: the button sat under the nav bar).
+  final view = View.of(context);
+  final navBarInset = view.viewPadding.bottom / view.devicePixelRatio;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
