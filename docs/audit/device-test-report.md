@@ -819,3 +819,98 @@ The GATE-01 secret scan was clean on both APKs.
   - **published** free course "UAT Round5 Free Course" (`crs_b00ac577…`), with lesson `les_ee870c9a…` and its S3 object; visible in the live catalog, **delete before beta**
   - Round 4b's `+torinoteacher1` account is still present
 - **Device state:** test video removed; camera and mic revoked; app on the login screen.
+
+---
+
+## UAT Round 6 — Final polish before internal beta (2026-10-09)
+
+**Branch:** `fix/remediation-v1`, one commit per fix (`82f2231` … `c1c3ed6`). Staging was by explicit path; the secret grep was clean before every push; no Gradle, env or key files were committed.
+**Device:** Samsung SM-A075F (R8VL2015Y6J), Android 16. Logins and sign-up were run by the owner with the helper scripts. Evidence is in [`evidence/uat6/`](evidence/uat6/).
+
+**Builds:**
+- **Debug:** one arm64 build (`flutter build apk --debug --target-platform android-arm64`), installed for the retests. GATE-01 scan clean.
+- **Release:** one arm64 build (`flutter build apk --release --target-platform android-arm64`, 236.5 MB, about 22 minutes), signed with the local release key and not uploaded. It also contained the two fixes made during the retest (`6c295dc`, `c1c3ed6`), so it was used to verify them. GATE-01 scan clean: dex, native libraries, assets and `resources.arsc` (`res/` was skipped because its file names clash by case on Windows).
+- **Afterwards:** the release build was uninstalled and its APK deleted. The debug build was reinstalled; it predates `6c295dc` and `c1c3ed6`.
+
+**Disk:** free space fell to 4.6 GB before the debug build. The owner-approved clean-up removed the unused emulator AVD (`%USERPROFILE%\.android\avd`, 5.3 GB; there was no system image) and user Temp (this session's scratch folder kept). The Gradle caches were left alone. It stayed at 8 GB or more during both builds (the 2 GB stop floor was never reached) and ended at 13 GB.
+
+**Verifier:** the checker updated `scripts/verify-backend.mjs` in `4c3aed0`:
+- #16 now decodes real AccessToken2 tokens
+- #2 tests set-role once-only, admin 403 and that `custom:role` isn't client-writable
+- #23 rejects bank fields
+
+Result: **exit 0, 20 WORKS · 0 BROKEN · 8 BLOCKED**. One run showed #28 BROKEN ("PREMIUM_FEATURES missing"); the SSM value is `[]`, and the rerun passed. This is the same intermittent AWS CLI read as in Round 5.
+
+### Fixes and device results
+
+| Item | Fix | Commit | Result | Evidence |
+|---|---|---|---|---|
+| R5-L1: permission prompts twice on first denial | Request camera then microphone one at a time; skip granted ones; stop at the first refusal; overlapping calls share one flow; each round logged as `[Permissions] request #n` | `82f2231` | **PASS.** First denial: exactly 1 prompt and 1 logged request | `32_*` |
+| R5-L2: permanently denied gave the generic message | No rationale after a refusal, or `permanentlyDenied`, now shows "…turned off… Settings › Apps › Torino › Permissions" with an **Open Settings** button (`openAppSettings`) | `82f2231` | **PASS.** Second denial → `permanentlyDenied` → Settings message; Open Settings opened Android's app-info page for Torino | `33_*`, `34_*` |
+| R5-L3: teacher home stats stale after publishing | Re-fetch My Courses and home courses once the course exists | `974ec02` | Code fix; not re-run on the device (it would need another published course). Low risk: same fetch method as the screen's own load | — |
+| "Recommended Teachers" showed a mentor | Teachers come from course owners in the catalog (`CourseTeacher.fromCourses`, unit-tested); used by home and Browse Teachers | `f6c55e1` | **PASS.** Home shows David Osei (Data Science, 2 courses) → Teacher Profile; Browse Teachers lists David Osei, Priya Nair, Dr. Mei Lin, Raj Patel | `20–22_*` |
+| L6: enrolled course still "Enroll"; stale home stats; enroll button under the nav bar | Catalog shows **Open** for enrolled courses; enrolling refreshes the home and catalog enrolled lists; enroll sheet uses the nav-bar gap | `e1b8f5f`, `8408a25`, `c1c3ed6` | **PASS** (release build): after enrolling, the card says Open; home "Courses in Progress" went 00 → 01; "Enroll for Free" clears the nav bar | `51_*`, `54_*`, `55_*` |
+| L7: "Start Learning" did nothing | Opens the enrolled course | `8408a25` | **PASS** (release build): opened "UAT Round5 Free Course" with its lesson | `52_*`, `53_*` |
+| L8: AI Tutor's generic error | 503 → "not available yet: not set up on the server"; 402 → "part of Premium" | `d42295f` | **PASS.** "The AI Tutor is not available yet: it has not been set up on the server." | `30_*` |
+| L10: booking toast easy to miss | Errors shown inline in red above the button | `2d735a0` | **PASS.** "Please choose a date and a start time" | `31_*` |
+| L10: white avatar circles | Catalog teacher avatar is a grey placeholder (was white on white) | `79a4050` | **PASS** | `23_*` |
+| L10 (found in the Round 4 screenshot): catalog titles overflowed | Titles wrap to 2 lines with an ellipsis | `79a4050` | **PASS.** No overflow stripes | `23_*` |
+| L10: Withdraw sometimes needed a second tap | Button no longer rebuilt inside `Obx`; balance read on tap; opaque 40 dp hit area | `1fd6767` | **PASS** (mentor): sheet opened on the first tap | `13_*` |
+| **New (found in this retest):** Courses tab only loaded the first page; search box did nothing | Load the next page (`lastKey`) near the end of the list; search filters loaded courses by title, teacher, category or level | `6c295dc` | **PASS** (release build): "UAT" found both UAT courses, including one beyond the first page | `25_*`, `50_*` |
+| **L4:** reset button under the navigation bar | Bottom sheets use `sheetBottomInset()`: the larger of the window inset and 32 dp. This Samsung reports a 28 px inset (nav-bar frame y=1572) but draws the buttons about 90 px tall | `c1c3ed6` (after `3d662e0`, `1a02e68`) | **PASS** (release build); still FAIL on the debug build without this fix | `01_*` (debug), `41_*` (release) |
+| Sign-up script couldn't find the code boxes | `nodes()` no longer parses a stale dump left by a failed `uiautomator dump`; the code step retries, falls back to a position under "We sent a 6-digit code", and types into the focused box | `506cd83` | **PASS.** The `+torinoteacher3` sign-up got through verification with no manual entry | `10_*` |
+
+### Fresh sign-up as MENTOR (owner's Gmail plus-address `+torinoteacher3`)
+
+| Step | Result | Evidence |
+|---|---|---|
+| Sign-up → code → automatic sign-in → role screen offers Student, Mentor, Teacher | PASS | `10_*` |
+| Choose Mentor → Continue | PASS: Cognito `custom:role=mentor`, `CONFIRMED`; mentor home "Hi UAT Teacher 1a17 — Mentor" | `11_*` |
+| Force-stop → restart | PASS: still on mentor home | `12_*` |
+
+### Release build smoke test (assertions off)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Install (not debuggable), launch → login screen | PASS | `40_*` |
+| Teacher login (`uat-login teacher`) → teacher home with real data | PASS | `42_*` |
+| Create course → Add Lesson dialog: open, Cancel, open, Add (Link lesson) | PASS: no crash; lesson listed. Nothing was published | `43_*`, `44_*` |
+| Student checks (L6, L7, paging/search, L4) | PASS (see above) | `41_*`, `50–55_*` |
+
+### Audit gates (after Round 6)
+
+| Gate | Verdict |
+|---|---|
+| GATE-01 No secrets in the APK | **PASS** (debug and release APKs scanned) |
+| GATE-02 Session survives restart | **PASS** (new mentor) |
+| GATE-03 New user reaches their home after sign-up | **PASS** (Round 5 teacher, Round 6 mentor) |
+| GATE-04 APK builds | **PASS**: debug and **release** both build and run |
+| GATE-05 Uploads authenticated; private media not public | **PASS** (Round 5 evidence; unchanged) |
+| GATE-06 No plaintext bank data | **PASS** (verifier #23 now checks it too) |
+
+### Data and device state
+
+- **New test data:**
+  - Cognito mentor `+torinoteacher3` ("UAT Teacher 1a17")
+  - the test student is enrolled in "UAT Round5 Free Course"
+- **Not saved:** the release smoke course (abandoned before Publish).
+- **Delete before beta:**
+  - accounts `+torinoteacher1`, `+torinoteacher2`, `+torinoteacher3`
+  - "UAT Round5 Free Course" (with its lesson and S3 object) and the student's enrolment in it
+  - "UAT Test Course" ($29, "UAT Teacher"), which appeared in the catalog and was not created in these rounds
+  - the five blank catalog courses (M6)
+- **Phone:** the debug build (before `6c295dc`/`c1c3ed6`) is installed and logged out. The release APK is removed from the phone and disk; no test video is on the phone.
+
+### Still open
+
+- **BLOCKED (client content):**
+  - support email (`SUPPORT_EMAIL`)
+  - Terms & Privacy links (M2)
+  - Privacy Policy text (M5)
+- **BLOCKED (third parties):**
+  - Stripe, Gemini, Agora recording, Firebase push
+  - a two-device Agora call (one device)
+  - admin web panel flows (need a human login)
+- **Open:**
+  - M6 data clean-up (needs owner approval)
+  - R5-L3 to confirm on the device the next time a course is published
