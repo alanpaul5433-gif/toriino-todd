@@ -81,204 +81,16 @@ class _AddLessonViewState extends State<AddLessonView> {
   // ── Add Lesson dialog ────────────────────────────────────────────────────
 
   Future<void> _addLesson() async {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    final durationCtrl = TextEditingController();
-    final linkCtrl = TextEditingController();
-    String selectedType = 'Video';
-    String? pickedFileName;
-    int? pickedFileSize;
-    Uint8List? pickedBytes;
-
-    final confirmed = await showDialog<bool>(
+    // The dialog owns its text controllers and disposes them in its own dispose(), i.e. only
+    // after the closing animation. Disposing them here as soon as showDialog returned hit the
+    // '_dependents.isEmpty' assertion on every Add/Cancel/Back (UAT Round 4b H4).
+    final entry = await showDialog<_LessonEntry>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return AlertDialog(
-            backgroundColor: AppColor.primaryColor,
-            title: Text('Add Lesson',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  _dialogField(titleCtrl, 'Lesson Title'),
-                  const SizedBox(height: 10),
-                  // Description
-                  _dialogField(descCtrl, 'Description (optional)'),
-                  const SizedBox(height: 10),
-                  // Duration
-                  _dialogField(durationCtrl, 'Duration in minutes (optional)',
-                      type: TextInputType.number),
-                  const SizedBox(height: 14),
-
-                  // Material type selector
-                  Text('Material Type',
-                      style: GoogleFonts.dmSans(
-                          color: Colors.white70, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    children: _kMaterialTypes.map((t) {
-                      final active = selectedType == t;
-                      return GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => selectedType = t),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: active
-                                ? AppColor.red
-                                : AppColor.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: active ? AppColor.red : Colors.white24,
-                            ),
-                          ),
-                          child: Text(t,
-                              style: GoogleFonts.dmSans(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: active
-                                      ? FontWeight.w700
-                                      : FontWeight.w400)),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Conditional content by material type
-                  if (selectedType == 'Video' || selectedType == 'PDF') ...[
-                    GestureDetector(
-                      onTap: () async {
-                        final type = selectedType == 'Video'
-                            ? FileType.video
-                            : FileType.custom;
-                        final result =
-                            await FilePicker.platform.pickFiles(
-                          type: type,
-                          allowedExtensions:
-                              selectedType == 'PDF' ? ['pdf'] : null,
-                          withData: true,
-                        );
-                        if (result != null && result.files.isNotEmpty) {
-                          final file = result.files.first;
-                          setDialogState(() {
-                            pickedFileName = file.name;
-                            pickedFileSize = file.size;
-                            pickedBytes = file.bytes;
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColor.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              selectedType == 'Video'
-                                  ? Icons.video_file_outlined
-                                  : Icons.picture_as_pdf_outlined,
-                              color: AppColor.red,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                pickedFileName ??
-                                    'Tap to select $selectedType file',
-                                style: GoogleFonts.dmSans(
-                                    color: pickedFileName != null
-                                        ? Colors.white
-                                        : Colors.white54,
-                                    fontSize: 12),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (pickedFileSize != null)
-                              Text(
-                                _formatSize(pickedFileSize!),
-                                style: GoogleFonts.dmSans(
-                                    color: Colors.white54, fontSize: 11),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ] else if (selectedType == 'Link') ...[
-                    _dialogField(linkCtrl, 'https://...'),
-                  ] else if (selectedType == 'Quiz') ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColor.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Text(
-                        'Quiz questions will be added after publishing.',
-                        style: GoogleFonts.dmSans(
-                            color: Colors.white60, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text('Cancel',
-                    style: TextStyle(color: Colors.white54)),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (titleCtrl.text.trim().isEmpty) return;
-                  Navigator.pop(ctx, true);
-                },
-                child: Text('Add', style: TextStyle(color: AppColor.red)),
-              ),
-            ],
-          );
-        },
-      ),
+      builder: (_) => _AddLessonDialog(order: _lessons.length),
     );
-
-    if (confirmed == true && titleCtrl.text.trim().isNotEmpty) {
-      setState(() {
-        _lessons.add(_LessonEntry(
-          title: titleCtrl.text.trim(),
-          description: descCtrl.text.trim(),
-          duration: durationCtrl.text.trim(),
-          order: _lessons.length,
-          materialType: selectedType,
-          fileBytes: pickedBytes,
-          fileName: pickedFileName,
-          fileSize: pickedFileSize,
-          linkUrl: linkCtrl.text.trim().isEmpty ? null : linkCtrl.text.trim(),
-        ));
-      });
-    }
-
-    titleCtrl.dispose();
-    descCtrl.dispose();
-    durationCtrl.dispose();
-    linkCtrl.dispose();
+    if (entry != null && mounted) setState(() => _lessons.add(entry));
   }
-
-  // ── Publish flow ─────────────────────────────────────────────────────────
 
   Future<void> _publishCourse() async {
     if (_lessons.isEmpty) {
@@ -669,30 +481,6 @@ class _AddLessonViewState extends State<AddLessonView> {
     );
   }
 
-  Widget _dialogField(
-    TextEditingController ctrl,
-    String hint, {
-    TextInputType type = TextInputType.text,
-  }) {
-    return TextField(
-      controller: ctrl,
-      style: const TextStyle(color: Colors.white),
-      keyboardType: type,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColor.red)),
-      ),
-    );
-  }
-
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
   /// Video MIME type accepted by the upload backend, or null if unsupported.
   String? _videoContentType(String fileName) {
     final type = S3Service.contentTypeFor(fileName);
@@ -773,4 +561,240 @@ void _courseCompleteAlert(BuildContext context) {
       );
     },
   );
+}
+
+// ── Add Lesson dialog ───────────────────────────────────────────────────────
+
+class _AddLessonDialog extends StatefulWidget {
+  final int order;
+  const _AddLessonDialog({required this.order});
+
+  @override
+  State<_AddLessonDialog> createState() => _AddLessonDialogState();
+}
+
+class _AddLessonDialogState extends State<_AddLessonDialog> {
+  final titleCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  final durationCtrl = TextEditingController();
+  final linkCtrl = TextEditingController();
+  String selectedType = 'Video';
+  String? pickedFileName;
+  int? pickedFileSize;
+  Uint8List? pickedBytes;
+
+  @override
+  void dispose() {
+    titleCtrl.dispose();
+    descCtrl.dispose();
+    durationCtrl.dispose();
+    linkCtrl.dispose();
+    super.dispose();
+  }
+
+  /// The lesson to add, or null (dialog stays open) while the title is empty.
+  _LessonEntry? _entry() {
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty) return null;
+    final link = linkCtrl.text.trim();
+    return _LessonEntry(
+      title: title,
+      description: descCtrl.text.trim(),
+      duration: durationCtrl.text.trim(),
+      order: widget.order,
+      materialType: selectedType,
+      fileBytes: pickedBytes,
+      fileName: pickedFileName,
+      fileSize: pickedFileSize,
+      linkUrl: link.isEmpty ? null : link,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColor.primaryColor,
+      title: Text('Add Lesson',
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title
+            _lessonDialogField(titleCtrl, 'Lesson Title'),
+            const SizedBox(height: 10),
+            // Description
+            _lessonDialogField(descCtrl, 'Description (optional)'),
+            const SizedBox(height: 10),
+            // Duration
+            _lessonDialogField(durationCtrl, 'Duration in minutes (optional)',
+                type: TextInputType.number),
+            const SizedBox(height: 14),
+
+            // Material type selector
+            Text('Material Type',
+                style: GoogleFonts.dmSans(
+                    color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: _kMaterialTypes.map((t) {
+                final active = selectedType == t;
+                return GestureDetector(
+                  onTap: () =>
+                      setState(() => selectedType = t),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColor.red
+                          : AppColor.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: active ? AppColor.red : Colors.white24,
+                      ),
+                    ),
+                    child: Text(t,
+                        style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: active
+                                ? FontWeight.w700
+                                : FontWeight.w400)),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+
+            // Conditional content by material type
+            if (selectedType == 'Video' || selectedType == 'PDF') ...[
+              GestureDetector(
+                onTap: () async {
+                  final type = selectedType == 'Video'
+                      ? FileType.video
+                      : FileType.custom;
+                  final result =
+                      await FilePicker.platform.pickFiles(
+                    type: type,
+                    allowedExtensions:
+                        selectedType == 'PDF' ? ['pdf'] : null,
+                    withData: true,
+                  );
+                  if (result != null && result.files.isNotEmpty) {
+                    final file = result.files.first;
+                    setState(() {
+                      pickedFileName = file.name;
+                      pickedFileSize = file.size;
+                      pickedBytes = file.bytes;
+                    });
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColor.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selectedType == 'Video'
+                            ? Icons.video_file_outlined
+                            : Icons.picture_as_pdf_outlined,
+                        color: AppColor.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          pickedFileName ??
+                              'Tap to select $selectedType file',
+                          style: GoogleFonts.dmSans(
+                              color: pickedFileName != null
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (pickedFileSize != null)
+                        Text(
+                          _formatBytes(pickedFileSize!),
+                          style: GoogleFonts.dmSans(
+                              color: Colors.white54, fontSize: 11),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else if (selectedType == 'Link') ...[
+              _lessonDialogField(linkCtrl, 'https://...'),
+            ] else if (selectedType == 'Quiz') ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColor.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Text(
+                  'Quiz questions will be added after publishing.',
+                  style: GoogleFonts.dmSans(
+                      color: Colors.white60, fontSize: 12),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel',
+              style: TextStyle(color: Colors.white54)),
+        ),
+        TextButton(
+          onPressed: () {
+            if (titleCtrl.text.trim().isEmpty) {
+              Utils.toastMassage('Please enter a lesson title');
+              return;
+            }
+            Navigator.pop(context, _entry());
+          },
+          child: Text('Add', style: TextStyle(color: AppColor.red)),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _lessonDialogField(
+  TextEditingController ctrl,
+  String hint, {
+  TextInputType type = TextInputType.text,
+}) {
+  return TextField(
+    controller: ctrl,
+    style: const TextStyle(color: Colors.white),
+    keyboardType: type,
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white54),
+      enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColor.red)),
+    ),
+  );
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
