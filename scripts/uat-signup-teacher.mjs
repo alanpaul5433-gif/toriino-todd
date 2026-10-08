@@ -2,6 +2,8 @@
 //
 //   node scripts/uat-signup-teacher.mjs --email you+tag@example.com   (your own inbox)
 //   node scripts/uat-signup-teacher.mjs                               (temporary mail.tm inbox)
+//   node scripts/uat-signup-teacher.mjs --resume                      (app already on Verify Your Email:
+//                                                                       re-enter a code and verify)
 //
 // Steps: generate a strong random password → save email + password to .env.test as
 // UAT_NEW_TEACHER_EMAIL / UAT_NEW_TEACHER_PASSWORD → fill the app's sign-up form and submit →
@@ -14,7 +16,7 @@
 
 import crypto from 'crypto';
 import {
-  connect, run, ask, adb, launchToLogin, tapLabel, waitFor, editTexts, typeInto, hideKeyboard, tapXY,
+  connect, run, ask, adb, findOnScreen, launchToLogin, tapLabel, waitFor, editTexts, typeInto, hideKeyboard, tapXY,
   labels, nodes, writeEnvKeys, fail, sleep,
 } from './lib/uat-device.mjs';
 
@@ -28,7 +30,8 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--email') out.email = argv[++i];
     else if (a.startsWith('--email=')) out.email = a.slice('--email='.length);
-    else fail(`unknown argument "${a}". Usage: node scripts/uat-signup-teacher.mjs [--email <address>]`);
+    else if (a === '--resume') out.resume = true;
+    else fail(`unknown argument "${a}". Usage: node scripts/uat-signup-teacher.mjs [--email <address>] [--resume]`);
   }
   if ('email' in out && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.email || '')) fail('--email needs a valid address');
   return out;
@@ -88,12 +91,61 @@ async function codeFromTerminal() {
   }
 }
 
+const ROLE_SCREEN = /What describes you best|I.m a Teacher|Choose your role|Select.*role/i;
+const VERIFY_SCREEN = /Verify Your Email/i;
+const VERIFY_BUTTON = /verify/i; // case-insensitive, partial, text or content-desc
+
+// Types the code into the six boxes. The app submits by itself once the 6th digit is in
+// (otp_verification_view.dart: `if (i == 5 && val.isNotEmpty) _verifyOtp()`), so the Verify
+// button is only tapped if the app is still on the verification screen afterwards.
+async function enterCodeAndVerify(code) {
+  const boxes = editTexts().sort((a, b) => a.x - b.x).slice(0, 6);
+  if (boxes.length < 6) fail(`expected 6 code boxes, found ${boxes.length}`);
+  for (let i = 0; i < 6; i++) {
+    tapXY(boxes[i].x, boxes[i].y);
+    await sleep(250);
+    adb(['shell', 'input', 'text', code[i]]);
+    await sleep(300);
+  }
+  console.log('code typed — waiting for the app to verify it…');
+
+  if (!(await waitFor(ROLE_SCREEN, 12))) {
+    if (!(await waitFor(VERIFY_SCREEN, 1))) {
+      fail(`neither the role screen nor the verification screen is showing. App says: ${labels().slice(-3).join(' / ').slice(0, 200)}`);
+    }
+    // the button, not the "Verify Your Email" heading
+    const btn = await findOnScreen((n) => VERIFY_BUTTON.test(n.label) && !VERIFY_SCREEN.test(n.label), { scrolls: 3 });
+    if (!btn) fail(`still on the verification screen and no Verify button found. App says: ${labels().join(' / ').slice(0, 300)}`);
+    tapXY(btn.x, btn.y);
+    console.log(`tapped "${btn.label}" — waiting for the role screen…`);
+    if (!(await waitFor(ROLE_SCREEN, 30))) {
+      fail(`did not reach the role screen (wrong or expired code?). App says: ${labels().join(' / ').slice(0, 300)}`);
+    }
+  }
+}
+
 await run(async () => {
   const args = parseArgs(process.argv.slice(2));
 
-  // ── 1. Device + sign-up screen ─────────────────────────────
+  // ── 1. Device ──────────────────────────────────────────────
   const serial = connect();
   console.log(`device ${serial}`);
+
+  // --resume: the account already exists and the app is on the verification screen.
+  if (args.resume) {
+    if (await waitFor(ROLE_SCREEN, 2)) {
+      console.log('DONE — the app is already on the role screen (the account is verified). Choose Teacher next.');
+      return;
+    }
+    if (!(await waitFor(VERIFY_SCREEN, 5))) {
+      fail(`--resume needs the app on the "Verify Your Email" screen. App says: ${labels().slice(0, 3).join(' / ').slice(0, 200)}`);
+    }
+    await enterCodeAndVerify(await codeFromTerminal());
+    console.log('DONE — account verified; the app is on the role screen. Choose Teacher next.');
+    return;
+  }
+
+  // ── Sign-up screen ─────────────────────────────────────────
   await launchToLogin();
   tapLabel(/Create an account/i);
   if (!(await waitFor(/Create Your Account/i, 15))) fail('the sign-up screen did not open');
@@ -137,20 +189,6 @@ await run(async () => {
   console.log(`verification screen open — Cognito has emailed a code to ${email}`);
   const code = mailToken ? await codeFromMailtm(mailToken) : await codeFromTerminal();
 
-  // ── 5. Type the code (six one-digit boxes) ─────────────────
-  const boxes = editTexts().sort((a, b) => a.x - b.x).slice(0, 6);
-  if (boxes.length < 6) fail(`expected 6 code boxes, found ${boxes.length}`);
-  for (let i = 0; i < 6; i++) {
-    tapXY(boxes[i].x, boxes[i].y);
-    await sleep(250);
-    adb(['shell', 'input', 'text', code[i]]);
-    await sleep(300);
-  }
-  await hideKeyboard();
-  tapLabel(/^Verify$/);
-  console.log('tapped Verify — waiting for the role screen…');
-
-  const role = await waitFor(/Teacher|Choose your role|Select.*role/i, 30);
-  if (!role) fail(`did not reach the role screen. App says: ${labels().slice(-3).join(' / ').slice(0, 200)}`);
+  await enterCodeAndVerify(code);
   console.log(`DONE — account ${email} verified; the app is on the role screen. Choose Teacher next.`);
 });

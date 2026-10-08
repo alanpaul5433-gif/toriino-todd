@@ -156,6 +156,19 @@ export function tapLabel(re) {
   return n;
 }
 
+// Finds a node whose text or content-desc matches `re` (labels join both; `re` may also be a
+// predicate on the node). Hides the keyboard
+// first, then swipes up (scrolls down) up to `scrolls` times if it is not visible yet.
+export async function findOnScreen(re, { scrolls = 3 } = {}) {
+  await hideKeyboard();
+  for (let i = 0; ; i++) {
+    const n = nodes().find(typeof re === 'function' ? re : (x) => re.test(x.label));
+    if (n || i >= scrolls) return n || null;
+    adb(['shell', 'input', 'swipe', '360', '1100', '360', '500', '300']);
+    await sleep(800);
+  }
+}
+
 function imeShown() {
   try { return /mInputShown=true|isInputViewShown=true/.test(adb(['shell', 'dumpsys', 'input_method'])); } catch { return false; }
 }
