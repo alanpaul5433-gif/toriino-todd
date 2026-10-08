@@ -4,11 +4,10 @@
  * Sign-up, sign-in, verification and password reset go straight from the app to
  * Cognito, so this Lambda only handles calls made by a signed-in user:
  *
- *   POST /auth/set-role   { role: Student | Teacher }
+ *   POST /auth/set-role   { role: Student | Teacher | Mentor }
  *                         → Cognito custom:role (lowercase) + role on the users table.
  *                         Only once: allowed while the caller has no role yet (409 after).
- *                         Mentor and admin roles are never self-assigned (admins use the
- *                         Admins group; mentors are set by an admin).
+ *                         The admin role is never self-assigned (admins use the Admins group).
  *   POST /auth/logout     global sign-out of the caller's access token (optional)
  *
  * Env: COGNITO_USER_POOL_ID, USERS_TABLE
@@ -44,8 +43,8 @@ function log(level, message, extra = {}) {
   console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
 }
 
-// Roles a user may pick for themselves. Mentor/admin are assigned by an admin only.
-const ROLES = { student: "Student", teacher: "Teacher" };
+// Roles a user may pick for themselves (once). Admin is never self-assigned.
+const ROLES = { student: "Student", teacher: "Teacher", mentor: "Mentor" };
 
 exports.handler = async (event) => {
   const method = event.httpMethod;
@@ -75,7 +74,7 @@ exports.handler = async (event) => {
 async function setRole({ role }, claims) {
   const key = String(role || "").toLowerCase();
   if (key === "admin") return response(403, { error: "The admin role cannot be self-assigned" });
-  if (!ROLES[key]) return response(400, { error: "role must be Student or Teacher" });
+  if (!ROLES[key]) return response(400, { error: "role must be Student, Teacher, or Mentor" });
   if (!USER_POOL_ID || !USERS_TABLE) return response(503, { error: "Auth service not configured" });
 
   const username = claims["cognito:username"] || claims.sub;

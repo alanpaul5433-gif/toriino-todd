@@ -1,5 +1,5 @@
 /**
- * auth.test.js — POST /auth/set-role: once only, student or teacher only, never admin.
+ * auth.test.js — POST /auth/set-role: once only, student/teacher/mentor, never admin.
  * Run from aws-backend/:  npx jest tests/auth.test.js
  */
 'use strict';
@@ -36,7 +36,7 @@ const wrote = () => mockCognito.mock.calls.some(([c]) => c._type === 'AdminUpdat
 
 beforeEach(() => { mockCognito.mockReset(); mockDdb.mockReset(); mockDdb.mockResolvedValue({}); });
 
-test.each(['student', 'Teacher'])('sets %s when the user has no role yet', async (role) => {
+test.each(['student', 'Teacher', 'mentor'])('sets %s when the user has no role yet', async (role) => {
   withCurrentRole(null);
   const r = await setRole(role);
   expect(r.statusCode).toBe(200);
@@ -60,9 +60,9 @@ test('rejects admin (403) without looking the user up', async () => {
   expect(mockCognito).not.toHaveBeenCalled();
 });
 
-test('rejects mentor and unknown roles (400)', async () => {
+test('rejects unknown roles (400)', async () => {
   withCurrentRole(null);
-  for (const role of ['mentor', 'Mentor', 'superuser', '']) {
+  for (const role of ['superuser', 'Admins', '']) {
     expect((await setRole(role)).statusCode).toBe(400);
   }
   expect(mockCognito).not.toHaveBeenCalled();
