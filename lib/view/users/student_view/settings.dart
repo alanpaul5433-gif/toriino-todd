@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
 import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
-import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/utils/utils.dart';
-import 'package:toriino_todd/view/auth/login_view.dart';
 import 'package:toriino_todd/view/subscriptions/plans_view.dart';
 import 'package:toriino_todd/view/users/common_view/privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/student_view/change_password_view.dart';
 import 'package:toriino_todd/view/users/student_view/setting_view.dart'
     show NotificationSettingView;
-import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
-import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
-import 'package:toriino_todd/viewmodel/controller/student/home_viewmodel.dart';
-import 'package:toriino_todd/viewmodel/controller/student/profile_viewmodel.dart';
-import 'package:toriino_todd/viewmodel/controller/teacher/teacher_home_viewmodel.dart';
+import 'package:toriino_todd/services/session_reset.dart';
 
 /// Confirm-then-delete flow shared by the student/teacher and mentor
 /// settings screens. The user must type DELETE before the destructive
@@ -30,23 +23,8 @@ Future<void> confirmAndDeleteAccount(BuildContext context) async {
   );
   if (deleted != true || !context.mounted) return;
 
-  // Account is gone server-side: clear local session + cached state.
-  await AuthService.signOut();
-  await UsersPrefrence().removeUser();
-  if (!context.mounted) return;
-  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (_) => Loginview()),
-    (_) => false,
-  );
-  // Drop cached per-user controllers once the old screens have been torn
-  // down (after the route transition), so the next login starts clean.
-  Future.delayed(const Duration(seconds: 1), () {
-    if (Get.isRegistered<ProfileViewmodel>()) Get.delete<ProfileViewmodel>(force: true);
-    if (Get.isRegistered<HomeViewmodel>()) Get.delete<HomeViewmodel>(force: true);
-    if (Get.isRegistered<MentorHomeViewmodel>()) Get.delete<MentorHomeViewmodel>(force: true);
-    if (Get.isRegistered<TeacherHomeViewmodel>()) Get.delete<TeacherHomeViewmodel>(force: true);
-  });
-  Utils.toastMassage('Your account has been deleted.');
+  // Account is gone server-side: same reset as Logout (session + cached controllers).
+  await SessionReset.logOut(context, message: 'Your account has been deleted.');
 }
 
 class _DeleteAccountDialog extends StatefulWidget {

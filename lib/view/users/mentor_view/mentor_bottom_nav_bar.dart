@@ -6,9 +6,6 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/services/auth_service.dart';
-import 'package:toriino_todd/view/auth/login_view.dart';
-import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_home_view.dart';
 import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
@@ -19,6 +16,7 @@ import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_availability.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_setting_view.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
+import 'package:toriino_todd/services/session_reset.dart';
 
 class MentorBottomNavBar extends StatefulWidget {
   const MentorBottomNavBar({super.key});
@@ -158,14 +156,8 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                   onTap: () async {
                     _customDrawerController.advancedDrawerController
                         .hideDrawer();
-                    await AuthService.signOut();
-                    await UsersPrefrence().removeUser();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => Loginview()),
-                      (_) => false,
-                    );
+                    // Signs out and clears every cached per-user controller (UAT H5).
+                    await SessionReset.logOut(context);
                   },
                   leading: SvgPicture.asset("assets/icons/logout.svg"),
                   title: const Text('Logout'),
