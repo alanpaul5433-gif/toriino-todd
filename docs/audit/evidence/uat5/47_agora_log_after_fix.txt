@@ -1,0 +1,3 @@
+[10/09/26 02:06:42:707][28046][A]:(00000109): LegacyEventProxy::onConnectionStateChanged->onConnecting(this:0xb400006f0b836b80, channel:"verify-test-session-teacher-hosted", userId:"", reason:0)
+[10/09/26 02:06:43:033][28046][A]:(00000138): LegacyEventProxy::onJoinChannelSuccess->onConnected(this:0xb400006f0b836b80, channel:"verify-test-session-teacher-hosted", uid:"3107916210", elapsed:415)
+[10/09/26 02:06:43:033][28046][A]:(00000140):   ChannelProxy::onConnected->onJoinChannelSuccess(this:0xb400006dcdbcbb00, channel:"verify-test-session-teacher-hosted", uid:"3107916210", elapsed:415, reason:1)

@@ -1,0 +1,4 @@
+[10/09/26 02:06:43:033][28046][A]:(00000138): LegacyEventProxy::onJoinChannelSuccess->onConnected(this:0xb400006f0b836b80, channel:"verify-test-session-teacher-hosted", uid:"3107916210", elapsed:415)
+[10/09/26 02:06:43:033][28046][A]:(00000140):   ChannelProxy::onConnected->onJoinChannelSuccess(this:0xb400006dcdbcbb00, channel:"verify-test-session-teacher-hosted", uid:"3107916210", elapsed:415, reason:1)
+[10/09/26 02:11:28:799][28046][A]:(00000288): LegacyEventProxy::onJoinChannelSuccess->onConnected(this:0xb400006f0b836b80, channel:"verify-test-session-student-booked", uid:"464714917", elapsed:254)
+[10/09/26 02:11:28:799][28046][A]:(00000290):   ChannelProxy::onConnected->onJoinChannelSuccess(this:0xb400006dcdbcbb00, channel:"verify-test-session-student-booked", uid:"464714917", elapsed:254, reason:1)

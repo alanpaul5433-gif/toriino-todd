@@ -742,3 +742,80 @@ M1, M2 and L1–L4 from Round 4 still stand.
 | Teacher lesson playback as owner | No UI (M8) |
 | Stripe, Gemini, Agora recording, Firebase push | Third-party keys not configured (`NOT_SET`); clean "coming soon / not configured" states were seen for subscriptions, payouts and plans |
 | Live set-role API proof | Needs a student sign-in by a human (see the set-role security check) |
+
+---
+
+## UAT Round 5 — Fix round for Round 4b, with device retest (2026-10-08/09)
+
+**Branch:** `fix/remediation-v1`, one commit per fix (`c47b762` … `1a02e68`). Staging was by explicit path; the skip-worktree Firebase stub was never committed.
+**Device:** Samsung SM-A075F (R8VL2015Y6J), Android 16. Logins were run by the owner (`scripts/uat-login.mjs`, `scripts/uat-signup-teacher.mjs`); the assistant drove the app via adb. Evidence is in [`evidence/uat5/`](evidence/uat5/).
+**Builds:** `flutter build apk --debug --target-platform android-arm64` (no `flutter clean`).
+- Build 1 had all the app fixes and was used for the retests.
+- Build 2 added the restored Mentor option and an L4 attempt.
+
+The GATE-01 secret scan was clean on both APKs.
+
+**Disk:** C: had 11.5 GB free at the start, already above the 5 GB target, so nothing was deleted. There are no other drives, no hibernation file and no `Windows.old`. After both builds: 8.2 GB free.
+
+### Backend fixes (deployed with `npm run deploy:backend`)
+
+| # | Fix | Commit | Evidence |
+|---|---|---|---|
+| 1 | `POST /auth/set-role` is allowed only while the caller has no role (409 after). It accepts student, teacher or mentor; admin gets 403 (H8). The Cognito app client `Torino` now has an explicit `WriteAttributes` list without `custom:role`, so users cannot set their own role through Cognito. Readable attributes and other client settings are unchanged. New idempotent `scripts/ensure-cognito-client.mjs` runs in `deploy:backend` | `c47b762`, correction `f4ac0da` (mentor allowed again, per owner) | `tests/auth.test.js` 7/7; deploy log "custom:role removed", then "left unchanged" |
+| 2 | `POST /earnings/withdraw` accepts only `amount`. Any bank or account field gets a 400 with `rejectedFields`, before anything is read or written. Withdrawal rows no longer have `bankDetails` (M1 / GATE-06) | `80186c0` | `tests/services.test.js` (bank-field rejection, stored shape) |
+| 7a | Agora token: `POST /sessions/token` now uses the official `agora-token` 2.0.6 `RtcTokenBuilder.buildTokenWithUid`. **Root cause of error 110:** the hand-written generator built the legacy 006 layout but prefixed it `007`. App ID, channel name (session ID) and uid (0) already matched between the app and the server | `50eaeb3` | Device: `onJoinChannelSuccess`, no error 110 (`47_*`, `55_*`) |
+
+**Verifier:** `node scripts/verify-backend.mjs` → **19 WORKS · 1 BROKEN · 8 BLOCKED**. The BROKEN one is **#16**: the checker-owned script expects the token to start with `"007" + App ID`, which only the old, broken layout satisfies. A real AccessToken2 is `"007"` plus compressed base64 with the App ID inside. **The checker needs to update #16; the script was not edited.** One run also reported #28 as BROKEN ("PREMIUM_FEATURES missing"); the SSM value is `[]`, and the rerun showed #28 BLOCKED as before, so that was a flaky read.
+
+### App fixes and device retest
+
+| # | Fix | Commit | Device result | Evidence |
+|---|---|---|---|---|
+| 3 | **C2 / GATE-03:** sign in right after `confirmSignUp` (the sign-up password is passed in memory), then show the role screen. If sign-in fails, go to login with "Email verified. Please log in to choose your role." Also: double-submit guard; `setRole` shows the server's message; sign-up analytics log the chosen role (L9) | `aa2c7ef` | **PASS.** Fresh sign-up with the owner's Gmail plus-address `+torinoteacher2`: after the code, the app was signed in and on the role screen. Teacher → Cognito `custom:role=teacher` → teacher home "Hi UAT Teacher 85df" → still logged in after force-stop and restart | `10–13_*` |
+| 4 | **H5:** Logout (student, teacher and mentor drawers) and Delete Account use `SessionReset.logOut`, which deletes all 15 per-user GetX controllers after the old screens are gone | `3e99577` | **PASS.** New teacher → logout → `uat-login teacher`: home showed "Hi Verify Test Teacher", 1 course, 1 session straight away, with no restart | `40_*` |
+| 5 | **H7:** `role=admin` gets `AdminNoticeView` ("Please use the admin web panel…") with Log out; Back is disabled; the role picker is never shown | `05ff1d0` | **PASS.** Notice shown; Back and restart stay there; Log out → login. Cognito `custom:role=admin` unchanged (last modified 2026-10-06) | `60_*`, `62_*` |
+| 6a | **H4:** the Add Lesson dialog is now a StatefulWidget that disposes its own controllers; an empty title gives a message | `8b2b3b6` | **PASS.** Add and Cancel no longer crash. Course "UAT Round5 Free Course" published with one video lesson | `20–24_*` |
+| 6b | **H6:** the recording-consent dialog opens after the first frame, not from `initState` | `ab96f2e` | **PASS.** The dialog appears; Skip continues into the call | `41_*` |
+| 7b | **H3:** camera and microphone requested via `permission_handler` 12.0.1, with a clear denial message. Fatal Agora errors show a message with the code. Both participants join as publishers (two-way call) | `ab96f2e`, `71810b3` | **PASS.** Prompts appear; denial shows "Torino needs camera and microphone access…"; host and student both join (`onJoinChannelSuccess`, timer running). Low leftovers: R5-L1, R5-L2 | `42–47_*`, `54–55_*` |
+| 8 | **H2:** `MentorModel` reads `mentorId` and `specialties` (what `GET /mentors` returns) as well as `userId` and `expertise` | `0a8bc19` | **PASS.** The mentor profile shows real data (was "--"). The home "Recommended Teachers" card opens a working profile (was "profile could not be found"). Book a session reaches the server quote ($110, 25% fee $27.50, wallet $70); stopped before paying (card path BLOCKED, Stripe) | `50–53_*` |
+| 9 | **H1:** fake ticket and fake "submitted" form removed. Help & Support shows "Contact us at <email>" plus an Email button, with the address from `--dart-define=SUPPORT_EMAIL` | `b86f735` | **PASS** (honest state): "Support contact coming soon". **BLOCKED** until the client provides the support email | `30_*` |
+| 10 | **M9:** expertise chips come from the profile; avatar is the user's photo or a placeholder; fake "+1.5 / Month" chart removed | `48202cc` | **PASS** | `14–16_*` |
+| 10 | **M8:** tapping a teacher's course card opens its lessons (play video / open material through the private media endpoint) | `22cac5f` | **PASS.** The owner played their lesson to the end via a signed link | `26–28_*` |
+| 10 | **L1–L4:** email format check; full-width "Forgot Password?" tap; inline errors in the reset sheet; failed requests no longer say "Reset code sent!"; "code" copy | `0d9a8e7`, regex fix `6f27771` | L1, L2, L3 **PASS**. **L4 FAIL** (button still over the navigation bar) after two attempts (`3d662e0`, which was in build 2). Third fix `1a02e68` reads the window inset; **not yet verified** (needs a build) | `01–03_*`, `61_*` |
+| 10 | **M3, M4, L5:** notification switches say "not available yet"; language says only English is available; password rule says 8 characters with upper, lower, number and symbol | `c0ea383` | **PASS** | `31–33_*` |
+| — | Role screen: Mentor option restored (owner correction) | `f08cbdd` | Covered by the widget test (3 role cards). Not seen on the device: the role screen only appears for an account with no role, which needs another fresh sign-up | — |
+
+### Audit gates (after Round 5)
+
+| Gate | Verdict | Evidence |
+|---|---|---|
+| GATE-01 No secrets in the APK | **PASS** (both new APKs scanned) | — |
+| GATE-02 Session survives restart | **PASS** (new teacher after sign-up, seeded teacher, admin) | `13_*` |
+| GATE-03 New teacher reaches teacher home | **PASS** (fresh sign-up, automatic sign-in after verification, role saved, restart-safe) | `10–13_*` |
+| GATE-04 Debug APK builds | **PASS** (arm64 debug, built twice) | — |
+| GATE-05 Uploads authenticated; private media not public | **PASS**, now also in the app: a lesson video uploaded from the phone is stored as the private key `lessons/<sub>/<uuid>.mp4`; unsigned GET via S3 → 403, via CloudFront → 403 | `25_gate05_inapp_upload_checks.txt` |
+| GATE-06 No plaintext bank data | **PASS**: no bank fields in the app, and the API now rejects bank fields (M1 closed) | `services.test.js` |
+
+### Notes and leftovers
+
+- **Script issue (not an app bug):** in the GATE-03 run, `uat-signup-teacher.mjs` could not find the code boxes, so the owner typed the code on the phone.
+- **R5-L1 (Low):** on the first denial, the camera and mic prompts appeared twice (two request rounds). After a reset, Allow showed exactly two prompts. Cause not yet found.
+- **R5-L2 (Low):** after the camera became permanently denied, the app showed the generic "allow when asked" message instead of the "turn it on in Settings" one.
+- **R5-L3 (Low):** teacher home "Total Courses" stayed 0 straight after publishing a course (stats not refreshed).
+- **Low (still open):** the home "Recommended Teachers" card shows a mentor.
+- **Not fixed this round:**
+  - M6 (blank catalog courses — a data clean-up that needs owner approval)
+  - L6, L7, L8, L10
+- **BLOCKED (need client content):**
+  - M2 Terms & Privacy links
+  - M5 Privacy Policy text
+  - H1 support email
+- **Still BLOCKED (third parties):**
+  - Stripe, Gemini, Agora recording, Firebase push
+  - the Agora call between two devices (only one device)
+  - admin web panel flows (need a human login)
+- **Test data created:**
+  - Cognito user: the owner's Gmail plus-address `+torinoteacher2` ("UAT Teacher 85df", teacher)
+  - **published** free course "UAT Round5 Free Course" (`crs_b00ac577…`), with lesson `les_ee870c9a…` and its S3 object; visible in the live catalog, **delete before beta**
+  - Round 4b's `+torinoteacher1` account is still present
+- **Device state:** test video removed; camera and mic revoked; app on the login screen.
