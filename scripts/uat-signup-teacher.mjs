@@ -98,14 +98,30 @@ const VERIFY_BUTTON = /verify/i; // case-insensitive, partial, text or content-d
 // Types the code into the six boxes. The app submits by itself once the 6th digit is in
 // (otp_verification_view.dart: `if (i == 5 && val.isNotEmpty) _verifyOtp()`), so the Verify
 // button is only tapped if the app is still on the verification screen afterwards.
+// The six one-digit boxes on "Verify Your Email" (TextFormFields in one row). The app moves
+// focus to the next box after each digit, so only the first box needs a tap.
+async function findFirstCodeBox() {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const boxes = editTexts().sort((a, b) => a.x - b.x);
+    if (boxes.length >= 6) return { x: boxes[0].x, y: boxes[0].y, how: 'found 6 code boxes' };
+    if (attempt === 2) await hideKeyboard(); // a dump taken mid-animation can miss fields
+    await sleep(1500);
+  }
+  // Fallback: the row sits under "We sent a 6-digit code to <email>" (gap h(5) + half a box h(7)).
+  const anchor = nodes().find((n) => /We sent a 6-digit code/i.test(n.label));
+  if (anchor) return { x: anchor.x1 + 47, y: anchor.y2 + 136, how: 'positioned under the "We sent a code" text' };
+  return null;
+}
+
 async function enterCodeAndVerify(code) {
-  const boxes = editTexts().sort((a, b) => a.x - b.x).slice(0, 6);
-  if (boxes.length < 6) fail(`expected 6 code boxes, found ${boxes.length}`);
+  const first = await findFirstCodeBox();
+  if (!first) fail(`could not find the code boxes. App says: ${labels().slice(0, 4).join(' / ').slice(0, 200)}`);
+  console.log(`code input: ${first.how}`);
+  tapXY(first.x, first.y);
+  await sleep(400);
   for (let i = 0; i < 6; i++) {
-    tapXY(boxes[i].x, boxes[i].y);
-    await sleep(250);
-    adb(['shell', 'input', 'text', code[i]]);
-    await sleep(300);
+    adb(['shell', 'input', 'text', code[i]]); // focus advances to the next box by itself
+    await sleep(350);
   }
   console.log('code typed — waiting for the app to verify it…');
 

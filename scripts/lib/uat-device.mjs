@@ -113,11 +113,18 @@ export function adb(args, { secret = false } = {}) {
 
 // ── screen ───────────────────────────────────────────────────
 // Every UIAutomator node with its label, class and bounds.
+// A failed dump ("could not get idle state", common while a text cursor blinks) used to leave
+// the PREVIOUS screen's file in place, which was then parsed as if current; the file is now
+// deleted first and only a dump that reports success is read. Up to 8 tries, 300 ms apart.
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 export function nodes() {
   let xml = '';
-  for (let i = 0; i < 4 && !xml.includes('<hierarchy'); i++) {
+  for (let i = 0; i < 8 && !xml.includes('<hierarchy'); i++) {
+    if (i) pause(300);
     try {
-      adb(['shell', 'uiautomator', 'dump', '/sdcard/uat_ui.xml']);
+      adb(['shell', 'rm', '-f', '/sdcard/uat_ui.xml']);
+      const out = adb(['shell', 'uiautomator', 'dump', '/sdcard/uat_ui.xml']);
+      if (!/dumped to/i.test(out)) continue;
       xml = adb(['shell', 'cat', '/sdcard/uat_ui.xml']);
     } catch { /* retry */ }
   }
