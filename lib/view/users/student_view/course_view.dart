@@ -293,12 +293,17 @@ class CourseView extends StatelessWidget {
                                     MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    courses[index].title ?? 'Course',
-                                    style: TextStyle(
-                                      fontSize: 20.sp,
-                                      color: AppColor.white,
-                                      fontWeight: FontWeight.bold,
+                                  // Long titles wrap to two lines instead of overflowing the card.
+                                  Expanded(
+                                    child: Text(
+                                      courses[index].title ?? 'Course',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 20.sp,
+                                        color: AppColor.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -344,10 +349,11 @@ Widget _courseMetaRow(CourseModel course) {
           child: Row(
             children: [
               if (teacher.isNotEmpty) ...[
+                // Neutral placeholder (was a white icon on a white circle — UAT L10).
                 CircleAvatar(
                   radius: 20.r,
-                  backgroundColor: AppColor.secconderyColor,
-                  child: Icon(Icons.person, color: AppColor.white),
+                  backgroundColor: Colors.white12,
+                  child: const Icon(Icons.person, color: Colors.white54),
                 ),
                 SizedBox(width: 10.w),
               ],
@@ -383,6 +389,7 @@ Widget _courseMetaRow(CourseModel course) {
         ),
         if (rating > 0)
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.star, color: AppColor.white, size: 16.sp),
               SizedBox(width: 5.w),
