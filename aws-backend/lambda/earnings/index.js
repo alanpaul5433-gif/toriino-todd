@@ -4,8 +4,11 @@
  *   GET  /earnings            { currentMonth, totalEarnings, totalWithdrawn, availableBalance,
  *                               pendingWithdrawals, monthlyBreakdown }
  *   GET  /earnings/history    { history, withdrawals }
- *   POST /earnings/withdraw   { amount, bankDetails? } → pending withdrawal; rejected (409) if it
- *                             exceeds availableBalance. An optimistic lock on the earnings row
+ *   POST /earnings/withdraw   { amount } → pending withdrawal; rejected (409) if it
+ *                             exceeds availableBalance. Any other field (bank or account details
+ *                             included) is rejected with 400 and nothing is stored: payouts will
+ *                             go through Stripe Connect, so bank data never reaches this API.
+ *                             An optimistic lock on the earnings row
  *                             (withdrawVersion) stops two concurrent requests overdrawing.
  *
  * totalEarnings   = the user's aggregate row in EARNINGS_TABLE (monthly total)
@@ -158,7 +161,19 @@ async function history(userId) {
   });
 }
 
-async function withdraw(userId, claims, { amount, bankDetails }) {
+// Only "amount" is accepted. Anything else (bankDetails, accountNumber, iban, …) is refused
+// rather than silently dropped, so a client never believes its bank data was saved.
+const WITHDRAW_FIELDS = new Set(["amount"]);
+
+async function withdraw(userId, claims, body) {
+  const extra = Object.keys(body || {}).filter((k) => !WITHDRAW_FIELDS.has(k));
+  if (extra.length) {
+    return response(400, {
+      error: "Only \"amount\" is accepted. Bank details are not collected here; payouts will use Stripe Connect.",
+      rejectedFields: extra,
+    });
+  }
+  const { amount } = body;
   const role = String(claims["custom:role"] || "").toLowerCase();
   if (!["teacher", "mentor"].includes(role)) return response(403, { error: "Only teachers and mentors can withdraw earnings" });
 
@@ -175,7 +190,6 @@ async function withdraw(userId, claims, { amount, bankDetails }) {
     userId,
     withdrawalId: `wd_${randomUUID()}`,
     amount: value,
-    bankDetails: bankDetails && typeof bankDetails === "object" ? bankDetails : {},
     status: "pending",
     requestedAt: now,
     createdAt: now,

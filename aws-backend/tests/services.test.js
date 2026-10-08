@@ -208,6 +208,30 @@ describe('earnings', () => {
     expect(r.statusCode).toBe(409);
     expect(mockSend.mock.calls.some((c) => c[0]._type === 'TransactWrite')).toBe(false);
   });
+
+  test.each([
+    [{ amount: 10, bankDetails: { accountNumber: '12345678', iban: 'GB00TEST' } }, ['bankDetails']],
+    [{ amount: 10, accountNumber: '12345678', routingNumber: '000000000' }, ['accountNumber', 'routingNumber']],
+  ])('withdraw with bank fields → 400, nothing read or written (%#)', async (body, fields) => {
+    mockSend.mockResolvedValue({ Items: [] });
+    const r = await earnings(ev('POST', '/earnings/withdraw', { role: 'teacher', body }));
+    expect(r.statusCode).toBe(400);
+    expect(json(r).rejectedFields).toEqual(fields);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  test('a valid withdrawal stores only amount, status and timestamps (no bank fields)', async () => {
+    mockSend.mockImplementation(async (c) => {
+      if (c._type === 'Get') return { Item: { userId: 'me', periodKey: '2026-10', totalAmount: 50 } };
+      if (c._type === 'TransactWrite') return {};
+      return { Items: [] };
+    });
+    const r = await earnings(ev('POST', '/earnings/withdraw', { role: 'teacher', body: { amount: 20 } }));
+    expect(r.statusCode).toBe(201);
+    const tx = mockSend.mock.calls.map((c) => c[0]).find((c) => c._type === 'TransactWrite');
+    const item = tx.input.TransactItems[1].Put.Item;
+    expect(Object.keys(item).sort()).toEqual(['amount', 'createdAt', 'requestedAt', 'status', 'userId', 'withdrawalId']);
+  });
 });
 
 describe('courses: paid enrollment and private lesson media', () => {
