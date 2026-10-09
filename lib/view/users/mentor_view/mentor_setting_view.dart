@@ -5,50 +5,14 @@ import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/common_view/privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/Mentor_Subcirption_view.dart' show MentorSubcirptionView;
 import 'package:toriino_todd/view/users/student_view/change_password_view.dart';
+import 'package:toriino_todd/view/users/student_view/settings.dart'
+    show confirmAndDeleteAccount;
 import 'package:toriino_todd/view/users/student_view/setting_view.dart'
     show NotificationSettingView;
 import 'package:google_fonts/google_fonts.dart';
 
 class MentorSettingView extends StatelessWidget {
   const MentorSettingView({super.key});
-
-  void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColor.primaryColor,
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to permanently delete your account? All your sessions, earnings history, and data will be removed. This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deletion request submitted.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,8 +100,11 @@ class MentorSettingView extends StatelessWidget {
                               ),
                               onTap: () {
                                 Navigator.pop(ctx);
+                                // The app has no translations yet: say so instead of pretending the language changed (UAT M4).
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Language set to $lang')),
+                                  SnackBar(content: Text(lang == 'English'
+                                      ? 'The app is in English.'
+                                      : '$lang is not available yet. The app is in English for now.')),
                                 );
                               },
                             ),
@@ -160,7 +127,7 @@ class MentorSettingView extends StatelessWidget {
                 _buildMentorSettingTile(
                   path: 'assets/icons/lock-password (3).svg',
                   text: 'Delete Account',
-                  ontap: () => _showDeleteAccountDialog(context),
+                  ontap: () => confirmAndDeleteAccount(context),
                   isDestructive: true,
                 ),
               ],

@@ -6,17 +6,15 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/services/auth_service.dart';
-import 'package:toriino_todd/view/auth/login_view.dart';
-import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/settings.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
 import 'package:toriino_todd/view/users/teacher/ai_tutar_teacher.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_cousre_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_earinig_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_home_view.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_profile_private_view.dart';
+import 'package:toriino_todd/services/session_reset.dart';
 
 class TeacherBottomNavBar extends StatefulWidget {
   const TeacherBottomNavBar({super.key});
@@ -93,7 +91,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const Settings(),
                       ),
                     );
                   },
@@ -118,7 +116,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
                         .hideDrawer();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SupportView()),
+                      MaterialPageRoute(builder: (_) => const SupportView()),
                     );
                   },
                   leading: SvgPicture.asset(
@@ -131,14 +129,8 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
                   onTap: () async {
                     _customDrawerController.advancedDrawerController
                         .hideDrawer();
-                    await AuthService.signOut();
-                    await UsersPrefrence().removeUser();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => Loginview()),
-                      (_) => false,
-                    );
+                    // Signs out and clears every cached per-user controller (UAT H5).
+                    await SessionReset.logOut(context);
                   },
                   leading: SvgPicture.asset("assets/icons/logout.svg"),
                   title: const Text('Logout'),

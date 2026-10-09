@@ -55,4 +55,13 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
+    <!-- Android 11+ package visibility: url_launcher opens lesson materials and
+         link-type lessons (https) in an external app/browser. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 </manifest>

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/view/auth/login_view.dart';
+import 'package:toriino_todd/view/auth/admin_notice_view.dart';
 import 'package:toriino_todd/view/auth/role_selector_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
@@ -34,18 +36,51 @@ class _SplashViewState extends State<SplashView> {
       return;
     }
 
-    final prefs = UsersPrefrence();
-    final role = await prefs.getUserRole();
+    // Refresh if access token is expired or near expiry (P3-2)
+    if (await AuthService.isAccessTokenExpired()) {
+      final refreshed = await AuthService.refreshSession();
+      if (refreshed == null) {
+        await AuthService.signOut();
+        _goTo(Loginview());
+        return;
+      }
+    }
 
-    if (role == 'Mentor') {
+    // Sync role from JWT to overwrite stale SharedPreferences (P1-2)
+    final jwtRole = await _extractRoleFromJwt();
+    if (jwtRole != null) {
+      await UsersPrefrence().saveUserRole(jwtRole.toLowerCase());
+    }
+
+    final prefs = UsersPrefrence();
+    final role = (await prefs.getUserRole())?.toLowerCase();
+
+    if (role == 'admin') {
+      // Admins use the web panel; never offer them the role picker.
+      _goTo(const AdminNoticeView());
+    } else if (role == 'mentor') {
       _goTo(MentorBottomNavBar());
-    } else if (role == 'Teacher') {
+    } else if (role == 'teacher') {
       _goTo(TeacherBottomNavBar());
-    } else if (role == 'Student') {
+    } else if (role == 'student') {
       _goTo(MainWrapper());
     } else {
       // Logged in but no role stored — send to role selection
       _goTo(const RoleSelectionScreen());
+    }
+  }
+
+  Future<String?> _extractRoleFromJwt() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return null;
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      return map['custom:role'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 

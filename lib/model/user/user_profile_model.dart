@@ -9,8 +9,20 @@ class UserProfileModel {
   final String? dateOfBirth;
   final String? location;
   final List<String>? interests;
+  final double? rating;
   final String? createdAt;
   final String? updatedAt;
+  final String? experience;
+  final String? language;
+  final double? hourlyRate;
+  final String? educationLevel;
+  final String? title;
+  final String? industry;
+  final List<String>? expertise;
+  final List<String>? skills;
+
+  /// Public (CloudFront https) intro video for mentors/teachers.
+  final String? introVideoUrl;
 
   UserProfileModel({
     this.userId,
@@ -23,8 +35,18 @@ class UserProfileModel {
     this.dateOfBirth,
     this.location,
     this.interests,
+    this.rating,
     this.createdAt,
     this.updatedAt,
+    this.experience,
+    this.language,
+    this.hourlyRate,
+    this.educationLevel,
+    this.title,
+    this.industry,
+    this.expertise,
+    this.skills,
+    this.introVideoUrl,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -41,9 +63,29 @@ class UserProfileModel {
       interests: json['interests'] != null
           ? List<String>.from(json['interests'])
           : null,
+      rating: (json['rating'] as num?)?.toDouble(),
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      experience: json['experience'],
+      language: json['language'],
+      hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
+      educationLevel: json['educationLevel'],
+      title: json['title'],
+      industry: json['industry'],
+      expertise: _stringList(json['expertise']),
+      skills: _stringList(json['skills']),
+      introVideoUrl: json['introVideoUrl'],
     );
+  }
+
+  /// Accepts either a JSON array or a comma-separated string.
+  static List<String>? _stringList(dynamic v) {
+    if (v == null) return null;
+    if (v is List) return v.map((e) => e.toString()).toList();
+    if (v is String) {
+      return v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -60,6 +102,15 @@ class UserProfileModel {
     if (interests != null) data['interests'] = interests;
     if (createdAt != null) data['createdAt'] = createdAt;
     if (updatedAt != null) data['updatedAt'] = updatedAt;
+    if (experience != null) data['experience'] = experience;
+    if (language != null) data['language'] = language;
+    if (hourlyRate != null) data['hourlyRate'] = hourlyRate;
+    if (educationLevel != null) data['educationLevel'] = educationLevel;
+    if (title != null) data['title'] = title;
+    if (industry != null) data['industry'] = industry;
+    if (expertise != null) data['expertise'] = expertise;
+    if (skills != null) data['skills'] = skills;
+    if (introVideoUrl != null) data['introVideoUrl'] = introVideoUrl;
     return data;
   }
 }

@@ -1,9 +1,10 @@
-﻿import 'package:awesome_calendart/awesome_calendart.dart';
-import 'package:flutter/foundation.dart';
+import 'package:awesome_calendart/awesome_calendart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_availability_viewmodel.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class EditMentorAvaiblityView extends StatefulWidget {
@@ -15,12 +16,43 @@ class EditMentorAvaiblityView extends StatefulWidget {
 }
 
 class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
+  late MentorAvailabilityViewmodel _vm;
+  Worker? _savingWorker;
+  bool _hasSaveStarted = false;
+
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  String _selectedSessionMode = 'Group'; // '1-on-1' or 'Group'
-  String? _sessionType; // Make it nullable
+  String _selectedSessionMode = 'Group';
+  String? _sessionType;
+  String _selectedDayOfWeek = 'Monday';
 
-  final bool _splitPayment = false;
+  static const List<String> _daysOfWeek = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _vm = Get.find<MentorAvailabilityViewmodel>();
+
+    // Listen for saving → false after we triggered a save; only pop on success
+    _savingWorker = ever(_vm.saving, (bool isSaving) {
+      if (_hasSaveStarted && !isSaving && mounted) {
+        _hasSaveStarted = false;
+        if (_vm.saveSucceeded.value) {
+          Navigator.pop(context);
+          Navigator.pop(context);
+        }
+        // on failure, stay on screen — toast already shown by viewmodel
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _savingWorker?.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectStartTime() async {
     final TimeOfDay? picked = await showTimePicker(
@@ -35,17 +67,12 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               surface: AppColor.primaryColor,
               onSurface: AppColor.white,
             ),
-            // ignore: deprecated_member_use AppColor.primaryColor,
           ),
           child: child!,
         );
       },
     );
-    if (picked != null) {
-      setState(() {
-        _startTime = picked;
-      });
-    }
+    if (picked != null) setState(() => _startTime = picked);
   }
 
   Future<void> _selectEndTime() async {
@@ -61,17 +88,51 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               surface: AppColor.primaryColor,
               onSurface: AppColor.white,
             ),
-            // ignore: deprecated_member_use AppColor.primaryColor,
           ),
           child: child!,
         );
       },
     );
-    if (picked != null) {
-      setState(() {
-        _endTime = picked;
-      });
+    if (picked != null) setState(() => _endTime = picked);
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  // Format as HH:mm for storage (24-hour)
+  String _formatTimeStorage(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  void _onSave() {
+    if (_vm.saving.value) return;
+
+    if (_startTime == null || _endTime == null) {
+      Get.snackbar(
+        'Missing fields',
+        'Please select both start and end times.',
+        backgroundColor: AppColor.red,
+        colorText: AppColor.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
     }
+
+    // Add this slot to the viewmodel's editable list and save
+    _vm.addSlot(
+      _selectedDayOfWeek,
+      _formatTimeStorage(_startTime!),
+      _formatTimeStorage(_endTime!),
+    );
+
+    _hasSaveStarted = true;
+    _vm.saveAvailability();
   }
 
   @override
@@ -89,7 +150,10 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               // Header Row
               Row(
                 children: [
-                  SvgPicture.asset("assets/icons/Arrow - Right 3 (1).svg"),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: SvgPicture.asset("assets/icons/Arrow - Right 3 (1).svg"),
+                  ),
                   SizedBox(width: Responsive.w(2)),
                   Text(
                     'Edit Your Availability',
@@ -104,7 +168,7 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               ),
               SizedBox(height: Responsive.h(2)),
               Text(
-                'Choose the days and time slots when you’re available to take sessions.',
+                'Choose the days and time slots when you\'re available to take sessions.',
                 style: GoogleFonts.dmSans(
                   color: Colors.white,
                   fontSize: Responsive.textScaleFactor * 12,
@@ -113,7 +177,6 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                 ),
               ),
 
-              // Edit Button
               SizedBox(height: Responsive.h(2)),
               Text(
                 'Select Preferred Date',
@@ -150,6 +213,20 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                   ),
                 ),
               ),
+
+              // Day of week picker
+              SizedBox(height: Responsive.h(1)),
+              Text(
+                'Day of Week',
+                style: GoogleFonts.rethinkSans(
+                  color: Colors.white,
+                  fontSize: Responsive.textScaleFactor * 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: Responsive.h(1)),
+              _buildDayOfWeekDropdown(),
+              SizedBox(height: Responsive.h(2)),
 
               // Start Time
               _buildTimeField(
@@ -189,13 +266,8 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                     ),
                     Row(
                       children: [
-                        // 1-on-1 Option
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedSessionMode = '1-on-1';
-                            });
-                          },
+                          onTap: () => setState(() => _selectedSessionMode = '1-on-1'),
                           child: Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: Responsive.w(4),
@@ -203,16 +275,14 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                             ),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color:
-                                    _selectedSessionMode == '1-on-1'
-                                        ? AppColor.red
-                                        : AppColor.white.withValues(alpha: 0.3),
+                                color: _selectedSessionMode == '1-on-1'
+                                    ? AppColor.red
+                                    : AppColor.white.withValues(alpha: 0.3),
                               ),
                               borderRadius: BorderRadius.circular(22),
-                              color:
-                                  _selectedSessionMode == '1-on-1'
-                                      ? AppColor.red.withValues(alpha: 0.2)
-                                      : Colors.transparent,
+                              color: _selectedSessionMode == '1-on-1'
+                                  ? AppColor.red.withValues(alpha: 0.2)
+                                  : Colors.transparent,
                             ),
                             child: Text(
                               '1-on-1',
@@ -226,13 +296,8 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                           ),
                         ),
                         SizedBox(width: Responsive.w(2)),
-                        // Group Option
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedSessionMode = 'Group';
-                            });
-                          },
+                          onTap: () => setState(() => _selectedSessionMode = 'Group'),
                           child: Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: Responsive.w(4),
@@ -240,16 +305,14 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                             ),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color:
-                                    _selectedSessionMode == 'Group'
-                                        ? AppColor.red
-                                        : AppColor.white.withValues(alpha: 0.3),
+                                color: _selectedSessionMode == 'Group'
+                                    ? AppColor.red
+                                    : AppColor.white.withValues(alpha: 0.3),
                               ),
                               borderRadius: BorderRadius.circular(22),
-                              color:
-                                  _selectedSessionMode == 'Group'
-                                      ? AppColor.red
-                                      : Colors.transparent,
+                              color: _selectedSessionMode == 'Group'
+                                  ? AppColor.red
+                                  : Colors.transparent,
                             ),
                             child: Text(
                               'Group',
@@ -274,11 +337,7 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
                 _buildDropdownField(
                   value: _sessionType,
                   items: const ['1', '2', '3', '4', '5', '6', '7'],
-                  onChanged: (value) {
-                    setState(() {
-                      _sessionType = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => _sessionType = value),
                   hint: 'Number of Seats',
                 ),
                 SizedBox(height: Responsive.h(2)),
@@ -287,50 +346,88 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               SizedBox(height: Responsive.h(3)),
 
               // Save Button
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColor.red, AppColor.red.withValues(alpha: 0.8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Save availability logic
-                    if (kDebugMode) {
-                      print('Start Time: ${_startTime?.format(context)}');
-                      print('End Time: ${_endTime?.format(context)}');
-                      print('Session Mode: $_selectedSessionMode');
-                      print('Seats: $_sessionType');
-                      print('Split Payment: $_splitPayment');
-                    }
-                    Navigator.pop(context);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    padding: EdgeInsets.symmetric(vertical: Responsive.h(2)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+              Obx(() {
+                final isSaving = _vm.saving.value;
+                return Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColor.red, AppColor.red.withValues(alpha: 0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  child: Text(
-                    'Save ',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontSize: Responsive.textScaleFactor * 16,
-                      fontWeight: FontWeight.w600,
+                  child: ElevatedButton(
+                    onPressed: isSaving ? null : _onSave,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      disabledBackgroundColor: Colors.transparent,
+                      padding: EdgeInsets.symmetric(vertical: Responsive.h(2)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
                     ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Save',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white,
+                              fontSize: Responsive.textScaleFactor * 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-                ),
-              ),
+                );
+              }),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDayOfWeekDropdown() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: Responsive.w(4)),
+      decoration: BoxDecoration(
+        color: AppColor.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppColor.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: DropdownButton<String>(
+        dropdownColor: AppColor.primaryColor,
+        value: _selectedDayOfWeek,
+        onChanged: (value) {
+          if (value != null) setState(() => _selectedDayOfWeek = value);
+        },
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: _daysOfWeek.map((String day) {
+          return DropdownMenuItem<String>(
+            value: day,
+            child: Text(
+              day,
+              style: GoogleFonts.dmSans(
+                color: AppColor.white,
+                fontSize: Responsive.textScaleFactor * 14,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -365,10 +462,9 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
               child: Text(
                 time != null ? _formatTimeOfDay(time) : hint,
                 style: GoogleFonts.dmSans(
-                  color:
-                      time != null
-                          ? AppColor.white
-                          : AppColor.white.withValues(alpha: 0.5),
+                  color: time != null
+                      ? AppColor.white
+                      : AppColor.white.withValues(alpha: 0.5),
                   fontSize: Responsive.textScaleFactor * 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -381,7 +477,7 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
   }
 
   Widget _buildDropdownField({
-    required String? value, // Make it nullable
+    required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
     String? hint,
@@ -403,37 +499,28 @@ class _EditMentorAvaiblityViewState extends State<EditMentorAvaiblityView> {
         onChanged: onChanged,
         isExpanded: true,
         underline: const SizedBox(),
-        hint:
-            hint != null
-                ? Text(
-                  hint,
-                  style: GoogleFonts.dmSans(
-                    color: AppColor.white.withValues(alpha: 0.5),
-                    fontSize: Responsive.textScaleFactor * 14,
-                  ),
-                )
-                : null,
-        items:
-            items.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                  style: GoogleFonts.dmSans(
-                    color: AppColor.white,
-                    fontSize: Responsive.textScaleFactor * 14,
-                  ),
+        hint: hint != null
+            ? Text(
+                hint,
+                style: GoogleFonts.dmSans(
+                  color: AppColor.white.withValues(alpha: 0.5),
+                  fontSize: Responsive.textScaleFactor * 14,
                 ),
-              );
-            }).toList(),
+              )
+            : null,
+        items: items.map((String v) {
+          return DropdownMenuItem<String>(
+            value: v,
+            child: Text(
+              v,
+              style: GoogleFonts.dmSans(
+                color: AppColor.white,
+                fontSize: Responsive.textScaleFactor * 14,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
-  }
-
-  String _formatTimeOfDay(TimeOfDay time) {
-    final hour = time.hourOfPeriod;
-    final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-    return '$hour:$minute $period';
   }
 }

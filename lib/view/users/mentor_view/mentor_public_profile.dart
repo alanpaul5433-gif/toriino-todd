@@ -1,16 +1,63 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:toriino_todd/model/mentor/mentor_model.dart';
+import 'package:toriino_todd/repository/mentor_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/availability_view.dart';
+import 'package:toriino_todd/widgets/components/starrating.dart';
+import 'package:toriino_todd/widgets/intro_video_tile.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class MentorPublicProfile extends StatelessWidget {
-  const MentorPublicProfile({super.key});
+class MentorPublicProfile extends StatefulWidget {
+  final MentorModel? mentor;
+  const MentorPublicProfile({super.key, this.mentor});
+
+  @override
+  State<MentorPublicProfile> createState() => _MentorPublicProfileState();
+}
+
+class _MentorPublicProfileState extends State<MentorPublicProfile> {
+  MentorModel? _mentor;
+
+  @override
+  void initState() {
+    super.initState();
+    _mentor = widget.mentor;
+    _refreshMentor();
+  }
+
+  /// GET /mentors/{id} returns the full record (incl. introVideoUrl, which
+  /// list payloads may omit).
+  Future<void> _refreshMentor() async {
+    final id = widget.mentor?.userId ?? '';
+    if (id.isEmpty) return;
+    try {
+      final value = await MentorRepo().getMentorById(id);
+      if (!mounted || value is! Map<String, dynamic>) return;
+      setState(() => _mentor = MentorModel.fromJson(value));
+    } catch (_) {
+      // Keep showing the data we were given.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final mentor = _mentor;
     Responsive.init(context);
+    if (mentor == null) {
+      return Scaffold(
+        backgroundColor: AppColor.primaryColor,
+        body: const SafeArea(
+          child: Center(
+            child: Text(
+              'Profile not available',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
       body: SafeArea(
@@ -57,9 +104,9 @@ class MentorPublicProfile extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: Responsive.w(10),
-                          backgroundImage: AssetImage(
-                            "assets/icons/Ellipse 6 (1).png",
-                          ),
+                          backgroundImage: (mentor.avatarUrl != null && mentor.avatarUrl!.isNotEmpty)
+                              ? NetworkImage(mentor.avatarUrl!) as ImageProvider
+                              : const AssetImage("assets/icons/Ellipse 6 (1).png"),
                         ),
                         SizedBox(width: Responsive.w(2)),
 
@@ -69,7 +116,7 @@ class MentorPublicProfile extends StatelessWidget {
                             Row(
                               children: [
                                 Text(
-                                  'Jaylon Culhane',
+                                  mentor.name ?? '--',
                                   style: GoogleFonts.dmSans(
                                     color: Colors.white,
                                     fontSize: Responsive.textScaleFactor * 18,
@@ -77,15 +124,10 @@ class MentorPublicProfile extends StatelessWidget {
                                     letterSpacing: -0.30,
                                   ),
                                 ),
-                                SizedBox(width: Responsive.w(2)),
-
-                                SvgPicture.asset(
-                                  'assets/icons/bitcoin-icons_verify-filled (1).svg',
-                                ),
                               ],
                             ),
                             Text(
-                              'Data Science Specialist',
+                              (mentor.expertise?.isNotEmpty == true) ? '${mentor.expertise!.first} Specialist' : '--',
                               style: GoogleFonts.dmSans(
                                 color: Colors.white,
                                 fontSize: Responsive.textScaleFactor * 12,
@@ -127,7 +169,7 @@ class MentorPublicProfile extends StatelessWidget {
                     ),
 
                     Text(
-                      'Data Science',
+                      (mentor.expertise?.isNotEmpty == true) ? mentor.expertise!.first : '--',
                       style: GoogleFonts.dmSans(
                         color: Colors.white,
                         fontSize: Responsive.textScaleFactor * 12,
@@ -154,7 +196,7 @@ class MentorPublicProfile extends StatelessWidget {
                     ),
 
                     Text(
-                      '5',
+                      '--',
                       style: GoogleFonts.dmSans(
                         color: Colors.white,
                         fontSize: Responsive.textScaleFactor * 12,
@@ -167,7 +209,7 @@ class MentorPublicProfile extends StatelessWidget {
                 SizedBox(height: Responsive.h(2)),
 
                 Text(
-                  "I'm a data scientist with 5+ years of experience mentoring professionals and students in machine learning, Python, and data visualization",
+                  mentor.bio ?? '--',
                   style: GoogleFonts.dmSans(
                     color: Colors.white,
                     fontSize: Responsive.sp(10),
@@ -185,7 +227,7 @@ class MentorPublicProfile extends StatelessWidget {
                       children: [
                         SvgPicture.asset("assets/icons/mic.svg"),
                         Text(
-                          'English, German',
+                          '--',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: Responsive.textScaleFactor * 10,
@@ -201,7 +243,7 @@ class MentorPublicProfile extends StatelessWidget {
                       TextSpan(
                         children: [
                           TextSpan(
-                            text: '\$30/',
+                            text: mentor.hourlyRate != null ? '\$${mentor.hourlyRate!.toInt()}/' : '--',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: Responsive.textScaleFactor * 12,
@@ -211,17 +253,7 @@ class MentorPublicProfile extends StatelessWidget {
                             ),
                           ),
                           TextSpan(
-                            text: ' ',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: Responsive.textScaleFactor * 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'hr',
+                            text: mentor.hourlyRate != null ? 'hr' : '',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: Responsive.textScaleFactor * 12,
@@ -254,30 +286,18 @@ class MentorPublicProfile extends StatelessWidget {
                 Wrap(
                   spacing: 5,
                   runSpacing: 10,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
+                  children: (mentor.expertise != null && mentor.expertise!.isNotEmpty)
+                      ? mentor.expertise!.map((tag) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: ShapeDecoration(
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(width: 1, color: Colors.white.withValues(alpha: 0.40)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Data Science',
-                            style: TextStyle(
+                          child: Text(
+                            tag,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontFamily: 'DM Sans',
@@ -285,109 +305,22 @@ class MentorPublicProfile extends StatelessWidget {
                               height: 1.50,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Machine Learning',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
+                        )).toList()
+                      : [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: ShapeDecoration(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(width: 1, color: Colors.white.withValues(alpha: 0.40)),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: const Text(
+                              '--',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'DM Sans'),
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Resume Review',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 10,
-                        children: [
-                          Text(
-                            'Career Guidance',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
                 SizedBox(height: Responsive.h(2)),
 
@@ -407,7 +340,23 @@ class MentorPublicProfile extends StatelessWidget {
                 //   width: double.infinity,
 
                 // ),
-                SvgPicture.asset("assets/icons/Frame 1410120834.svg"),
+                IntroVideoTile(url: mentor.introVideoUrl),
+                SizedBox(height: Responsive.h(2)),
+
+                //rating row
+                Row(
+                  children: [
+                    StarRatingWidget(
+                      initialRating: mentor.rating ?? 0.0,
+                      readOnly: true,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(mentor.rating ?? 0.0).toStringAsFixed(1)} (${mentor.totalSessions ?? 0} reviews)',
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                    ),
+                  ],
+                ),
                 SizedBox(height: Responsive.h(2)),
 
                 //reivew and viewa all
@@ -500,7 +449,7 @@ class MentorPublicProfile extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -636,7 +585,7 @@ class MentorPublicProfile extends StatelessWidget {
                                         spacing: 3,
                                         children: [
                                           Text(
-                                            'Jamie Dunn',
+                                            '--',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -716,7 +665,12 @@ class MentorPublicProfile extends StatelessWidget {
                   onTap:
                       () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => AvailabilityView()),
+                        MaterialPageRoute(
+                          builder: (_) => AvailabilityView(
+                            mentorId: mentor.userId ?? '',
+                            mentorName: mentor.name ?? '',
+                          ),
+                        ),
                       ),
                   child: Container(
                     width: double.infinity,

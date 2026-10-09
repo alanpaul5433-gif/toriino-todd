@@ -1,0 +1,9 @@
+{
+  "name": "toriino-reviews",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toriino Todd reviews Lambda (packaged by sam build; the AWS SDK v3 comes from the nodejs22.x runtime)",
+  "main": "index.js",
+  "files": ["index.js"],
+  "dependencies": {}
+}

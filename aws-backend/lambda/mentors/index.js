@@ -1,198 +1,124 @@
+/**
+ * mentors Lambda — /mentors  (Cognito authorizer on every route)
+ *
+ *   GET /mentors?expertise=            approved mentors (filter matches expertise or specialties)
+ *   GET /mentors/{id}
+ *   GET /mentors/{id}/availability     { availability: [...] }
+ *   PUT /mentors/availability          caller (a mentor) replaces their own availability
+ *
+ * Intro videos are uploaded through GET /upload-url?folder=intro-videos.
+ *
+ * Env: MENTORS_TABLE (PK mentorId)
+ */
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
   DynamoDBDocumentClient,
   GetCommand,
-  PutCommand,
   UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
   ScanCommand,
 } = require("@aws-sdk/lib-dynamodb");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { randomUUID } = require("crypto");
 
-const REGION = process.env.AWS_REGION || "us-east-2";
-const MENTORS_TABLE = process.env.MENTORS_TABLE || "toriino-mentors";
-const AVAILABILITY_TABLE =
-  process.env.AVAILABILITY_TABLE || "toriino-availability";
-const S3_BUCKET = process.env.S3_BUCKET || "toriino-uploads";
+const REGION = process.env.AWS_REGION || "us-east-1";
+const MENTORS_TABLE = process.env.MENTORS_TABLE;
 
-const dynamodb = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: REGION })
-);
-const s3 = new S3Client({ region: REGION });
+const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Methods": "GET,PUT,OPTIONS",
 };
 
 function response(statusCode, body) {
   return { statusCode, headers, body: JSON.stringify(body) };
 }
 
-function getUserId(event) {
-  return event.requestContext?.authorizer?.claims?.sub;
+function log(level, message, extra = {}) {
+  console.log(JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...extra }));
 }
 
+const MAX_SLOTS = 200;
+
 exports.handler = async (event) => {
-  const path = event.path;
   const method = event.httpMethod;
-  const body = event.body ? JSON.parse(event.body) : {};
-  const userId = getUserId(event);
-
   if (method === "OPTIONS") return response(200, {});
+
+  const claims = event.requestContext?.authorizer?.claims || {};
+  const userId = claims.sub;
   if (!userId) return response(401, { error: "Unauthorized" });
+  if (!MENTORS_TABLE) return response(503, { error: "Mentors service not configured (MENTORS_TABLE)" });
 
+  let body = {};
+  try { body = event.body ? JSON.parse(event.body) : {}; } catch {
+    return response(400, { error: "Invalid JSON body" });
+  }
+
+  const seg = event.path.split("/").filter(Boolean);
   try {
-    // ── Mentor Profiles ──
-    if (path === "/mentors" && method === "GET") {
-      return await listMentors(event.queryStringParameters);
+    if (seg.length === 1 && method === "GET") return await listMentors(event.queryStringParameters || {});
+    if (seg.length === 2 && seg[1] === "availability" && method === "PUT") return await setAvailability(userId, claims, body);
+    if (seg.length === 2 && seg[1] === "intro-video") {
+      return response(410, { error: "Use GET /upload-url?folder=intro-videos to upload an intro video" });
     }
-
-    const mentorIdMatch = path.match(/^\/mentors\/([^/]+)$/);
-    if (mentorIdMatch && method === "GET") {
-      return await getMentor(mentorIdMatch[1]);
-    }
-
-    // ── Availability ──
-    const availMatch = path.match(/^\/mentors\/([^/]+)\/availability$/);
-    if (availMatch && method === "GET") {
-      return await getAvailability(availMatch[1]);
-    }
-
-    if (path === "/mentors/availability" && method === "PUT") {
-      return await updateAvailability(userId, body);
-    }
-
-    // ── Intro Video ──
-    if (path === "/mentors/intro-video" && method === "POST") {
-      return await getVideoUploadUrl(userId, body);
-    }
-
+    if (seg.length === 2 && method === "GET") return await getMentor(seg[1]);
+    if (seg.length === 3 && seg[2] === "availability" && method === "GET") return await getAvailability(seg[1]);
     return response(404, { error: "Route not found" });
   } catch (error) {
-    console.error("Mentors error:", error);
-    return response(500, { error: error.message });
+    log("ERROR", "Mentors handler error", { error: error.message, path: event.path, method });
+    return response(500, { error: "Mentors request failed" });
   }
 };
 
-// ── List Mentors ───────────────────────────────────────────
-async function listMentors(queryParams = {}) {
-  const { expertise, limit = "20" } = queryParams || {};
+async function listMentors({ expertise }) {
+  const mentors = [];
+  let ExclusiveStartKey;
+  do {
+    const page = await dynamodb.send(new ScanCommand({ TableName: MENTORS_TABLE, ExclusiveStartKey }));
+    mentors.push(...(page.Items || []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
 
-  let result;
+  let items = mentors.filter((m) => m.approved !== false);
   if (expertise) {
-    result = await dynamodb.send(
-      new ScanCommand({
-        TableName: MENTORS_TABLE,
-        FilterExpression: "contains(expertise, :exp)",
-        ExpressionAttributeValues: { ":exp": expertise },
-        Limit: parseInt(limit),
-      })
-    );
-  } else {
-    result = await dynamodb.send(
-      new ScanCommand({
-        TableName: MENTORS_TABLE,
-        Limit: parseInt(limit),
-      })
-    );
+    const want = String(expertise).toLowerCase();
+    items = items.filter((m) => [...(m.expertise || []), ...(m.specialties || [])]
+      .some((x) => String(x).toLowerCase() === want));
   }
-
-  return response(200, { mentors: result.Items, count: result.Count });
+  return response(200, { mentors: items, count: items.length });
 }
 
-// ── Get Mentor Profile ─────────────────────────────────────
 async function getMentor(mentorId) {
-  const result = await dynamodb.send(
-    new GetCommand({ TableName: MENTORS_TABLE, Key: { userId: mentorId } })
-  );
-  if (!result.Item) return response(404, { error: "Mentor not found" });
-  return response(200, result.Item);
+  const r = await dynamodb.send(new GetCommand({ TableName: MENTORS_TABLE, Key: { mentorId } }));
+  if (!r.Item || r.Item.approved === false) return response(404, { error: "Mentor not found" });
+  return response(200, r.Item);
 }
 
-// ── Get Availability ───────────────────────────────────────
 async function getAvailability(mentorId) {
-  const result = await dynamodb.send(
-    new QueryCommand({
-      TableName: AVAILABILITY_TABLE,
-      KeyConditionExpression: "mentorId = :mentorId",
-      ExpressionAttributeValues: { ":mentorId": mentorId },
-    })
-  );
-  return response(200, { slots: result.Items });
+  const r = await dynamodb.send(new GetCommand({
+    TableName: MENTORS_TABLE,
+    Key: { mentorId },
+    ProjectionExpression: "availability",
+  }));
+  return response(200, { mentorId, availability: r.Item?.availability || [] });
 }
 
-// ── Update Availability ────────────────────────────────────
-async function updateAvailability(mentorId, { slots }) {
-  if (!slots || !Array.isArray(slots)) {
-    return response(400, { error: "slots array is required" });
+async function setAvailability(userId, claims, { availability }) {
+  if (String(claims["custom:role"] || "").toLowerCase() !== "mentor") {
+    return response(403, { error: "Only mentors can set availability" });
+  }
+  if (!Array.isArray(availability)) return response(400, { error: "availability must be an array" });
+  if (availability.length > MAX_SLOTS) return response(400, { error: `At most ${MAX_SLOTS} availability slots` });
+  if (availability.some((s) => s === null || typeof s !== "object")) {
+    return response(400, { error: "Each availability slot must be an object" });
   }
 
-  // Delete existing slots and replace
-  const existing = await dynamodb.send(
-    new QueryCommand({
-      TableName: AVAILABILITY_TABLE,
-      KeyConditionExpression: "mentorId = :mentorId",
-      ExpressionAttributeValues: { ":mentorId": mentorId },
-    })
-  );
-
-  for (const slot of existing.Items) {
-    await dynamodb.send(
-      new DeleteCommand({
-        TableName: AVAILABILITY_TABLE,
-        Key: { mentorId, slotId: slot.slotId },
-      })
-    );
-  }
-
-  // Add new slots
-  const savedSlots = [];
-  for (const slot of slots) {
-    const slotId = randomUUID();
-    const item = {
-      mentorId,
-      slotId,
-      dayOfWeek: slot.dayOfWeek,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      isRecurring: slot.isRecurring ?? true,
-      date: slot.date || null,
-    };
-    await dynamodb.send(
-      new PutCommand({ TableName: AVAILABILITY_TABLE, Item: item })
-    );
-    savedSlots.push(item);
-  }
-
-  return response(200, { slots: savedSlots });
-}
-
-// ── Get Video Upload URL ───────────────────────────────────
-async function getVideoUploadUrl(mentorId, { fileType }) {
-  if (!fileType) {
-    return response(400, { error: "fileType is required (e.g. video/mp4)" });
-  }
-
-  const extension = fileType.split("/")[1] || "mp4";
-  const key = `intro-videos/${mentorId}/intro.${extension}`;
-
-  const command = new PutObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: key,
-    ContentType: fileType,
-  });
-
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 600 });
-
-  return response(200, {
-    uploadUrl,
-    key,
-    publicUrl: `https://${S3_BUCKET}.s3.${REGION}.amazonaws.com/${key}`,
-  });
+  const now = new Date().toISOString();
+  await dynamodb.send(new UpdateCommand({
+    TableName: MENTORS_TABLE,
+    Key: { mentorId: userId },
+    UpdateExpression: "SET availability = :a, updatedAt = :u, createdAt = if_not_exists(createdAt, :u)",
+    ExpressionAttributeValues: { ":a": availability, ":u": now },
+  }));
+  return response(200, { message: "Availability updated", availability });
 }

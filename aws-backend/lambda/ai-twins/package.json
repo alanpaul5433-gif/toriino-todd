@@ -1,0 +1,9 @@
+{
+  "name": "toriino-ai-twins",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toriino Todd ai-twins Lambda (the AWS SDK v3 comes from the nodejs runtime)",
+  "main": "index.js",
+  "files": ["index.js"],
+  "dependencies": {}
+}

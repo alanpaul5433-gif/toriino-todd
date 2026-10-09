@@ -1,52 +1,137 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:toriino_todd/repository/user_repo.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
+import 'package:toriino_todd/view/subscriptions/plans_view.dart';
 import 'package:toriino_todd/view/users/common_view/privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/student_view/change_password_view.dart';
 import 'package:toriino_todd/view/users/student_view/setting_view.dart'
     show NotificationSettingView;
+import 'package:toriino_todd/services/session_reset.dart';
+
+/// Confirm-then-delete flow shared by the student/teacher and mentor
+/// settings screens. The user must type DELETE before the destructive
+/// button is enabled. DELETE /users/account removes both the Cognito user
+/// and the profile record; only a 2xx is treated as success.
+Future<void> confirmAndDeleteAccount(BuildContext context) async {
+  final deleted = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const _DeleteAccountDialog(),
+  );
+  if (deleted != true || !context.mounted) return;
+
+  // Account is gone server-side: same reset as Logout (session + cached controllers).
+  await SessionReset.logOut(context, message: 'Your account has been deleted.');
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _confirmCtrl = TextEditingController();
+  bool _deleting = false;
+  String? _error;
+
+  bool get _confirmed => _confirmCtrl.text.trim() == 'DELETE';
+
+  @override
+  void dispose() {
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+    try {
+      await UserRepo().deleteAccount();
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _deleting = false;
+        _error = Utils.errorMessage(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColor.primaryColor,
+      title: const Text(
+        'Delete Account',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'This permanently deletes your account and all your data. This action cannot be undone.\n\nType DELETE to confirm.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirmCtrl,
+            enabled: !_deleting,
+            autocorrect: false,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'DELETE',
+              hintStyle: TextStyle(color: Colors.white38),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white54),
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _deleting ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+        ),
+        TextButton(
+          onPressed: (_confirmed && !_deleting) ? _delete : null,
+          child: _deleting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.red,
+                  ),
+                )
+              : Text(
+                  'Delete permanently',
+                  style: TextStyle(
+                    color: _confirmed ? Colors.red : Colors.red.withValues(alpha: 0.4),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
 
 class Settings extends StatelessWidget {
   const Settings({super.key});
-
-  void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColor.primaryColor,
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to permanently delete your account? All your data, courses, and sessions will be removed. This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deletion request submitted.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +147,10 @@ class Settings extends StatelessWidget {
               SizedBox(height: Responsive.h(2)),
               Row(
                 children: [
-                  SvgPicture.asset("assets/icons/Arrow - Right 3 (1).svg"),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: SvgPicture.asset("assets/icons/Arrow - Right 3 (1).svg"),
+                  ),
                   SizedBox(width: Responsive.w(2)),
                   Text(
                     'Settings',
@@ -77,6 +165,17 @@ class Settings extends StatelessWidget {
                 ],
               ),
               SizedBox(height: Responsive.h(2)),
+              // Plans for the signed-in user's role (student or teacher), or "Plans coming soon".
+              _buildSwitchField(
+                path: 'assets/icons/setting.svg',
+                text: 'Subscription',
+                ontap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlansView()),
+                  );
+                },
+              ),
               _buildSwitchField(
                 path: 'assets/icons/notification.svg',
                 text: 'Notifications',
@@ -121,8 +220,11 @@ class Settings extends StatelessWidget {
                             ),
                             onTap: () {
                               Navigator.pop(ctx);
+                              // The app has no translations yet: say so instead of pretending the language changed (UAT M4).
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Language set to $lang')),
+                                SnackBar(content: Text(lang == 'English'
+                                    ? 'The app is in English.'
+                                    : '$lang is not available yet. The app is in English for now.')),
                               );
                             },
                           ),
@@ -145,7 +247,7 @@ class Settings extends StatelessWidget {
               _buildSwitchField(
                 path: 'assets/icons/lock-password (3).svg',
                 text: 'Delete Account',
-                ontap: () => _showDeleteAccountDialog(context),
+                ontap: () => confirmAndDeleteAccount(context),
                 isDestructive: true,
               ),
             ],

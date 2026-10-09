@@ -6,18 +6,16 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/services/auth_service.dart';
-import 'package:toriino_todd/view/auth/login_view.dart';
-import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
 import 'package:toriino_todd/view/users/student_view/home_view.dart';
 import 'package:toriino_todd/view/users/student_view/browse_mentor.dart';
 import 'package:toriino_todd/view/users/student_view/course_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/student_view/settings.dart';
 import 'package:toriino_todd/view/users/student_view/sessions.dart';
 import 'package:toriino_todd/view/users/student_view/student_private_profile_view.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
+import 'package:toriino_todd/services/session_reset.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -98,7 +96,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const Settings(),
                       ),
                     );
                   },
@@ -123,7 +121,7 @@ class _MainWrapperState extends State<MainWrapper> {
                         .hideDrawer();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SupportView()),
+                      MaterialPageRoute(builder: (_) => const SupportView()),
                     );
                   },
                   leading: SvgPicture.asset(
@@ -132,21 +130,19 @@ class _MainWrapperState extends State<MainWrapper> {
                   title: const Text('Help & Support'),
                 ),
 
-                ListTile(
-                  onTap: () async {
-                    _customDrawerController.advancedDrawerController
-                        .hideDrawer();
-                    await AuthService.signOut();
-                    await UsersPrefrence().removeUser();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => Loginview()),
-                      (_) => false,
-                    );
-                  },
-                  leading: SvgPicture.asset("assets/icons/logout.svg"),
-                  title: const Text('Logout'),
+                Semantics(
+                  label: 'Logout',
+                  button: true,
+                  child: ListTile(
+                    onTap: () async {
+                      _customDrawerController.advancedDrawerController
+                          .hideDrawer();
+                      // Signs out and clears every cached per-user controller (UAT H5).
+                      await SessionReset.logOut(context);
+                    },
+                    leading: SvgPicture.asset("assets/icons/logout.svg"),
+                    title: const Text('Logout'),
+                  ),
                 ),
               ],
             ),

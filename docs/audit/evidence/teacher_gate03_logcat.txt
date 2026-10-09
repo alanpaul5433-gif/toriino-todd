@@ -1,0 +1,30 @@
+﻿10-07 04:22:54.254 31295 31295 I flutter : 	at java.lang.Thread.run(Thread.java:1571)
+10-07 04:22:54.254 31295 31295 I flutter : , null)
+10-07 04:22:54.261 31295 31295 I flutter : [FCM] Firebase not initialized — skipping FCM setup
+10-07 04:22:55.620 31295 31295 D PhoneWindow: forceLight changed to false [com.torino.todd/com.torino.todd.MainActivity] from com.android.internal.policy.PhoneWindow.updateForceLightNavigationBar:663 com.android.internal.policy.PhoneWindow.setNavigationBarColor:4435 io.flutter.plugin.platform.PlatformPlugin.setSystemChromeSystemUIOverlayStyle:503 io.flutter.plugin.platform.PlatformPlugin.access$700:36 io.flutter.plugin.platform.PlatformPlugin$1.setSystemUiOverlayStyle:123 
+10-07 04:22:55.626  1772  1795 D WindowManager: updateSystemBarAttributes: displayId=0, focusedCanBeNavColorWin=false, win=Window{18378c6 u0 com.torino.todd/com.torino.todd.MainActivity}, navColorWin=Window{f90703a u0 Splash Screen com.torino.todd}, caller=com.android.server.wm.DisplayPolicy.finishPostLayoutPolicyLw:17 com.android.server.wm.RootWindowContainer.applySurfaceChangesTransaction$1:188 com.android.server.wm.RootWindowContainer.performSurfacePlacement:59 
+10-07 04:22:55.667  1772  1809 V WindowManager: Schedule remove starting ActivityRecord{16435843 u0 com.torino.todd/.MainActivity t515} startingWindow=Window{f90703a u0 Splash Screen com.torino.todd} animate=true Callers=com.android.server.wm.ActivityRecord.removeStartingWindow:178 com.android.server.wm.WindowState.performShowLocked:146 com.android.server.wm.WindowStateAnimator.commitFinishDrawingLocked:73 com.android.server.wm.DisplayContent$$ExternalSyntheticLambda1.accept:350 com.android.server.wm.WindowContainer$ForAllWindowsConsumerWrapper.apply:5 
+10-07 04:22:55.687  1221  1221 D SurfaceFlinger:        DEVICE |           10174777524522 | 00002100 | RGBA_8888    |    0.0    0.0  720.0 1600.0 |    0    0  720 1600 | Splash Screen com.torino.todd$_2369#1073 (1)
+10-07 04:22:55.695  1221  1221 I BufferQueueProducer: [Splash Screen com.torino.todd$_2369#1073](this:0xb4000071db85e298,id:-1,api:0,p:-1,c:1221) Splash Screen com.torino.todd$_2369#1073 queueBuffer: fps=0.30 dur=3341.00 max=3341.00 min=3341.00
+10-07 04:22:55.700  1772  1772 I WALLPAPER_SVC:SemWallpaperManagerService: isHomeActivityVisible : false 
+10-07 04:22:55.701  1772  1772 D WALLPAPER_SVC:WallpaperManagerService: dispatchHomeVisibilityChanged: visible = false, connection = com.android.server.wallpaper.WallpaperManagerService$WallpaperConnection@4dd1d6c, systemWallpaper = WallpaperData@cd80e6e, id: 2, which: 5, file mod: 0, info: null, engine(s): Proxy@35adda6, type = 0, userId = 0, uri= android.resource://com.samsung.android.wallpaper.res/drawable/wallpaper_001.png, allowBackup= true, wallpaperComponent = ComponentInfo{com.android.systemui/com.android.systemui.wallpapers.ImageWallpaper} 
+10-07 04:22:55.741  1772  4532 I WindowManager: Relayout Window{f90703a u0 Splash Screen com.torino.todd}: viewVisibility=8 req=720x1600 ty=3 d0
+10-07 04:22:55.747  1772  4532 D WindowManager: Starting window removed Window{f90703a u0 Splash Screen com.torino.todd}
+10-07 04:22:55.749  1772  4532 V WindowManager: Remove Window{f90703a u0 Splash Screen com.torino.todd}: mSurfaceControl=Surface(name=Splash Screen com.torino.todd$_2369#1073)/@0xfc9372d mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=true animating=false app-animation=false callers=com.android.server.wm.Session.remove:15 android.view.IWindowSession$Stub.onTransact:813 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1514 android.os.Binder.execTransact:1454 <bottom of call stack> 
+10-07 04:22:55.761  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{f90703a Splash Screen com.torino.todd#1072 z=2147483647} 1 children}] reparent to OffscreenRoot
+10-07 04:22:55.761  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{f90703a Splash Screen com.torino.todd#1072 z=2147483647} 1 children}] RelativeParent to null
+10-07 04:22:55.761  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1073} no children}] reparent to OffscreenRoot
+10-07 04:22:55.761  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1073} no children}] RelativeParent to null
+10-07 04:22:55.762  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1073, name=Splash Screen com.torino.todd$_2369#1073
+10-07 04:22:55.762  1221  1221 I SurfaceFlinger: id=1073 Removed Splash Screen com.torino.todd$_2369#1073 (109)
+10-07 04:22:55.762  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1072, name=f90703a Splash Screen com.torino.todd#1072
+10-07 04:22:55.762  1221  1221 I SurfaceFlinger: id=1072 Removed f90703a Splash Screen com.torino.todd#1072 (109)
+10-07 04:22:55.772  1221  1221 I SurfaceFlinger: destroyed f90703a Splash Screen com.torino.todd#1072
+10-07 04:22:55.772  1221  1221 I SurfaceFlinger: destroyed Splash Screen com.torino.todd$_2369#1073
+10-07 04:22:55.773  1221  1221 I SurfaceFlinger: id=1072 Destroyed f90703a Splash Screen com.torino.todd#1072
+10-07 04:22:55.773  1221  1221 I SurfaceFlinger: id=1073 Destroyed Splash Screen com.torino.todd$_2369#1073
+10-07 04:22:57.744 31295 31295 D WindowOnBackDispatcher: setTopOnBackInvokedCallback (unwrapped): io.flutter.embedding.android.FlutterActivity$1@c269799
+10-07 04:22:57.747 31295 31295 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/users/profile
+10-07 04:22:57.820 31295 31295 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/courses/my-created
+10-07 04:22:57.873 31295 31295 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/earnings
+10-07 04:22:57.878 31295 31295 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/sessions?role=teacher

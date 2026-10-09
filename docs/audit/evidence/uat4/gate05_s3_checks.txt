@@ -1,0 +1,12 @@
+GATE-05 S3 access checks - 2026-10-08T16:37:10Z
+1. Unsigned PUT to torino-app-storage (no credentials):
+   PUT /uat-unsigned-probe.txt -> HTTP 403
+2. Unsigned PUT into a user's lessons/ prefix:
+   PUT /lessons/x/probe.mp4 -> HTTP 403
+3. Direct (unsigned) GET of the private test lesson video:
+   GET s3/lessons/... -> HTTP 403
+   GET cloudfront/lessons/... -> HTTP 403
+4. Upload URL endpoint without a token:
+   GET /prod/upload-url (no auth) -> HTTP 401
+5. Object written by the unsigned PUT? (must not exist)
+   not found (PASS)

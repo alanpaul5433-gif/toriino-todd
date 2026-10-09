@@ -19,6 +19,7 @@ class TeacherCourseViewmodel extends GetxController {
 
   RxString selectedCategory = 'General'.obs;
   RxString selectedLevel = 'Beginner'.obs;
+  String? selectedLanguage;
   RxBool saving = false.obs;
 
   final lessonTitleController = TextEditingController();
@@ -41,29 +42,63 @@ class TeacherCourseViewmodel extends GetxController {
     });
   }
 
+  VoidCallback? onCourseCreated;
+  String? lastCourseId;
+
   void createCourse() {
     saving.value = true;
     Map<String, dynamic> data = {
-      'courseId': 'crs_${DateTime.now().millisecondsSinceEpoch}',
       'title': titleController.text,
       'description': descriptionController.text,
       'category': selectedCategory.value,
       'duration': durationController.text,
       'price': double.tryParse(priceController.text) ?? 0,
       'level': selectedLevel.value,
-      'status': 'active',
+      'language': selectedLanguage ?? '',
     };
 
     _courseRepo.createCourse(data).then((value) {
       saving.value = false;
-      Utils.toastMassage("Course created!");
+      lastCourseId = (value as Map<String, dynamic>?)?['courseId'] as String?;
       clearCourseForm();
       fetchMyCourses();
-      Get.back();
+      if (onCourseCreated != null) {
+        onCourseCreated!();
+      } else {
+        Utils.toastMassage("Course created!");
+        Get.back();
+      }
     }).onError((error, _) {
       saving.value = false;
       Utils.toastMassage(error.toString());
     });
+  }
+
+  /// POSTs each lesson. Lesson media is sent as S3 keys (`videoKey` /
+  /// `materialKey`), never URLs. Returns one "title: reason" entry per lesson
+  /// the server rejected (empty list = all saved).
+  Future<List<String>> submitLessons(
+      String courseId, List<Map<String, dynamic>> lessonsData) async {
+    final failures = <String>[];
+    for (final lesson in lessonsData) {
+      try {
+        await _courseRepo.addLesson(courseId, {
+          'title': lesson['title'] ?? '',
+          'description': lesson['description'] ?? '',
+          'duration': lesson['duration'] ?? '',
+          'order': lesson['order']?.toString() ?? '0',
+          'materialType': lesson['materialType'] ?? 'Video',
+          if ((lesson['videoKey'] as String?)?.isNotEmpty == true)
+            'videoKey': lesson['videoKey'],
+          if ((lesson['materialKey'] as String?)?.isNotEmpty == true)
+            'materialKey': lesson['materialKey'],
+          if ((lesson['url'] as String?)?.isNotEmpty == true) 'url': lesson['url'],
+        });
+      } catch (e) {
+        failures.add('${lesson['title'] ?? 'Lesson'}: ${Utils.errorMessage(e)}');
+      }
+    }
+    return failures;
   }
 
   void fetchLessons(String courseId) {
@@ -81,7 +116,6 @@ class TeacherCourseViewmodel extends GetxController {
   void addLesson(String courseId) {
     savingLesson.value = true;
     Map<String, dynamic> data = {
-      'lessonId': 'les_${DateTime.now().millisecondsSinceEpoch}',
       'title': lessonTitleController.text,
       'description': lessonDescriptionController.text,
       'duration': lessonDurationController.text,

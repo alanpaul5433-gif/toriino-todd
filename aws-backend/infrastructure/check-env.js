@@ -124,11 +124,11 @@ async function main() {
     console.log("\n  Deployment order:");
     console.log("    1. node deploy.js              — core infra + base Lambdas");
     console.log("    2. node deploy-ai.js --gemini-key=KEY  — AI + admin Lambdas");
-    console.log("    3. node deploy-routes.js       — wire all routes to API Gateway");
+    console.log("    3. npm run deploy:backend      — SAM deploy + wire routes (scripts/deploy-api-routes.mjs)");
     console.log("    4. node setup-admin.js --email=you@example.com --password=Temp123!");
     console.log("");
   } else {
-    console.log("\n  All checks passed! Run deploy-routes.js to wire new routes.\n");
+    console.log("\n  All checks passed! Run npm run deploy:backend to deploy and wire routes.\n");
   }
 }
 

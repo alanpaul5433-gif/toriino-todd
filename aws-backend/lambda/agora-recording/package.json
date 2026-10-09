@@ -1,0 +1,9 @@
+{
+  "name": "toriino-agora-recording",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toriino Todd agora-recording Lambda (the AWS SDK v3 comes from the nodejs runtime)",
+  "main": "index.js",
+  "files": ["index.js"],
+  "dependencies": {}
+}

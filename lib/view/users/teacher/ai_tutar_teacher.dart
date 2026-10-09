@@ -23,14 +23,21 @@ class AiTutarTeacher extends StatelessWidget {
               padding: const EdgeInsets.all(12.0),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/icons/Toriino AI.svg', height: 28),
+                  SizedBox(
+                    width: 110,
+                    height: 28,
+                    child: SvgPicture.asset('assets/icons/Toriino AI.svg', fit: BoxFit.contain),
+                  ),
                   SizedBox(width: Responsive.w(2)),
-                  Text(
-                    "AI Assistant",
-                    style: GoogleFonts.rethinkSans(
-                      color: AppColor.white,
-                      fontSize: Responsive.textScaleFactor * 20,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      "AI Assistant",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.rethinkSans(
+                        color: AppColor.white,
+                        fontSize: Responsive.textScaleFactor * 20,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const Spacer(),

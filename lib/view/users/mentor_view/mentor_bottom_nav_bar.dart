@@ -6,17 +6,17 @@ import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/services/auth_service.dart';
-import 'package:toriino_todd/view/auth/login_view.dart';
-import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
 import 'package:toriino_todd/view/users/common_view/Privacy_policy_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_home_view.dart';
+import 'package:toriino_todd/viewmodel/controller/mentor/mentor_home_viewmodel.dart';
 import 'package:toriino_todd/view/users/mentor_view/earinig_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_private_profile_view.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_sessions_view.dart';
 import 'package:toriino_todd/view/users/student_view/ai_tutor_view.dart';
-import 'package:toriino_todd/view/users/student_view/setting_view.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_availability.dart';
+import 'package:toriino_todd/view/users/mentor_view/mentor_setting_view.dart';
 import 'package:toriino_todd/view/users/student_view/support_view.dart';
+import 'package:toriino_todd/services/session_reset.dart';
 
 class MentorBottomNavBar extends StatefulWidget {
   const MentorBottomNavBar({super.key});
@@ -36,7 +36,7 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
     EarinigView(),
     MentorSessionsView(),
     MentorPrivateProfileView(),
-    AiTutorView(),
+    AiTutorView(tag: 'mentor'),
   ];
 
   @override
@@ -62,6 +62,22 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Obx(() {
+                  final vm = Get.find<MentorHomeViewmodel>();
+                  final avatarUrl = vm.rxProfile.value.data?.avatarUrl;
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                    child: CircleAvatar(
+                      radius: 36,
+                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: avatarUrl == null || avatarUrl.isEmpty
+                          ? const Icon(Icons.person, size: 36)
+                          : null,
+                    ),
+                  );
+                }),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15.0),
                   child: SvgPicture.asset("assets/icons/TORIINO.svg"),
@@ -90,10 +106,19 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                   onTap: () {
                     _customDrawerController.advancedDrawerController
                         .hideDrawer();
+                    Get.to(() => const MentorAvailability());
+                  },
+                  leading: const Icon(Icons.event_available, color: Colors.white),
+                  title: const Text('Availability'),
+                ),
+                ListTile(
+                  onTap: () {
+                    _customDrawerController.advancedDrawerController
+                        .hideDrawer();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NotificationSettingView(),
+                        builder: (_) => const MentorSettingView(),
                       ),
                     );
                   },
@@ -118,7 +143,7 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                         .hideDrawer();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SupportView()),
+                      MaterialPageRoute(builder: (_) => const SupportView()),
                     );
                   },
                   leading: SvgPicture.asset(
@@ -131,14 +156,8 @@ class _MentorBottomNavBarState extends State<MentorBottomNavBar> {
                   onTap: () async {
                     _customDrawerController.advancedDrawerController
                         .hideDrawer();
-                    await AuthService.signOut();
-                    await UsersPrefrence().removeUser();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => Loginview()),
-                      (_) => false,
-                    );
+                    // Signs out and clears every cached per-user controller (UAT H5).
+                    await SessionReset.logOut(context);
                   },
                   leading: SvgPicture.asset("assets/icons/logout.svg"),
                   title: const Text('Logout'),

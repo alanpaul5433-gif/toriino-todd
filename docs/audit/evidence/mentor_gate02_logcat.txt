@@ -1,0 +1,20 @@
+﻿10-07 04:23:55.772  1772  4266 D WindowManager: updateSystemBarAttributes: displayId=0, focusedCanBeNavColorWin=false, win=Window{d792da6 u0 com.torino.todd/com.torino.todd.MainActivity}, navColorWin=Window{5cf822f u0 Splash Screen com.torino.todd}, caller=com.android.server.wm.DisplayPolicy.finishPostLayoutPolicyLw:17 com.android.server.wm.RootWindowContainer.applySurfaceChangesTransaction$1:188 com.android.server.wm.RootWindowContainer.performSurfacePlacement:59 
+10-07 04:23:55.809  1772  1809 V WindowManager: Schedule remove starting ActivityRecord{158736402 u0 com.torino.todd/.MainActivity t516} startingWindow=Window{5cf822f u0 Splash Screen com.torino.todd} animate=true Callers=com.android.server.wm.ActivityRecord.removeStartingWindow:178 com.android.server.wm.WindowState.performShowLocked:146 com.android.server.wm.WindowStateAnimator.commitFinishDrawingLocked:73 com.android.server.wm.DisplayContent$$ExternalSyntheticLambda1.accept:350 com.android.server.wm.WindowContainer$ForAllWindowsConsumerWrapper.apply:5 
+10-07 04:23:55.824  1221  1221 D SurfaceFlinger:        DEVICE |           10174777524526 | 00002100 | RGBA_8888    |    0.0    0.0  720.0 1600.0 |    0    0  720 1600 | Splash Screen com.torino.todd$_2369#1112 (1)
+10-07 04:23:55.843  1221  1221 I BufferQueueProducer: [Splash Screen com.torino.todd$_2369#1112](this:0xb4000071dbb76298,id:-1,api:0,p:-1,c:1221) Splash Screen com.torino.todd$_2369#1112 queueBuffer: fps=0.29 dur=3390.69 max=3390.69 min=3390.69
+10-07 04:23:55.891  1772  4382 I WindowManager: Relayout Window{5cf822f u0 Splash Screen com.torino.todd}: viewVisibility=8 req=720x1600 ty=3 d0
+10-07 04:23:55.898  1772  4382 D WindowManager: Starting window removed Window{5cf822f u0 Splash Screen com.torino.todd}
+10-07 04:23:55.899  1772  4382 V WindowManager: Remove Window{5cf822f u0 Splash Screen com.torino.todd}: mSurfaceControl=Surface(name=Splash Screen com.torino.todd$_2369#1112)/@0x67bef42 mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=true animating=false app-animation=false callers=com.android.server.wm.Session.remove:15 android.view.IWindowSession$Stub.onTransact:813 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1514 android.os.Binder.execTransact:1454 <bottom of call stack> 
+10-07 04:23:55.909  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{5cf822f Splash Screen com.torino.todd#1111 z=2147483647} 1 children}] reparent to OffscreenRoot
+10-07 04:23:55.909  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{5cf822f Splash Screen com.torino.todd#1111 z=2147483647} 1 children}] RelativeParent to null
+10-07 04:23:55.909  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1112} no children}] reparent to OffscreenRoot
+10-07 04:23:55.909  1221  1221 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Splash Screen com.torino.todd$_2369#1112} no children}] RelativeParent to null
+10-07 04:23:55.910  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1112, name=Splash Screen com.torino.todd$_2369#1112
+10-07 04:23:55.910  1221  1221 I SurfaceFlinger: id=1112 Removed Splash Screen com.torino.todd$_2369#1112 (110)
+10-07 04:23:55.910  1221  1221 I SurfaceFlinger: onHandleDestroyed: layerId=1111, name=5cf822f Splash Screen com.torino.todd#1111
+10-07 04:23:55.910  1221  1221 I SurfaceFlinger: id=1111 Removed 5cf822f Splash Screen com.torino.todd#1111 (110)
+10-07 04:23:55.920  1221  1221 I SurfaceFlinger: destroyed 5cf822f Splash Screen com.torino.todd#1111
+10-07 04:23:55.920  1221  1221 I SurfaceFlinger: destroyed Splash Screen com.torino.todd$_2369#1112
+10-07 04:23:55.921  1221  1221 I SurfaceFlinger: id=1111 Destroyed 5cf822f Splash Screen com.torino.todd#1111
+10-07 04:23:55.921  1221  1221 I SurfaceFlinger: id=1112 Destroyed Splash Screen com.torino.todd$_2369#1112
+10-07 04:23:58.480 31760 31760 I flutter : https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod/sessions?role=mentor

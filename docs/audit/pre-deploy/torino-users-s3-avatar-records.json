@@ -1,0 +1,102 @@
+{
+    "Items": [
+        {
+            "avatarUrl": {
+                "S": "https://torino-app-storage.s3.amazonaws.com/avatars/14289438-9001-7004-ca01-6386a66f9300/298ea68b-d573-45c1-b870-182cd00cd2a6.png"
+            },
+            "bio": {
+                "S": "Test hahaha but it's a bit late and I'm still in the hospital for a bit and I'm still"
+            },
+            "createdAt": {
+                "S": "2026-09-30T17:43:26.109Z"
+            },
+            "educationLevel": {
+                "S": "Bachelor's Degree"
+            },
+            "email": {
+                "S": "joshmarkus1994@gmail.com"
+            },
+            "interests": {
+                "L": [
+                    {
+                        "S": "Mindfulness"
+                    },
+                    {
+                        "S": "Communication"
+                    }
+                ]
+            },
+            "language": {
+                "S": "Spanish"
+            },
+            "name": {
+                "S": "josh"
+            },
+            "profileComplete": {
+                "BOOL": true
+            },
+            "role": {
+                "S": "Student"
+            },
+            "updatedAt": {
+                "S": "2026-10-02T17:29:40.828Z"
+            },
+            "userId": {
+                "S": "14289438-9001-7004-ca01-6386a66f9300"
+            }
+        },
+        {
+            "avatarUrl": {
+                "S": "https://torino-app-storage.s3.amazonaws.com/avatars/d4b88408-50d1-7027-bddb-36774efd6bcf/e853660b-1d9c-45f8-9d63-6183f1d9f4d2.png"
+            },
+            "bio": {
+                "S": "Teaching the children how the game is going is the most difficult thing ever to teach in a school environment where they don’t have the resources or the time or the patience for it and the teacher has no control of their actions or the time they have been taught and they are just"
+            },
+            "createdAt": {
+                "S": "2026-10-01T00:31:44.683Z"
+            },
+            "educationLevel": {
+                "S": "High School"
+            },
+            "email": {
+                "S": "noumanzindanii@gmail.com"
+            },
+            "experience": {
+                "S": "5"
+            },
+            "hourlyRate": {
+                "S": "12"
+            },
+            "industry": {
+                "S": "Programming"
+            },
+            "language": {
+                "S": "English"
+            },
+            "name": {
+                "S": "Josh"
+            },
+            "profileComplete": {
+                "BOOL": true
+            },
+            "role": {
+                "S": "Teacher"
+            },
+            "skills": {
+                "S": "12"
+            },
+            "title": {
+                "S": "Professor"
+            },
+            "updatedAt": {
+                "S": "2026-10-03T08:45:23.623Z"
+            },
+            "userId": {
+                "S": "d4b88408-50d1-7027-bddb-36774efd6bcf"
+            }
+        }
+    ],
+    "Count": 2,
+    "ScannedCount": 43,
+    "ConsumedCapacity": null
+}

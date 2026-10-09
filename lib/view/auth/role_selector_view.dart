@@ -1,9 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:toriino_todd/repository/user_repo.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
+import 'package:toriino_todd/services/auth_service.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
-import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/mentor_view/mentor_bottom_nav_bar.dart';
+import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_nav_bar_holder.dart';
 import 'package:toriino_todd/view/users/teacher/teacher_bottom_nav_bar.dart';
 import 'package:toriino_todd/viewmodel/controller/login/user_prefrence/users_prefrence.dart';
@@ -24,16 +27,25 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     if (selectedRole == null) return;
     setState(() => _saving = true);
 
-    final prefs = UsersPrefrence();
-    await prefs.saveUserRole(selectedRole!);
+    // POST /auth/set-role saves the role in Cognito (custom:role) and on the
+    // profile record; only continue once it has actually been saved.
+    final roleResult = await AuthService.setRole(selectedRole!);
+    if (!mounted) return;
+    if (roleResult['success'] != true) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not save your role: ${roleResult['message'] ?? 'please try again'}'),
+      ));
+      return;
+    }
 
-    // Best-effort backend update — don't block navigation on failure
-    try {
-      await UserRepo().updateProfile({'role': selectedRole});
-    } catch (_) {}
-
+    AnalyticsService.logSignUp(role: selectedRole!);
+    await UsersPrefrence().saveUserRole(selectedRole!);
     if (!mounted) return;
     setState(() => _saving = false);
+
+    // Reset tab index so every role always opens to Home tab
+    try { Get.find<CustomDrawerController>().changeIndex(0); } catch (_) {}
 
     if (selectedRole == "Student") {
       Navigator.pushReplacement(

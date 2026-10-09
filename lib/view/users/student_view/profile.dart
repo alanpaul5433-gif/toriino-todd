@@ -122,11 +122,11 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
 
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -150,12 +150,12 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     prefixIcon: Padding(
@@ -209,12 +209,12 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     prefixIcon: Padding(
@@ -353,11 +353,11 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
 
 //                   filled: true,
 //                   fillColor: AppColor.white.withValues(alpha: 0.2),
-//                   enabledBorder: UnderlineInputBorder(
+//                   enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                     // borderSide: BorderSide(color: AppColor.white),
 //                     borderRadius: BorderRadius.circular(28),
 //                   ),
-//                   focusedBorder: UnderlineInputBorder(
+//                   focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                     // borderSide: BorderSide(color: AppColor.white),
 //                     borderRadius: BorderRadius.circular(28),
 //                   ),
@@ -369,11 +369,11 @@ class StudentProfileSetupState extends State<StudentProfileSetup> {
 //                 decoration: InputDecoration(
 //                   fillColor: AppColor.white.withValues(alpha: 0.2),filled: true,
 //                   labelText: 'Select your level',
-//                   enabledBorder: UnderlineInputBorder(
+//                   enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                     // borderSide: BorderSide(color: AppColor.white),
 //                     borderRadius: BorderRadius.circular(28),
 //                   ),
-//                   focusedBorder: UnderlineInputBorder(
+//                   focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                     // borderSide: BorderSide(color: AppColor.white),
 //                     borderRadius: BorderRadius.circular(28),
 //                   ),

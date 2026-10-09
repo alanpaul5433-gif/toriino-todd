@@ -1,0 +1,6 @@
+GATE-05 in-app upload checks - 2026-10-08T20:52:18Z
+Lesson uploaded from the app by the new teacher: course crs_b00ac577-..., lesson les_ee870c9a-...
+Stored as private key (no URL): lessons/<teacher sub>/<uuid>.mp4
+{"size":4543,"type":"video/mp4"}   <- object exists in the private bucket
+Unsigned GET via S3: HTTP 403
+Unsigned GET via CloudFront: HTTP 403

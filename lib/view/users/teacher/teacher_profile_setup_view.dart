@@ -144,7 +144,7 @@
 //                     ),
 //                     filled: true,
 //                     fillColor: AppColor.white.withValues(alpha: 0.08),
-//                     enabledBorder: UnderlineInputBorder(
+//                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                       // borderSide: BorderSide(color: AppColor.white),
 //                       borderRadius: BorderRadius.circular(28),
 //                     ),
@@ -180,11 +180,11 @@
 //                   decoration: InputDecoration(
 //                     filled: true,
 //                     fillColor: AppColor.white.withValues(alpha: 0.08),
-//                     enabledBorder: UnderlineInputBorder(
+//                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                       // borderSide: BorderSide(color: AppColor.white),
 //                       borderRadius: BorderRadius.circular(28),
 //                     ),
-//                     focusedBorder: UnderlineInputBorder(
+//                     focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
 //                       // borderSide: BorderSide(color: AppColor.white),
 //                       borderRadius: BorderRadius.circular(28),
 //                     ),
@@ -248,11 +248,22 @@ import 'package:toriino_todd/widgets/components/edit.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TeacherProfileSetupView extends StatefulWidget {
-  TeacherProfileSetupView({super.key});
+  const TeacherProfileSetupView({super.key});
+
+  @override
+  State<TeacherProfileSetupView> createState() =>
+      _TeacherProfileSetupViewState();
+}
+
+class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
+  final _formKey = GlobalKey<FormState>();
+  String? bio;
+  String? educationLevel;
+  String? selectedLanguage;
+  String? selectedIndustry;
 
   final TextEditingController titleController = TextEditingController();
   final FocusNode titleFoucsNode = FocusNode();
-
   final TextEditingController bioController = TextEditingController();
   final FocusNode bioFoucsNode = FocusNode();
   final TextEditingController experienceController = TextEditingController();
@@ -269,16 +280,25 @@ class TeacherProfileSetupView extends StatefulWidget {
   final FocusNode languageFoucsNode = FocusNode();
 
   @override
-  State<TeacherProfileSetupView> createState() =>
-      _TeacherProfileSetupViewState();
-}
-
-class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
-  final _formKey = GlobalKey<FormState>();
-  String? bio;
-  String? educationLevel;
-  String? selectedLanguage;
-  String? selectedIndustry;
+  void dispose() {
+    titleController.dispose();
+    titleFoucsNode.dispose();
+    bioController.dispose();
+    bioFoucsNode.dispose();
+    experienceController.dispose();
+    experienceFoucsNode.dispose();
+    nameController.dispose();
+    nameFoucsNode.dispose();
+    priceController.dispose();
+    priceFoucsNode.dispose();
+    industryController.dispose();
+    industryFoucsNode.dispose();
+    skillController.dispose();
+    skillFoucsNode.dispose();
+    languageController.dispose();
+    languageFoucsNode.dispose();
+    super.dispose();
+  }
 
   final List<String> educationLevels = [
     'High School',
@@ -360,24 +380,24 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
                   text: 'Designation / Title',
-                  controller: widget.titleController,
-                  focusNode: widget.titleFoucsNode,
-                  nextfocusNode: widget.experienceFoucsNode,
+                  controller: titleController,
+                  focusNode: titleFoucsNode,
+                  nextfocusNode: experienceFoucsNode,
                   svgPath: 'assets/icons/3d-rotate.svg',
                 ),
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
                   text: 'Years of Experience',
-                  controller: widget.experienceController,
-                  focusNode: widget.experienceFoucsNode,
-                  nextfocusNode: widget.bioFoucsNode,
+                  controller: experienceController,
+                  focusNode: experienceFoucsNode,
+                  nextfocusNode: bioFoucsNode,
                   svgPath: 'assets/icons/work.svg',
                 ),
                 SizedBox(height: Responsive.h(1)),
 
                 TextFormField(
-                  focusNode: widget.bioFoucsNode,
-                  controller: widget.bioController,
+                  focusNode: bioFoucsNode,
+                  controller: bioController,
                   style: GoogleFonts.rethinkSans(
                     color: AppColor.white,
                     fontWeight: FontWeight.w500,
@@ -403,20 +423,20 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                     ),
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
                   onFieldSubmitted: (value) {
                     Utils.fieldFoucsChange(
                       context,
-                      widget.bioFoucsNode,
-                      widget.priceFoucsNode,
+                      bioFoucsNode,
+                      priceFoucsNode,
                     );
                   },
                 ),
@@ -431,9 +451,9 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
                   text: 'Price per hour',
-                  controller: widget.priceController,
-                  focusNode: widget.priceFoucsNode,
-                  nextfocusNode: widget.nameFoucsNode,
+                  controller: priceController,
+                  focusNode: priceFoucsNode,
+                  nextfocusNode: nameFoucsNode,
                   svgPath: 'assets/icons/money-03 (1).svg',
                 ),
                 SizedBox(height: Responsive.h(1)),
@@ -448,12 +468,12 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColor.red),
+                      borderSide: BorderSide(color: AppColor.focusedBorder),
                       borderRadius: BorderRadius.circular(28),
                     ),
                     prefixIcon: Padding(
@@ -490,14 +510,14 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                   },
                   validator:
                       (value) =>
-                          value == null ? 'Please select a language' : null,
+                          value == null ? 'Please select an industry' : null,
                 ),
                 SizedBox(height: Responsive.h(1)),
                 EditProfileTextfeild(
                   text: 'Expertise',
-                  controller: widget.nameController,
-                  focusNode: widget.nameFoucsNode,
-                  nextfocusNode: widget.nameFoucsNode,
+                  controller: nameController,
+                  focusNode: nameFoucsNode,
+                  nextfocusNode: nameFoucsNode,
                   svgPath: 'assets/icons/mentoring.svg',
                 ),
                 SizedBox(height: Responsive.h(1)),
@@ -530,11 +550,11 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
 
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -571,11 +591,11 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColor.white.withValues(alpha: 0.08),
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColor.primaryColor),
                       // borderSide: BorderSide(color: AppColor.white),
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -631,7 +651,7 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       spacing: 2,
                       children: [
-                        SvgPicture.asset("assetName"),
+                        const Icon(Icons.add, size: 20),
                         Text(
                           'Add More Language ',
                           style: TextStyle(
@@ -648,11 +668,14 @@ class _TeacherProfileSetupViewState extends State<TeacherProfileSetupView> {
                 ),
                 SizedBox(height: 32),
                 GestureDetector(
-                  onTap:
-                      () => Navigator.pushReplacement(
+                  onTap: () {
+                    if (_formKey.currentState?.validate() ?? false) {
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (_) => TeacherUploadView()),
-                      ),
+                      );
+                    }
+                  },
                   child: buttonLarge(context, "Continue"),
                 ),
               ],

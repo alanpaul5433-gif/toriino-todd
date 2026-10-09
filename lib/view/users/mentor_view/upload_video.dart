@@ -1,13 +1,20 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/mentor_view/avabilty_view.dart';
+import 'package:toriino_todd/widgets/intro_video_upload_section.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class UploadVideo extends StatelessWidget {
+class UploadVideo extends StatefulWidget {
   const UploadVideo({super.key});
+
+  @override
+  State<UploadVideo> createState() => _UploadVideoState();
+}
+
+class _UploadVideoState extends State<UploadVideo> {
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
@@ -33,77 +40,15 @@ class UploadVideo extends StatelessWidget {
               Text(
                 'Upload Video Intro',
                 style: TextStyle(
-                  fontSize: Responsive.textScaleFactor*30,
+                  fontSize: Responsive.textScaleFactor * 30,
                   color: AppColor.white,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               SizedBox(height: Responsive.h(10)),
 
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.white.withValues(alpha: 0.08),
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 7, bottom: 7),
-                  child: Column(
-                    children: [
-                      SvgPicture.asset("assets/icons/upload-circle.svg"),
-                      Text(
-                        'Formats, MOV, MP3, MP4',
-                        style: GoogleFonts.dmSans(
-                          color: AppColor.white,
-                          fontSize: Responsive.textScaleFactor * 8,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: Responsive.h(1)),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.red,
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 2, bottom: 2),
-                  child: Center(
-                    child: SvgPicture.asset("assets/icons/camera-add.svg"),
-                  ),
-                ),
-              ),
-              SizedBox(height: Responsive.h(1)),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.circular(28),
-                  color: AppColor.primaryColor,
-                  border: Border.all(color: AppColor.red),
-                ),
-                child: Padding(
-                  padding: Responsive.padding(top: 2, bottom: 2),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset("assets/icons/IC_cross.svg"),  SizedBox(width: Responsive.w(2)),
-                      Text(
-                        'Upload a video',
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontSize: Responsive.textScaleFactor * 12,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              IntroVideoUploadSection(
+                onBusyChanged: (v) => setState(() => _busy = v),
               ),
               Spacer(),
 
@@ -112,10 +57,17 @@ class UploadVideo extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   GestureDetector(
-                    onTap: (){
-                      Utils.toastMassage("Video uploaded successfully!");
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=>AvailabilityScreen()));
-                    },
+                    onTap:
+                        _busy
+                            ? null
+                            : () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AvailabilityScreen(),
+                                ),
+                              );
+                            },
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(28),
@@ -143,7 +95,8 @@ class UploadVideo extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),  SizedBox(height: Responsive.h(4)),
+              ),
+              SizedBox(height: Responsive.h(4)),
             ],
           ),
         ),

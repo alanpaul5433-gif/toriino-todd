@@ -297,7 +297,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                         () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => MentorSubcirptionView(),
+                            builder: (_) => const MentorSubcirptionView(isOnboarding: true),
                           ),
                         ),
                     child: Container(

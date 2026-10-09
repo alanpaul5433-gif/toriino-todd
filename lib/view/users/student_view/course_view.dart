@@ -3,15 +3,19 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
+import 'package:toriino_todd/model/course/course_model.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
-import 'package:toriino_todd/utils/utils.dart';
 import 'package:toriino_todd/view/users/student_view/bottom_filter.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
-import 'package:toriino_todd/widgets/auth_button.dart';
+import 'package:toriino_todd/utils/money.dart';
+import 'package:toriino_todd/view/widgets/course_enroll_sheet.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
+
+export 'package:toriino_todd/view/widgets/course_enroll_sheet.dart'
+    show showCourseEnrollSheet;
 import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
 import 'package:toriino_todd/data/response/status.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class CourseView extends StatelessWidget {
   CourseView({super.key});
@@ -117,8 +121,10 @@ class CourseView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      // Filters the loaded catalog (the field did nothing before — UAT Round 6).
+                      onChanged: (v) => courseController.searchQuery.value = v,
                       decoration: InputDecoration(
-                        hintText: "Search by title, mentor, or tag",
+                        hintText: "Search by title, teacher, or category",
                         hintStyle: TextStyle(
                           color: AppColor.secconderyColor,
                           fontSize: 14.sp,
@@ -171,8 +177,30 @@ class CourseView extends StatelessWidget {
                   if (response.status == Status.error) {
                     return Center(child: Text('Error loading courses', style: TextStyle(color: AppColor.white)));
                   }
-                  final courses = response.data?.courses ?? [];
-                  return ListView.builder(
+                  final courses = courseController.filterCourses(response.data?.courses ?? []);
+                  if (courses.isEmpty && courseController.searchQuery.value.trim().isNotEmpty) {
+                    return Center(
+                      child: Text(
+                        courseController.hasMoreCourses
+                            ? 'No loaded course matches. Scroll the full list to load more.'
+                            : 'No courses match your search.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColor.white),
+                      ),
+                    );
+                  }
+                  // Enrolled courses show "Open" instead of "Enroll" (UAT L6).
+                  final enrolledIds = {
+                    for (final c in courseController.rxMyCourses.value.data?.courses ?? const <CourseModel>[])
+                      if ((c.courseId ?? '').isNotEmpty) c.courseId!,
+                  };
+                  return NotificationListener<ScrollNotification>(
+                  // Near the end of the list, fetch the next catalog page.
+                  onNotification: (n) {
+                    if (n.metrics.extentAfter < 600) courseController.loadMoreCourses();
+                    return false;
+                  },
+                  child: ListView.builder(
                   itemCount: courses.length,
                   itemBuilder: ((context, index) {
                     return Padding(
@@ -204,7 +232,11 @@ class CourseView extends StatelessWidget {
                                       ),
                                       SizedBox(width: 10.w),
                                       Text(
-                                        "\$${courses[index].price?.toStringAsFixed(2) ?? '0.00'}",
+                                        courses[index].displayPrice == null
+                                            ? ''
+                                            : courses[index].displayPrice! > 0
+                                                ? formatMoney(courses[index].displayPrice!, courses[index].pricing?.currency)
+                                                : 'Free',
                                         style: TextStyle(
                                           color: AppColor.white,
                                           fontWeight: FontWeight.w500,
@@ -215,7 +247,16 @@ class CourseView extends StatelessWidget {
                                   ),
                                   GestureDetector(
                                     onTap: () {
-                                      _enrollBottomSheet(context);
+                                      if (enrolledIds.contains(courses[index].courseId)) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => MyTakenCousreView(course: courses[index]),
+                                          ),
+                                        );
+                                      } else {
+                                        showCourseEnrollSheet(context, courses[index]);
+                                      }
                                     },
                                     child: Container(
                                       decoration: BoxDecoration(
@@ -230,7 +271,7 @@ class CourseView extends StatelessWidget {
                                         child: Row(
                                           children: [
                                             Text(
-                                              "Enroll",
+                                              enrolledIds.contains(courses[index].courseId) ? "Open" : "Enroll",
                                               style: TextStyle(
                                                 fontSize: 14.sp,
                                                 color: AppColor.white,
@@ -254,92 +295,39 @@ class CourseView extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 10.h),
-                              Text(
-                                "Duration: ${courses[index].duration ?? 'N/A'}",
-                                style: TextStyle(
-                                  color: AppColor.white,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14.sp,
+                              if ((courses[index].duration ?? '').isNotEmpty) ...[
+                                SizedBox(height: 10.h),
+                                Text(
+                                  "Duration: ${courses[index].duration}",
+                                  style: TextStyle(
+                                    color: AppColor.white,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14.sp,
+                                  ),
                                 ),
-                              ),
+                              ],
                               SizedBox(height: 10.h),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    courses[index].title ?? 'Course',
-                                    style: TextStyle(
-                                      fontSize: 20.sp,
-                                      color: AppColor.white,
-                                      fontWeight: FontWeight.bold,
+                                  // Long titles wrap to two lines instead of overflowing the card.
+                                  Expanded(
+                                    child: Text(
+                                      courses[index].title ?? 'Course',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 20.sp,
+                                        color: AppColor.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 10.h),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        backgroundImage: AssetImage(
-                                          "assets/images/mentor.png",
-                                        ),
-                                        radius: 20.r,
-                                        backgroundColor:
-                                            AppColor.secconderyColor,
-                                      ),
-                                      SizedBox(width: 10.w),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            courses[index].category ?? 'Category',
-                                            style: TextStyle(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 14.sp,
-                                            ),
-                                          ),
-                                          Text(
-                                            courses[index].level ?? 'Level',
-                                            style: TextStyle(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 12.sp,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.star,
-                                        color: AppColor.white,
-                                        size: 16.sp,
-                                      ),
-                                      SizedBox(width: 5.w),
-                                      Text(
-                                        "${courses[index].rating ?? 0}",
-                                        style: TextStyle(
-                                          color: AppColor.white,
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 14.sp,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              _courseMetaRow(courses[index]),
                               SizedBox(height: 10.h),
                             ],
                           ),
@@ -347,6 +335,7 @@ class CourseView extends StatelessWidget {
                       ),
                     );
                   }),
+                  ),
                 );
                 }),
               ),
@@ -358,139 +347,84 @@ class CourseView extends StatelessWidget {
   }
 }
 
-void _enrollBottomSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-    ),
-    backgroundColor: AppColor.primaryColor,
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: Responsive.w(5),
-          right: Responsive.w(5),
-          top: Responsive.h(3),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "UI/UX Design Basics",
-                  style: TextStyle(
-                    color: AppColor.white,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: Icon(Icons.close, color: AppColor.white),
-                ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            Row(
-              children: [
+/// Bottom row of a catalog course card: the teacher (when the API sent a
+/// `teacherName`), category / level, and the rating when there is one.
+Widget _courseMetaRow(CourseModel course) {
+  final teacher = (course.teacherName ?? '').trim();
+  final sub = [
+    if ((course.category ?? '').isNotEmpty) course.category!,
+    if ((course.level ?? '').isNotEmpty) course.level!,
+  ].join(' · ');
+  final rating = course.rating ?? 0;
+  if (teacher.isEmpty && sub.isEmpty && rating <= 0) {
+    return SizedBox(height: 10.h);
+  }
+  return Padding(
+    padding: EdgeInsets.symmetric(vertical: 10.h),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              if (teacher.isNotEmpty) ...[
+                // Neutral placeholder (was a white icon on a white circle — UAT L10).
                 CircleAvatar(
-                  backgroundImage: AssetImage("assets/images/mentor.png"),
+                  radius: 20.r,
+                  backgroundColor: Colors.white12,
+                  child: const Icon(Icons.person, color: Colors.white54),
                 ),
                 SizedBox(width: 10.w),
-                Column(
+              ],
+              Flexible(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Chance Calzoni',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
+                    if (teacher.isNotEmpty)
+                      Text(
+                        teacher,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14.sp,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Teacher',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w400,
+                    if (sub.isNotEmpty)
+                      Text(
+                        sub,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColor.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12.sp,
+                        ),
                       ),
-                    ),
                   ],
                 ),
-              ],
-            ),
-            SizedBox(height: Responsive.h(2)),
-            const Divider(color: Colors.grey),
-            SizedBox(height: Responsive.h(2)),
-            _cousreinfo("Course Category", "Design"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Course Duration", "2–5h"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Language", "English"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Rating", "4.5"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Price Info", "\$19.99"),
-            SizedBox(height: Responsive.h(1)),
-            _cousreinfo("Platform Fee", "\$4.99"),
-            SizedBox(height: Responsive.h(2)),
-            Text(
-              "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
               ),
-            ),
-            SizedBox(height: Responsive.h(2)),
-            AuthButton(
-              buttontext: "Proceed to Payment",
-              onPress: () {
-                Navigator.pop(context); // Close the bottom sheet
-                _showPaymentAlert(context); // Show the payment alert
-              },
-              loading: false,
-            ),
-            SizedBox(height: Responsive.h(2)),
-          ],
+            ],
+          ),
         ),
-      );
-    },
-  );
-}
-
-Widget _cousreinfo(String text1, String text2) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        text1,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-      Text(
-        text2,
-        textAlign: TextAlign.right,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
+        if (rating > 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.star, color: AppColor.white, size: 16.sp),
+              SizedBox(width: 5.w),
+              Text(
+                rating.toStringAsFixed(1),
+                style: TextStyle(
+                  color: AppColor.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+      ],
+    ),
   );
 }
 
@@ -503,77 +437,3 @@ void _showFilterSuggestipon(BuildContext context) {
   );
 }
 
-void _showPaymentAlert(BuildContext context) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return Dialog(
-        backgroundColor: AppColor.primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.0),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(20.0.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset("assets/icons/checkmark-circle-02.svg"),
-              SizedBox(height: 15.h),
-              Text(
-                "Course Purchased!",
-                style: TextStyle(
-                  color: AppColor.white,
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 15.h),
-              Text(
-                "It is a long established fact that a reader will be distracted by the readable content of a page.",
-                style: TextStyle(color: AppColor.white, fontSize: 16.sp),
-              ),
-              SizedBox(height: 10.h),
-
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Utils.toastMassage("Successful");
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: AppColor.red,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8.0,
-                      horizontal: 16.0,
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Continue",
-                            style: GoogleFonts.dmSans(
-                              fontSize: 14,
-                              color: AppColor.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SvgPicture.asset("assets/icons/arrow.svg"),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}

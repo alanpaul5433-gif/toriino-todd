@@ -1,12 +1,18 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:toriino_todd/data/response/status.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/viewmodel/controller/student/course_viewmodel.dart';
+import 'package:toriino_todd/view/users/student_view/my_taken_cousre_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MycourseView extends StatelessWidget {
-  const MycourseView({super.key});
+  MycourseView({super.key});
+
+  final CourseViewmodel _courseVm = Get.put(CourseViewmodel());
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +49,10 @@ class MycourseView extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColor.backGroundColor.withValues(alpha:0.1),
+                      color: AppColor.backGroundColor.withValues(alpha: 0.1),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -58,7 +63,7 @@ class MycourseView extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColor.backGroundColor.withValues(alpha:0.1),
+                      color: AppColor.backGroundColor.withValues(alpha: 0.1),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -67,80 +72,280 @@ class MycourseView extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 10),
-
+              const SizedBox(height: 10),
               Flexible(
-                child: ListView.builder(
-                  itemCount: 10,
-                  itemBuilder: ((context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(28),
-                          color: AppColor.white.withValues(alpha: 0.08),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  SvgPicture.asset(
-                                    "assets/icons/Frame 1000002079.svg",
-                                  ),
+                child: Obx(() {
+                  final state = _courseVm.rxMyCourses.value;
+                  if (state.status == Status.loading) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  }
+                  if (state.status == Status.error) {
+                    return Center(
+                      child: Text(
+                        'Error loading courses',
+                        style: TextStyle(color: AppColor.white),
+                      ),
+                    );
+                  }
+                  final courses = state.data?.courses ?? [];
+                  if (courses.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.school_outlined,
+                            color: Colors.white38,
+                            size: 56,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No enrolled courses yet.',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white54,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Browse courses to get started.',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white38,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    itemCount: courses.length,
+                    itemBuilder: (context, index) {
+                      final course = courses[index];
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            color: AppColor.white.withValues(alpha: 0.08),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    SvgPicture.asset(
+                                      "assets/icons/Frame 1000002079.svg",
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        child: Text(
+                                          course.title ?? 'Course',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.dmSans(
+                                            color: AppColor.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        SvgPicture.asset(
+                                          "assets/icons/Component 26.svg",
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                if ((course.category ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 10),
                                   Text(
-                                    "Course 01",
+                                    course.category!,
                                     style: GoogleFonts.dmSans(
                                       color: AppColor.white,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-
-                                  Row(
-                                    children: [
-                                      SvgPicture.asset(
-                                        "assets/icons/Component 26.svg",
-                                      ),
-                                    ],
-                                  ),
                                 ],
-                              ),
-                              SizedBox(height: 10),
-
-                              Text(
-                                "Last seen 2 days ago",
-                                style: GoogleFonts.dmSans(
-                                  color: AppColor.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 10),
-
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    "UI/UX Design Basics",
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 25.sp,
-                                      color: AppColor.white,
-                                      fontWeight: FontWeight.bold,
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        course.title ?? '',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 18.sp,
+                                          color: AppColor.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
+                                    if ((course.rating ?? 0) > 0)
+                                      Row(
+                                        children: [
+                                          SvgPicture.asset(
+                                            "assets/icons/material-symbols_star (1).svg",
+                                          ),
+                                          Text(
+                                            course.rating!.toStringAsFixed(1),
+                                            style: GoogleFonts.dmSans(
+                                              color: AppColor.white,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          if ((course.teacherName ?? '')
+                                              .isNotEmpty) ...[
+                                            CircleAvatar(
+                                              radius: 20,
+                                              backgroundColor:
+                                                  AppColor.secconderyColor,
+                                              child: Icon(
+                                                Icons.person,
+                                                color: AppColor.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                          ],
+                                          Flexible(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                if ((course.teacherName ?? '')
+                                                    .isNotEmpty)
+                                                  Text(
+                                                    course.teacherName!,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: GoogleFonts.dmSans(
+                                                      color: AppColor.white,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                if ((course.level ?? '')
+                                                    .isNotEmpty)
+                                                  Text(
+                                                    course.level!,
+                                                    style: GoogleFonts.dmSans(
+                                                      color: AppColor.white,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap:
+                                          (course.courseId ?? '').isEmpty
+                                              ? null
+                                              : () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder:
+                                                      (_) => MyTakenCousreView(
+                                                        course: course,
+                                                      ),
+                                                ),
+                                              ),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            28,
+                                          ),
+                                          color: AppColor.red,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8.0,
+                                            horizontal: 16.0,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                "Continue",
+                                                style: GoogleFonts.dmSans(
+                                                  fontSize: 14,
+                                                  color: AppColor.white,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              SvgPicture.asset(
+                                                "assets/icons/arrow.svg",
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (course.isCompleted ||
+                                    course.enrollmentProgress != null) ...[
+                                  const SizedBox(height: 10),
+                                  LinearProgressIndicator(
+                                    backgroundColor: AppColor.white,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColor.red,
+                                    ),
+                                    value:
+                                        (course.isCompleted
+                                            ? 100
+                                            : course.enrollmentProgress!.clamp(
+                                              0,
+                                              100,
+                                            )) /
+                                        100,
                                   ),
+                                  const SizedBox(height: 10),
                                   Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      SvgPicture.asset(
-                                        "assets/icons/material-symbols_star (1).svg",
+                                      Text(
+                                        course.isCompleted
+                                            ? "Completed"
+                                            : "Completion",
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 14,
+                                          color: AppColor.white,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                       Text(
-                                        "4.8",
+                                        "${course.isCompleted ? 100 : course.enrollmentProgress!.clamp(0, 100)}%",
                                         style: GoogleFonts.dmSans(
                                           color: AppColor.white,
                                           fontWeight: FontWeight.w500,
@@ -149,114 +354,14 @@ class MycourseView extends StatelessWidget {
                                     ],
                                   ),
                                 ],
-                              ),
-
-                              SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundImage: AssetImage(
-                                          "assets/icons/Ellipse 6.png",
-                                        ),
-                                      ),
-                                      SizedBox(width: 10),
-
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "Chance Calzoni",
-                                            style: GoogleFonts.dmSans(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          Text(
-                                            "Mentor",
-                                            style: GoogleFonts.dmSans(
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(28),
-                                      color: AppColor.red,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                        horizontal: 16.0,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            "Continue",
-                                            style: GoogleFonts.dmSans(
-                                              fontSize: 14,
-                                              color: AppColor.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          SvgPicture.asset(
-                                            "assets/icons/arrow.svg",
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              SizedBox(height: 10),
-                              LinearProgressIndicator(
-                                backgroundColor:
-                                    AppColor.white, // Background color
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColor.red,
-                                ), // Progress color
-                                value: 0.5, // Set progress to 50%
-                              ),
-                              SizedBox(height: 10),
-
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Completion",
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 14,
-                                      color: AppColor.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    "78 %",
-                                    style: GoogleFonts.dmSans(
-                                      color: AppColor.white,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
-                ),
+                      );
+                    },
+                  );
+                }),
               ),
             ],
           ),

@@ -1,11 +1,31 @@
 const { DynamoDBClient, ScanCommand, GetItemCommand, UpdateItemCommand, DeleteItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
-const { CognitoIdentityProviderClient, ListUsersCommand, AdminUpdateUserAttributesCommand, AdminDisableUserCommand, AdminEnableUserCommand, AdminAddUserToGroupCommand, AdminListGroupsForUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, ListUsersCommand, AdminUpdateUserAttributesCommand, AdminDisableUserCommand, AdminEnableUserCommand, AdminAddUserToGroupCommand, AdminListGroupsForUserCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 
 const db = new DynamoDBClient({ region: 'us-east-1' });
 const cognito = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 const COGNITO_USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
+
+// Every table name comes from the environment (template.yaml); nothing is hardcoded.
+const USERS_TABLE         = process.env.USERS_TABLE;
+const COURSES_TABLE       = process.env.COURSES_TABLE;
+const SESSIONS_TABLE      = process.env.SESSIONS_TABLE;
+const MENTORS_TABLE       = process.env.MENTORS_TABLE;
+const EARNINGS_TABLE      = process.env.EARNINGS_TABLE;
+const ENROLLMENTS_TABLE   = process.env.ENROLLMENTS_TABLE;
+const REVIEWS_TABLE       = process.env.REVIEWS_TABLE;
+const NOTIFICATIONS_TABLE = process.env.NOTIFICATIONS_TABLE;
+const SUMMARIES_TABLE     = process.env.SUMMARIES_TABLE;
+const TRANSCRIPTS_TABLE   = process.env.TRANSCRIPTS_TABLE;
+const AI_CHAT_TABLE       = process.env.AI_CHAT_TABLE;
+const AI_TWINS_TABLE      = process.env.AI_TWINS_TABLE;
+const AI_MEMORY_TABLE     = process.env.AI_MEMORY_TABLE;
+const REQUIRED_ENV = {
+  USERS_TABLE, COURSES_TABLE, SESSIONS_TABLE, MENTORS_TABLE, EARNINGS_TABLE, ENROLLMENTS_TABLE,
+  REVIEWS_TABLE, NOTIFICATIONS_TABLE, SUMMARIES_TABLE, TRANSCRIPTS_TABLE, AI_CHAT_TABLE,
+  AI_TWINS_TABLE, AI_MEMORY_TABLE, COGNITO_USER_POOL_ID,
+};
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -33,12 +53,12 @@ async function scanAll(TableName, FilterExpression, ExpressionAttributeValues) {
 // Dashboard aggregate stats
 async function getDashboardStats() {
   const [users, courses, sessions, enrollments, earnings, reviews] = await Promise.all([
-    scanAll('torino-users'),
-    scanAll('torino-courses'),
-    scanAll('torino-sessions'),
-    scanAll('toriino-enrollments'),
-    scanAll('torino-earnings'),
-    scanAll('toriino-reviews'),
+    scanAll(USERS_TABLE),
+    scanAll(COURSES_TABLE),
+    scanAll(SESSIONS_TABLE),
+    scanAll(ENROLLMENTS_TABLE),
+    scanAll(EARNINGS_TABLE),
+    scanAll(REVIEWS_TABLE),
   ]);
 
   const now = new Date();
@@ -74,8 +94,22 @@ async function getDashboardStats() {
   };
 }
 
+function isAdmin(event) {
+  const groups = event.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!groups) return false;
+  const list = Array.isArray(groups) ? groups : String(groups).replace(/[\[\]]/g, '').split(/[\s,]+/);
+  return list.includes('Admins');
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return res(200, {});
+
+  // The API Gateway authorizer only proves the caller is signed in to the user
+  // pool; admin routes also require membership of the Admins group.
+  if (!isAdmin(event)) return res(403, { error: 'Forbidden: admin access required' });
+
+  const missing = Object.entries(REQUIRED_ENV).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length) return res(503, { error: `Admin service not configured: ${missing.join(', ')}` });
 
   const method = event.httpMethod;
   const path = event.path || event.resource || '';
@@ -92,7 +126,7 @@ exports.handler = async (event) => {
 
     // GET /admin/users
     if (method === 'GET' && pathParts[0] === 'users' && !pathParts[1]) {
-      const users = await scanAll('torino-users');
+      const users = await scanAll(USERS_TABLE);
       const roleFilter = qs.role;
       const search = qs.search?.toLowerCase();
       let result = roleFilter ? users.filter(u => u.role === roleFilter) : users;
@@ -105,44 +139,63 @@ exports.handler = async (event) => {
     if (method === 'PUT' && pathParts[0] === 'users' && pathParts[2] === 'status') {
       const userId = pathParts[1];
       const { status } = body; // 'active' | 'disabled'
+      if (!['active', 'disabled'].includes(status)) return res(400, { error: "status must be 'active' or 'disabled'" });
+      // Cognito first: if it fails, the profile is left unchanged.
+      const cmd = status === 'disabled'
+        ? new AdminDisableUserCommand({ UserPoolId: COGNITO_USER_POOL_ID, Username: userId })
+        : new AdminEnableUserCommand({ UserPoolId: COGNITO_USER_POOL_ID, Username: userId });
+      try { await cognito.send(cmd); } catch (e) {
+        return res(502, { error: `Cognito ${status === 'disabled' ? 'disable' : 'enable'} failed: ${e.message}` });
+      }
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-users',
+        TableName: USERS_TABLE,
         Key: marshall({ userId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
         ExpressionAttributeValues: marshall({ ':s': status, ':u': new Date().toISOString() }),
       }));
-      if (COGNITO_USER_POOL_ID) {
-        const cmd = status === 'disabled' ? new AdminDisableUserCommand({ UserPoolId: COGNITO_USER_POOL_ID, Username: userId }) : new AdminEnableUserCommand({ UserPoolId: COGNITO_USER_POOL_ID, Username: userId });
-        await cognito.send(cmd).catch(() => {});
-      }
-      return res(200, { success: true });
+      return res(200, { success: true, status });
     }
 
     // PUT /admin/users/:id/role
     if (method === 'PUT' && pathParts[0] === 'users' && pathParts[2] === 'role') {
       const userId = pathParts[1];
-      const { role } = body;
+      const ROLES = { student: 'Student', teacher: 'Teacher', mentor: 'Mentor' };
+      const key = String(body.role || '').toLowerCase();
+      if (!ROLES[key]) return res(400, { error: 'role must be Student, Teacher or Mentor' });
+      const role = ROLES[key];
+      try {
+        await cognito.send(new AdminUpdateUserAttributesCommand({
+          UserPoolId: COGNITO_USER_POOL_ID, Username: userId, UserAttributes: [{ Name: 'custom:role', Value: key }],
+        }));
+      } catch (e) {
+        return res(502, { error: `Cognito role update failed: ${e.message}` });
+      }
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-users',
+        TableName: USERS_TABLE,
         Key: marshall({ userId }),
         UpdateExpression: 'SET #r = :r, updatedAt = :u',
         ExpressionAttributeNames: { '#r': 'role' },
         ExpressionAttributeValues: marshall({ ':r': role, ':u': new Date().toISOString() }),
       }));
-      return res(200, { success: true });
+      return res(200, { success: true, role });
     }
 
     // DELETE /admin/users/:id
     if (method === 'DELETE' && pathParts[0] === 'users' && pathParts[1]) {
       const userId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'torino-users', Key: marshall({ userId }) }));
+      try {
+        await cognito.send(new AdminDeleteUserCommand({ UserPoolId: COGNITO_USER_POOL_ID, Username: userId }));
+      } catch (e) {
+        if (e.name !== 'UserNotFoundException') return res(502, { error: `Cognito delete failed; nothing was deleted: ${e.message}` });
+      }
+      await db.send(new DeleteItemCommand({ TableName: USERS_TABLE, Key: marshall({ userId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/courses
     if (method === 'GET' && pathParts[0] === 'courses' && !pathParts[1]) {
-      const courses = await scanAll('torino-courses');
+      const courses = await scanAll(COURSES_TABLE);
       const statusFilter = qs.status;
       let result = statusFilter ? courses.filter(c => c.status === statusFilter) : courses;
       result.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -154,7 +207,7 @@ exports.handler = async (event) => {
       const courseId = pathParts[1];
       const { status } = body; // 'published' | 'draft' | 'rejected'
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-courses',
+        TableName: COURSES_TABLE,
         Key: marshall({ courseId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -166,13 +219,13 @@ exports.handler = async (event) => {
     // DELETE /admin/courses/:id
     if (method === 'DELETE' && pathParts[0] === 'courses' && pathParts[1] && !pathParts[2]) {
       const courseId = pathParts[1];
-      await db.send(new DeleteItemCommand({ TableName: 'torino-courses', Key: marshall({ courseId }) }));
+      await db.send(new DeleteItemCommand({ TableName: COURSES_TABLE, Key: marshall({ courseId }) }));
       return res(200, { success: true });
     }
 
     // GET /admin/sessions
     if (method === 'GET' && pathParts[0] === 'sessions' && !pathParts[1]) {
-      const sessions = await scanAll('torino-sessions');
+      const sessions = await scanAll(SESSIONS_TABLE);
       const statusFilter = qs.status;
       let result = statusFilter ? sessions.filter(s => s.status === statusFilter) : sessions;
       result.sort((a, b) => (b.createdAt || b.dateTime || '').localeCompare(a.createdAt || a.dateTime || ''));
@@ -182,7 +235,7 @@ exports.handler = async (event) => {
     // GET /admin/sessions/:id/summary
     if (method === 'GET' && pathParts[0] === 'sessions' && pathParts[2] === 'summary') {
       const sessionId = pathParts[1];
-      const r = await db.send(new GetItemCommand({ TableName: 'toriino-session-summaries', Key: marshall({ sessionId }) }));
+      const r = await db.send(new GetItemCommand({ TableName: SUMMARIES_TABLE, Key: marshall({ sessionId }) }));
       if (!r.Item) return res(404, { error: 'No summary found' });
       return res(200, unmarshall(r.Item));
     }
@@ -192,7 +245,7 @@ exports.handler = async (event) => {
       const sessionId = pathParts[1];
       const { status } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-sessions',
+        TableName: SESSIONS_TABLE,
         Key: marshall({ sessionId }),
         UpdateExpression: 'SET #s = :s, updatedAt = :u',
         ExpressionAttributeNames: { '#s': 'status' },
@@ -203,10 +256,10 @@ exports.handler = async (event) => {
 
     // GET /admin/mentors
     if (method === 'GET' && pathParts[0] === 'mentors' && !pathParts[1]) {
-      const mentors = await scanAll('torino-mentors');
-      const users = await scanAll('torino-users');
+      const mentors = await scanAll(MENTORS_TABLE);
+      const users = await scanAll(USERS_TABLE);
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
-      const reviews = await scanAll('toriino-reviews');
+      const reviews = await scanAll(REVIEWS_TABLE);
       const result = mentors.map(m => ({
         ...m,
         userProfile: usersMap[m.mentorId] || {},
@@ -224,7 +277,7 @@ exports.handler = async (event) => {
       const mentorId = pathParts[1];
       const { approved } = body;
       await db.send(new UpdateItemCommand({
-        TableName: 'torino-mentors',
+        TableName: MENTORS_TABLE,
         Key: marshall({ mentorId }),
         UpdateExpression: 'SET approved = :a, updatedAt = :u',
         ExpressionAttributeValues: marshall({ ':a': approved, ':u': new Date().toISOString() }),
@@ -234,8 +287,8 @@ exports.handler = async (event) => {
 
     // GET /admin/earnings
     if (method === 'GET' && pathParts[0] === 'earnings') {
-      const earnings = await scanAll('torino-earnings');
-      const users = await scanAll('torino-users');
+      const earnings = await scanAll(EARNINGS_TABLE);
+      const users = await scanAll(USERS_TABLE);
       const usersMap = Object.fromEntries(users.map(u => [u.userId, u]));
 
       // Group by month for chart
@@ -264,7 +317,7 @@ exports.handler = async (event) => {
 
     // GET /admin/reviews
     if (method === 'GET' && pathParts[0] === 'reviews' && !pathParts[1]) {
-      const reviews = await scanAll('toriino-reviews');
+      const reviews = await scanAll(REVIEWS_TABLE);
       const ratingFilter = qs.rating ? Number(qs.rating) : null;
       const typeFilter = qs.type;
       let result = reviews;
@@ -277,7 +330,7 @@ exports.handler = async (event) => {
     // DELETE /admin/reviews/:targetId/:reviewId
     if (method === 'DELETE' && pathParts[0] === 'reviews' && pathParts[1] && pathParts[2]) {
       await db.send(new DeleteItemCommand({
-        TableName: 'toriino-reviews',
+        TableName: REVIEWS_TABLE,
         Key: marshall({ targetId: pathParts[1], reviewId: pathParts[2] }),
       }));
       return res(200, { success: true });
@@ -286,11 +339,11 @@ exports.handler = async (event) => {
     // GET /admin/ai/stats
     if (method === 'GET' && pathParts[0] === 'ai' && pathParts[1] === 'stats') {
       const [chats, summaries, transcripts, twins, memory] = await Promise.allSettled([
-        scanAll('toriino-ai-chat'),
-        scanAll('toriino-session-summaries'),
-        scanAll('toriino-transcripts'),
-        scanAll('toriino-ai-twins'),
-        scanAll('toriino-ai-memory'),
+        scanAll(AI_CHAT_TABLE),
+        scanAll(SUMMARIES_TABLE),
+        scanAll(TRANSCRIPTS_TABLE),
+        scanAll(AI_TWINS_TABLE),
+        scanAll(AI_MEMORY_TABLE),
       ]);
 
       return res(200, {
@@ -307,15 +360,15 @@ exports.handler = async (event) => {
       const { title, message, targetRole } = body;
       if (!title || !message) return res(400, { error: 'title and message required' });
 
-      const users = await scanAll('torino-users');
+      const users = await scanAll(USERS_TABLE);
       const targets = targetRole && targetRole !== 'all' ? users.filter(u => u.role === targetRole) : users;
 
       const notifId = `notif_${Date.now()}`;
       const notifTime = new Date().toISOString();
 
-      await Promise.allSettled(targets.map(u =>
+      const results = await Promise.allSettled(targets.map(u =>
         db.send(new UpdateItemCommand({
-          TableName: 'toriino-notifications',
+          TableName: NOTIFICATIONS_TABLE,
           Key: marshall({ userId: u.userId, sortKey: `${notifTime}#${notifId}` }),
           UpdateExpression: 'SET #t = :t, #m = :m, isRead = :f, createdAt = :c, notifType = :n',
           ExpressionAttributeNames: { '#t': 'title', '#m': 'message' },
@@ -323,7 +376,10 @@ exports.handler = async (event) => {
         }))
       ));
 
-      return res(200, { success: true, sentTo: targets.length });
+      const sent = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - sent;
+      if (targets.length > 0 && sent === 0) return res(500, { error: 'Broadcast failed: no notification could be saved', failed });
+      return res(200, { success: failed === 0, sentTo: sent, failed });
     }
 
     return res(404, { error: 'Not found' });

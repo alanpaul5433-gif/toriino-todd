@@ -2,6 +2,7 @@
 import 'package:flutter_svg/svg.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
 import 'package:toriino_todd/utils/responsive.dart';
+import 'package:toriino_todd/utils/utils.dart';
 
 class NotificationSettingView extends StatefulWidget {
   const NotificationSettingView({super.key});
@@ -12,12 +13,18 @@ class NotificationSettingView extends StatefulWidget {
 }
 
 class _NotificationSettingViewState extends State<NotificationSettingView> {
-  bool _cancelation = false;
-  bool _pushNotifications = false;
-  bool _booking = false;
-  bool _sessionReminder = false;
-  bool _enableDisable = false;
-  bool _passwordChange = false;
+  // Notification preferences are not stored anywhere yet (push needs Firebase, which is not
+  // configured). The switches used to flip and silently reset; now they stay off and say so
+  // (UAT Round 4b M3).
+  final bool _cancelation = false;
+  final bool _pushNotifications = false;
+  final bool _booking = false;
+  final bool _sessionReminder = false;
+  final bool _enableDisable = false;
+  final bool _passwordChange = false;
+
+  void _notAvailable() =>
+      Utils.toastMassage('Notification preferences are not available yet.');
   @override
   Widget build(BuildContext context) {
     Responsive.init(context);
@@ -56,56 +63,32 @@ class _NotificationSettingViewState extends State<NotificationSettingView> {
               _buildSwitchField(
                 label: 'Push Notifications',
                 value: _pushNotifications,
-                onChanged: (value) {
-                  setState(() {
-                    _pushNotifications = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
               _buildSwitchField(
                 label: 'Booking',
                 value: _booking,
-                onChanged: (value) {
-                  setState(() {
-                    _booking = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
               _buildSwitchField(
                 label: 'Session Reminder',
                 value: _sessionReminder,
-                onChanged: (value) {
-                  setState(() {
-                    _sessionReminder = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
               _buildSwitchField(
                 label: 'Enable/Disable Email Alerts',
                 value: _enableDisable,
-                onChanged: (value) {
-                  setState(() {
-                    _enableDisable = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
               _buildSwitchField(
                 label: 'Password Change Alert',
                 value: _passwordChange,
-                onChanged: (value) {
-                  setState(() {
-                    _passwordChange = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
               _buildSwitchField(
-                label: 'Cancelation',
+                label: 'Cancellation',
                 value: _cancelation,
-                onChanged: (value) {
-                  setState(() {
-                    _cancelation = value;
-                  });
-                },
+                onChanged: (_) => _notAvailable(),
               ),
             ],
           ),

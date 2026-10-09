@@ -57,3 +57,20 @@ admin-panel/.env.local
 
 # AWS deploy temp
 aws-backend/infrastructure/.tmp-zips/
+aws-backend/node_modules/
+aws-backend/lambda/**/*.zip
+
+# Test credentials — never commit
+.env.test
+
+# Android local machine config
+android/local.properties
+android/.gradle/
+
+# Admin panel build output
+admin-panel/out/
+admin-panel/.next/
+
+# SAM build output
+aws-backend/.aws-sam/
+aws-backend/lambda/*/node_modules/

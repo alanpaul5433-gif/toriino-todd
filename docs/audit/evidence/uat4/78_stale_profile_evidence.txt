@@ -1,0 +1,30 @@
+Stale-profile-after-account-switch evidence (2026-10-08, local time UTC+5)
+
+## App request log (adb logcat, flutter tag) — API paths only
+23:05:05.821 I flutter : [FCM] Firebase not initialized — skipping FCM setup
+23:05:09.281 I flutter : /users/profile
+23:05:09.338 I flutter : /courses/my-created
+23:05:09.386 I flutter : /earnings
+23:05:09.390 I flutter : /sessions?role=teacher
+23:05:11.448 I flutter : /courses/my-created
+23:07:07.639 I flutter : [FCM] Firebase not initialized — skipping FCM setup
+23:07:11.150 I flutter : /users/profile
+23:07:11.279 I flutter : /courses/my-created
+23:07:11.282 I flutter : /earnings
+23:07:11.284 I flutter : /sessions?role=teacher
+23:07:13.016 I flutter : /courses/my-created
+23:11:01.078 I flutter : [Analytics] login
+23:13:43.964 I flutter : [FCM] Firebase not initialized — skipping FCM setup
+23:13:47.493 I flutter : /users/profile
+23:13:47.611 I flutter : /courses/my-created
+23:13:47.617 I flutter : /earnings
+23:13:47.619 I flutter : /sessions?role=teacher
+
+23:05-23:07 = new teacher session; 23:08 logout; 23:11:01 login as teacher@torino.test (uat-login teacher);
+NO API request between login and the cold restart at 23:13:43 -> home showed the previous user's in-memory data.
+
+## Server side (read-only checks)
+Cognito teacher@torino.test: sub 848894e8-..., custom:role=teacher, last modified 2026-10-06 (unchanged)
+torino-users 848894e8-...: name 'Verify Test Teacher', updatedAt 2026-10-07T21:38:22Z (unchanged in this run)
+torino-users b4d84438-... (new teacher): name 'UAT Teacher fa2a', created 2026-10-08T17:55:37Z
+After cold restart: 'Hi Verify Test Teacher', Total Courses 1, Upcoming Sessions 1 (79_teacher_after_cold_restart.png)

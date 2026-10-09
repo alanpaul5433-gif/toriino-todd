@@ -1,0 +1,315 @@
+Backend verification — https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod — 2026-10-08T16:48:45.986Z
+
+ 1. [WORKS] Sign-up / login / OTP (P3-5, P3-6)
+      ok   Cognito login student ok, custom:role=student
+      ok   Cognito login teacher ok, custom:role=teacher
+      ok   Cognito login mentor ok, custom:role=mentor
+      ok   Cognito login admin ok, custom:role=admin
+
+ 2. [WORKS] Role selection → set-role (P3-3)
+      ok   route POST /auth/set-role (POST /auth/set-role → toriino-auth) has Cognito authorizer
+      ok   GET /auth/set-role (route probe) → 405 "Method not allowed; use POST"
+
+ 3. [WORKS] User profile (home screens, profile screen)
+      ok   route GET /users/profile (GET /users/profile → toriino-users) has Cognito authorizer
+      ok   route PUT /users/profile (PUT /users/profile → toriino-users) has Cognito authorizer
+      ok   Lambda toriino-users: handler file index.js present
+      ok   Lambda toriino-users: env USERS_TABLE names an existing table
+      ok   GET /users/profile as student → 200
+      ok   GET /users/profile as teacher → 200
+      ok   GET /users/profile as mentor → 200
+      ok   route GET /users/x (GET /users/{id} → toriino-users) has Cognito authorizer
+      ok   GET /users/{id} unrelated teacher → test student → 403
+      ok   GET /users/{id} unrelated teacher → test student: no email/phone in the response
+      ok   GET /users/{id} test student → another student → 403
+      ok   GET /users/{id} test student → another student: no email/phone in the response
+      ok   GET /users/{id} related mentor → test student → 200
+      ok   GET /users/{id} related mentor → test student: no email/phone in the response
+      ok   GET /users/{id} student → test teacher (public profile) → 200
+      ok   GET /users/{id} student → test teacher (public profile): no email/phone in the response
+      ok   GET /users/{id} test student → self → 200
+      ok   GET /users/{id} test student → self: no email/phone in the response
+
+ 4. [WORKS] Profile edit / change password / delete account
+      ok   app: lib/view/users/student_view/edit_profile_view.dart calls updateProfile()
+      ok   app: lib/view/users/mentor_view/edit_mentor_profile_view.dart calls updateProfile()
+      ok   app: lib/view/users/teacher/teacher_profile_edit_view.dart calls updateProfile()
+      ok   app: change_password_view.dart calls changePassword()
+      ok   app: settings.dart calls deleteAccount()
+
+ 5. [WORKS] Course list + detail (P8-6)
+      ok   route GET /courses (GET /courses → toriino-courses) has Cognito authorizer
+      ok   route GET /courses/x (GET /courses/{id} → toriino-courses) has Cognito authorizer
+      ok   Lambda toriino-courses: handler file index.js present
+      ok   table torino-courses exists
+      ok   GET /courses → 200
+      ok   GET /courses/crs_011 → 200
+
+ 6. [WORKS] Lessons list / add lesson (P8-2, P6-1)
+      ok   route GET /courses/x/lessons (GET /courses/{id}/lessons → toriino-courses) has Cognito authorizer
+      ok   route POST /courses/x/lessons (POST /courses/{id}/lessons → toriino-courses) has Cognito authorizer
+      ok   table toriino-lessons exists
+      ok   GET /courses/crs_011/lessons → 200
+
+ 7. [WORKS] Course upload URL (P6-1)
+      ok   route GET /courses/upload-url (GET /courses/upload-url → toriino-upload-url) has Cognito authorizer
+      ok   GET /courses/upload-url → 200
+
+ 8. [WORKS] Course delete cascade + enrollment guard (P6-3)
+      ok   route DELETE /courses/x (DELETE /courses/{id} → toriino-courses) has Cognito authorizer
+      ok   table torino-courses exists
+      ok   table toriino-lessons exists
+      ok   table toriino-enrollments exists
+      ok   deployed toriino-courses has the enrollment guard
+
+ 9. [WORKS] Enroll + My Courses (P5-1)
+      ok   route POST /courses/x/enroll (POST /courses/{id}/enroll → toriino-courses) has Cognito authorizer
+      ok   route GET /courses/my-courses (GET /courses/my-courses → toriino-courses) has Cognito authorizer
+      ok   table toriino-enrollments exists
+      ok   GET /courses/my-courses → 200
+      ok   write test: POST /courses/crs_1791056065760/enroll (free course) → 201, read back from toriino-enrollments and GET /courses/my-courses
+      ok   write test cleanup: deleted 1 test enrollment(s)
+      ok   write test cleanup: restored crs_1791056065760 enrollments counter
+
+10. [BLOCKED] Stripe payment intent (P5-1/2/3)
+      ok   route POST /payments/create-intent (POST /payments/create-intent → toriino-payments) has Cognito authorizer
+      ok   Lambda toriino-payments: handler file index.js present
+      ok   Lambda toriino-payments: STRIPE_SECRET_KEY is an SSM parameter (value not read)
+      FAIL (blocker) POST /payments/create-intent with an empty body → 503 "Stripe not configured"
+      ok   route GET /payments/quote (GET /payments/quote → toriino-payments) has Cognito authorizer
+      ok   PLATFORM_FEE_PERCENT = 25%
+      ok   GET /payments/quote?courseId=course_001 → price 49.99, fee 12.5 (25%), teacher 37.49 — matches
+      ok   GET /payments/quote?mentorId=…&duration=45 (hourlyRate 200) → price 150, fee 37.5 (25%), teacher 112.5 — matches
+
+11. [BLOCKED] Stripe webhook (P1-3)
+      ok   Lambda toriino-stripe-webhook: handler file index.js present
+      ok   Lambda toriino-stripe-webhook: STRIPE_SECRET_KEY is an SSM parameter (value not read)
+      ok   Lambda toriino-stripe-webhook: STRIPE_WEBHOOK_SECRET is an SSM parameter (value not read)
+      ok   route POST /stripe/webhook (POST /stripe/webhook → toriino-stripe-webhook) is public (allow-listed)
+      FAIL (blocker) POST /stripe/webhook with a bad Stripe-Signature, no auth → 503 "Stripe webhook not configured" (Stripe keys not set)
+      ok   table toriino-stripe-events exists
+
+12. [WORKS] General uploads / S3Service (P2-2)
+      ok   GET /upload-url (route probe) → 400 "folder, contentType, and ext are required"
+      ok   S3 torino-app-storage: all 4 public-access-block settings on
+
+13. [WORKS] Mentor list / detail
+      ok   route GET /mentors (GET /mentors → toriino-mentors) has Cognito authorizer
+      ok   route GET /mentors/x (GET /mentors/{id} → toriino-mentors) has Cognito authorizer
+      ok   table torino-mentors exists
+      ok   GET /mentors → 200
+      ok   GET /mentors/2468f418-4021-70dc-b437-2f1bf46500f5 → 200
+
+14. [WORKS] Mentor availability (P7-1)
+      ok   route GET /mentors/x/availability (GET /mentors/{id}/availability → toriino-mentors) has Cognito authorizer
+      ok   route PUT /mentors/availability (PUT /mentors/availability → toriino-mentors) has Cognito authorizer
+      ok   table torino-mentors exists
+      ok   GET /mentors/{mentor}/availability → 200
+      ok   app: MentorAvailability screen is opened from somewhere
+
+15. [WORKS] Sessions list (P7-2)
+      ok   route GET /sessions (GET /sessions → toriino-sessions) has Cognito authorizer
+      ok   table torino-sessions exists
+      ok   GET /sessions?role=student → 1 session(s), all the caller's
+      ok   GET /sessions?role=teacher → 1 session(s), all the caller's
+      ok   GET /sessions?role=mentor → 1 session(s), all the caller's
+      ok   booking with client price 1 eur → stored 100 usd = server price (hourlyRate 200 × 30 min)
+      ok   booking response pricing.price = 100
+      ok   write test cleanup: deleted 1 test session(s)
+
+16. [WORKS] Live-session Agora token
+      ok   route POST /sessions/token (POST /sessions/token → torino-api) has Cognito authorizer
+      ok   Lambda torino-api: env AGORA_APP_ID is set
+      ok   Lambda torino-api: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
+      ok   POST /sessions/token → 200, token = 007 + App ID + signed payload
+
+17. [BLOCKED] Session recording
+      ok   route GET /sessions/x/recording (GET /sessions/{id}/recording → toriino-agora-recording) has Cognito authorizer
+      ok   route POST /sessions/x/recording/start (POST /sessions/{id}/recording/start → toriino-agora-recording) has Cognito authorizer
+      ok   route POST /sessions/x/recording/stop (POST /sessions/{id}/recording/stop → toriino-agora-recording) has Cognito authorizer
+      ok   Lambda toriino-agora-recording: handler file index.js present
+      ok   Lambda toriino-agora-recording: env AGORA_APP_ID is set
+      ok   Lambda toriino-agora-recording: env RECORDING_TABLE is set
+      ok   Lambda toriino-agora-recording: env RECORDING_S3_BUCKET is set
+      ok   Lambda toriino-agora-recording: AGORA_APP_CERTIFICATE is an SSM parameter (value not read)
+      ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_ID is an SSM parameter (value not read)
+      ok   Lambda toriino-agora-recording: AGORA_CUSTOMER_SECRET is an SSM parameter (value not read)
+      ok   table toriino-recordings exists
+      ok   GET /sessions/{none}/recording → 404 "Recording not found"
+      FAIL (blocker) POST /sessions/verify-backend-test-session-probe/recording/start (bogus token) → 503 "Agora cloud recording not configured"
+
+18. [BLOCKED] Transcript / summary
+      ok   route GET /sessions/x/transcript (GET /sessions/{id}/transcript → toriino-ai-transcripts) has Cognito authorizer
+      ok   route GET /sessions/x/summary (GET /sessions/{id}/summary → toriino-ai-summaries) has Cognito authorizer
+      ok   Lambda toriino-ai-transcripts: handler file index.js present
+      ok   Lambda toriino-ai-summaries: handler file index.js present
+      ok   Lambda toriino-transcribe-processor: handler file index.js present
+      ok   Lambda toriino-ai-summaries: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   Lambda toriino-transcribe-processor: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   table toriino-transcripts exists
+      ok   table toriino-session-summaries exists
+      ok   GET /sessions/{none}/transcript → 404 "Transcript not found"
+      ok   GET /sessions/{none}/summary → 404 "Summary not found"
+      FAIL (blocker) POST /sessions/verify-backend-test-session-probe/summary → 503 "Gemini not configured"
+      ok   app: transcript segments are recorded (addSegment called)
+
+19. [BLOCKED] AI Tutor chat (P2-1)
+      ok   route GET /ai/chat/x (GET /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
+      ok   route POST /ai/chat/x (POST /ai/chat/{userId} → toriino-ai-chat) has Cognito authorizer
+      ok   Lambda toriino-ai-chat: handler file index.js present
+      ok   Lambda toriino-ai-chat: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   table toriino-ai-chat exists
+      ok   GET /ai/chat/{self} → 200
+      ok   GET /ai/chat/{other user} (expect 403) → 403 "Forbidden"
+      FAIL (blocker) POST /ai/chat/{self} → 503 "Gemini not configured"
+
+20. [BLOCKED] AI Twins / Memory
+      ok   route GET /ai/twins/x (GET /ai/twins/{userId} → toriino-ai-twins) has Cognito authorizer
+      ok   route GET /ai/memory/x (GET /ai/memory/{userId} → toriino-ai-memory) has Cognito authorizer
+      ok   Lambda toriino-ai-twins: handler file index.js present
+      ok   Lambda toriino-ai-twins: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   Lambda toriino-ai-memory: handler file index.js present
+      ok   Lambda toriino-ai-memory: GEMINI_API_KEY is an SSM parameter (value not read)
+      ok   table toriino-ai-twins exists
+      ok   table toriino-ai-memory exists
+      ok   table toriino-knowledge-graph exists
+      ok   GET /ai/twins/{self} → 404 "AI Twin not found"
+      ok   GET /ai/memory/{self} → 200
+      ok   GET /ai/memory/{self}/graph → 200
+      FAIL (blocker) POST /ai/memory/{self}/recommend → 503 "Gemini not configured"
+      FAIL (blocker) POST /ai/twins/{self} → 503 "Gemini not configured"
+      note (note) app: no screen uses AI Twins / Memory
+
+21. [WORKS] Wallet (P5-3)
+      ok   route GET /wallet (GET /wallet → toriino-wallet) has Cognito authorizer
+      ok   route POST /wallet/deduct (POST /wallet/deduct → toriino-wallet) has Cognito authorizer
+      ok   Lambda toriino-wallet: handler file index.js present
+      ok   Lambda toriino-wallet: env WALLET_TABLE names an existing table
+      ok   Lambda toriino-wallet: env WALLET_EVENTS_TABLE names an existing table
+      ok   GET /wallet as student → 200
+      ok   GET /wallet as mentor → 200
+      note (note) app: GET /wallet is never called (balance comes from earnings)
+
+22. [WORKS] Student search (P7-2)
+      ok   route GET /students/search (GET /students/search → toriino-student-search) has Cognito authorizer
+      ok   Lambda toriino-student-search: handler file index.js present
+      ok   Lambda toriino-student-search: env USERS_TABLE names an existing table
+      ok   GET /students/search?q=st as mentor → 200
+
+23. [WORKS] Earnings (P5-4)
+      ok   route GET /earnings (GET /earnings → toriino-earnings) has Cognito authorizer
+      ok   route GET /earnings/history (GET /earnings/history → toriino-earnings) has Cognito authorizer
+      ok   table torino-earnings exists
+      ok   GET /earnings as teacher → 200
+      ok   GET /earnings returns totalWithdrawn
+      ok   GET /earnings returns availableBalance
+      ok   GET /earnings as mentor → 200
+      ok   GET /earnings returns totalWithdrawn
+      ok   GET /earnings returns availableBalance
+      ok   GET /earnings/history → 200
+
+24. [WORKS] Notifications (P8-4)
+      ok   route GET /notifications (GET /notifications → toriino-notifications) has Cognito authorizer
+      ok   route PATCH /notifications/x/read (PATCH /notifications/{sortKey}/read → toriino-notifications) has Cognito authorizer
+      ok   table toriino-notifications exists
+      ok   GET /notifications → 200
+      ok   deployed toriino-notifications handles PATCH /notifications/{sk}/read
+
+25. [BLOCKED] FCM token registration (P9-1)
+      ok   route POST /notifications/fcm-token (POST /notifications/fcm-token → toriino-register-device) has Cognito authorizer
+      ok   table torino-users exists
+      ok   table toriino-devices exists
+      FAIL (blocker) android/app/google-services.json missing (no Firebase config)
+      ok   write test: POST /notifications/fcm-token → 200, token read back from torino-users
+      ok   write test cleanup: restored the user record to its previous state
+      ok   write test cleanup: deleted 1 test device row(s)
+
+26. [WORKS] Reviews + one-per-student rule (P2-5)
+      ok   route POST /reviews (POST /reviews → toriino-reviews) has Cognito authorizer
+      ok   route GET /reviews/x (GET /reviews/{targetId} → toriino-reviews) has Cognito authorizer
+      ok   table toriino-reviews exists
+      ok   deployed toriino-reviews has the one-review-per-student guard
+      ok   write test: POST /reviews → 201, read back via GET /reviews/verify-backend-test-target
+      ok   write test cleanup: deleted 1 test review(s)
+
+27. [WORKS] Admin panel (P10-7, P1-2)
+      ok   route GET /admin/stats (GET /admin/stats → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/users (GET /admin/users → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/courses (GET /admin/courses → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/sessions (GET /admin/sessions → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/mentors (GET /admin/mentors → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/earnings (GET /admin/earnings → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/reviews (GET /admin/reviews → toriino-admin) has Cognito authorizer
+      ok   route GET /admin/ai/stats (GET /admin/ai/stats → toriino-admin) has Cognito authorizer
+      ok   Lambda toriino-admin: handler file index.js present
+      ok   table torino-users exists
+      ok   table torino-courses exists
+      ok   table torino-sessions exists
+      ok   table torino-mentors exists
+      ok   table toriino-reviews exists
+      ok   table toriino-notifications exists
+      ok   table toriino-session-summaries exists
+      ok   test admin is in the Admins group
+      ok   GET /admin/stats as admin → 200
+      ok   GET /admin/users as admin → 200
+      ok   GET /admin/courses as admin → 200
+      ok   GET /admin/sessions as admin → 200
+      ok   GET /admin/mentors as admin → 200
+      ok   GET /admin/earnings as admin → 200
+      ok   GET /admin/reviews as admin → 200
+      ok   GET /admin/ai/stats as admin → 200
+      ok   GET /admin/stats as student (expect 403) → 403 "Forbidden: admin access required"
+
+28. [BLOCKED] Subscriptions + premium gate (P5-2)
+      ok   route GET /subscriptions/plans (GET /subscriptions/plans → toriino-subscriptions) has Cognito authorizer
+      ok   route GET /subscriptions/me (GET /subscriptions/me → toriino-subscriptions) has Cognito authorizer
+      ok   route POST /subscriptions (POST /subscriptions → toriino-subscriptions) has Cognito authorizer
+      ok   route POST /subscriptions/cancel (POST /subscriptions/cancel → toriino-subscriptions) has Cognito authorizer
+      ok   Lambda toriino-subscriptions: handler file index.js present
+      ok   Lambda toriino-subscriptions: env SUBSCRIPTIONS_TABLE names an existing table
+      ok   Lambda toriino-subscriptions: env USERS_TABLE names an existing table
+      ok   SUBSCRIPTION_PLANS: 9 server-defined plan(s)
+      ok   GET /subscriptions/plans as student → audience student, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) student plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      ok   GET /subscriptions/plans as teacher → audience teacher, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) teacher plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      ok   GET /subscriptions/plans as mentor → audience mentor, 0 plan(s), comingSoon=true — matches server config
+      FAIL (blocker) mentor plans are "coming soon": Stripe Price IDs are NOT_SET (3 plan(s) defined, none offered)
+      FAIL (blocker) POST /subscriptions {planId: student-monthly} as student → 404 "Plan not available" (Stripe Price ID NOT_SET, so the plan is not offered and the Stripe check is never reached)
+      ok   GET /subscriptions/me → premium=false, status=none
+      ok   checkout attempt activated nothing (subscription record and stripeCustomerId unchanged)
+      ok   PREMIUM_FEATURES = []
+      ok   premium-gated call with ai_recommendations not listed → 503 "Gemini not configured" (allowed through the gate)
+
+Summary
+   1. WORKS        Sign-up / login / OTP (P3-5, P3-6)
+   2. WORKS        Role selection → set-role (P3-3)
+   3. WORKS        User profile (home screens, profile screen)
+   4. WORKS        Profile edit / change password / delete account
+   5. WORKS        Course list + detail (P8-6)
+   6. WORKS        Lessons list / add lesson (P8-2, P6-1)
+   7. WORKS        Course upload URL (P6-1)
+   8. WORKS        Course delete cascade + enrollment guard (P6-3)
+   9. WORKS        Enroll + My Courses (P5-1)
+  10. BLOCKED      Stripe payment intent (P5-1/2/3)
+  11. BLOCKED      Stripe webhook (P1-3)
+  12. WORKS        General uploads / S3Service (P2-2)
+  13. WORKS        Mentor list / detail
+  14. WORKS        Mentor availability (P7-1)
+  15. WORKS        Sessions list (P7-2)
+  16. WORKS        Live-session Agora token
+  17. BLOCKED      Session recording
+  18. BLOCKED      Transcript / summary
+  19. BLOCKED      AI Tutor chat (P2-1)
+  20. BLOCKED      AI Twins / Memory
+  21. WORKS        Wallet (P5-3)
+  22. WORKS        Student search (P7-2)
+  23. WORKS        Earnings (P5-4)
+  24. WORKS        Notifications (P8-4)
+  25. BLOCKED      FCM token registration (P9-1)
+  26. WORKS        Reviews + one-per-student rule (P2-5)
+  27. WORKS        Admin panel (P10-7, P1-2)
+  28. BLOCKED      Subscriptions + premium gate (P5-2)
+
+TOTAL: 20 WORKS · 0 BROKEN · 0 NOT DEPLOYED · 8 BLOCKED  (of 28)
+RESULT: PASS (every feature WORKS or BLOCKED)

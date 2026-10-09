@@ -4,8 +4,6 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } = requir
 const REGION = process.env.AWS_REGION || "us-east-1";
 const RECORDING_TABLE = process.env.RECORDING_TABLE || "toriino-recordings";
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
-const AGORA_CUSTOMER_ID = process.env.AGORA_CUSTOMER_ID;
-const AGORA_CUSTOMER_SECRET = process.env.AGORA_CUSTOMER_SECRET;
 const RECORDING_S3_BUCKET = process.env.RECORDING_S3_BUCKET || "toriino-recordings";
 
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
@@ -25,8 +23,40 @@ function getUserId(event) {
   return event.requestContext?.authorizer?.claims?.sub;
 }
 
-function agoraAuthHeader() {
-  const credentials = Buffer.from(`${AGORA_CUSTOMER_ID}:${AGORA_CUSTOMER_SECRET}`).toString("base64");
+// ── Secrets: SSM SecureString under SSM_PREFIX (e.g. /torino/prod/), cached 5 min.
+// The placeholder NOT_SET (or a missing parameter) means "not configured" → HTTP 503.
+const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
+const ssm = new SSMClient({ region: process.env.AWS_REGION || "us-east-1" });
+const SECRET_TTL_MS = 5 * 60 * 1000;
+const secretCache = {};
+async function getSecret(name) {
+  const prefix = process.env.SSM_PREFIX;
+  if (!prefix) return null;
+  const hit = secretCache[name];
+  if (hit && Date.now() - hit.at < SECRET_TTL_MS) return hit.value;
+  let value = null;
+  try {
+    const out = await ssm.send(new GetParameterCommand({ Name: `${prefix}${name}`, WithDecryption: true }));
+    const raw = out.Parameter?.Value;
+    value = raw && raw !== "NOT_SET" ? raw : null;
+  } catch (err) {
+    if (err.name !== "ParameterNotFound") throw err;
+  }
+  secretCache[name] = { value, at: Date.now() };
+  return value;
+}
+function notConfigured(message) {
+  const err = new Error(message);
+  err.code = "NOT_CONFIGURED";
+  return err;
+}
+
+async function agoraAuthHeader() {
+  const [customerId, customerSecret] = await Promise.all([
+    getSecret("AGORA_CUSTOMER_ID"), getSecret("AGORA_CUSTOMER_SECRET"),
+  ]);
+  if (!customerId || !customerSecret) throw notConfigured("Agora cloud recording not configured");
+  const credentials = Buffer.from(`${customerId}:${customerSecret}`).toString("base64");
   return `Basic ${credentials}`;
 }
 
@@ -52,6 +82,7 @@ exports.handler = async (event) => {
     return response(404, { error: "Route not found" });
   } catch (error) {
     console.error("Agora recording error:", error);
+    if (error.code === "NOT_CONFIGURED") return response(503, { error: error.message });
     return response(500, { error: error.message });
   }
 };
@@ -65,7 +96,7 @@ async function startRecording(userId, sessionId, data) {
     `https://api.agora.io/v1/apps/${AGORA_APP_ID}/cloud_recording/acquire`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: agoraAuthHeader() },
+      headers: { "Content-Type": "application/json", Authorization: await agoraAuthHeader() },
       body: JSON.stringify({ cname: channelName, uid: String(uid), clientRequest: {} }),
     }
   );
@@ -80,7 +111,7 @@ async function startRecording(userId, sessionId, data) {
     `https://api.agora.io/v1/apps/${AGORA_APP_ID}/cloud_recording/resourceid/${resourceId}/mode/mix/start`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: agoraAuthHeader() },
+      headers: { "Content-Type": "application/json", Authorization: await agoraAuthHeader() },
       body: JSON.stringify({
         cname: channelName,
         uid: String(uid),
@@ -135,7 +166,7 @@ async function stopRecording(userId, sessionId, data) {
     `https://api.agora.io/v1/apps/${AGORA_APP_ID}/cloud_recording/resourceid/${resourceId}/sid/${sid}/mode/mix/stop`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: agoraAuthHeader() },
+      headers: { "Content-Type": "application/json", Authorization: await agoraAuthHeader() },
       body: JSON.stringify({ cname: channelName, uid, clientRequest: {} }),
     }
   );

@@ -1,0 +1,12 @@
+{
+  "accountId": "888245942659",
+  "lambdaRoleArn": "arn:aws:iam::888245942659:role/toriino-lambda-role",
+  "cognitoUserPoolId": "us-east-1_CAiea51iC",
+  "cognitoClientId": "jcpvch4o651070m0a2jvuhh22",
+  "restApiId": "pq8cu94cfd",
+  "apiUrl": "https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod",
+  "region": "us-east-1",
+  "adminPanelUrl": "https://d3gfpgvykn0mv4.cloudfront.net",
+  "adminPanelBucket": "toriino-admin-panel",
+  "adminPanelDistributionId": "E3N458EHRYQINQ"
+}

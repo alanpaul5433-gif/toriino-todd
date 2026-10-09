@@ -1,6 +1,8 @@
 class AppUrl {
-  // TODO: Replace with your actual AWS API Gateway URL after deployment
-  static const String baseUrl = 'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://pq8cu94cfd.execute-api.us-east-1.amazonaws.com/prod',
+  );
 
   // Auth (public - no token required)
   static const String register = '$baseUrl/auth/register';
@@ -15,8 +17,11 @@ class AppUrl {
   // Users
   static const String userProfile = '$baseUrl/users/profile';
   static const String userRole = '$baseUrl/users/role';
-  static const String userAvatar = '$baseUrl/users/avatar';
   static const String deleteAccount = '$baseUrl/users/account';
+  /// Public profile of a teacher/mentor, or (for a teacher/mentor caller who
+  /// teaches them) a student's shared courses and sessions.
+  static String userById(String id) =>
+      '$baseUrl/users/${Uri.encodeComponent(id)}';
 
   // Courses
   static const String courses = '$baseUrl/courses';
@@ -27,6 +32,11 @@ class AppUrl {
   static String courseLesson(String courseId, String lessonId) =>
       '$baseUrl/courses/$courseId/lessons/$lessonId';
   static String enrollCourse(String id) => '$baseUrl/courses/$id/enroll';
+  /// Marks the caller's own active enrollment completed (idempotent).
+  static String completeCourse(String id) => '$baseUrl/courses/$id/complete';
+  /// Pre-signed (300 s) GET URLs for a lesson's private video/material.
+  static String lessonMedia(String courseId, String lessonId) =>
+      '$baseUrl/courses/$courseId/lessons/$lessonId/media';
 
   // Sessions
   static const String sessions = '$baseUrl/sessions';
@@ -39,7 +49,6 @@ class AppUrl {
   static String mentorAvailability(String id) =>
       '$baseUrl/mentors/$id/availability';
   static const String updateAvailability = '$baseUrl/mentors/availability';
-  static const String mentorIntroVideo = '$baseUrl/mentors/intro-video';
 
   // Reviews
   static const String reviews = '$baseUrl/reviews';
@@ -49,15 +58,24 @@ class AppUrl {
   // Notifications
   static const String notifications = '$baseUrl/notifications';
   static String markNotificationRead(String sortKey) =>
-      '$baseUrl/notifications/$sortKey/read';
+      '$baseUrl/notifications/${Uri.encodeComponent(sortKey)}/read';
   static const String registerFcmToken = '$baseUrl/notifications/fcm-token';
 
   // Earnings
   static const String earnings = '$baseUrl/earnings';
   static const String earningsHistory = '$baseUrl/earnings/history';
 
+  // Upload — pre-signed S3 PUT URL (P2-2)
+  static const String uploadUrl = '$baseUrl/upload-url';
+
   // Agora token (server-generated, never on client)
   static const String agoraToken = '$baseUrl/sessions/token';
+
+  // Session recording
+  static String startRecording(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/recording/start';
+  static String stopRecording(String sessionId) =>
+      '$baseUrl/sessions/$sessionId/recording/stop';
 
   // AI — session intelligence
   static String sessionSummary(String sessionId) =>
@@ -73,4 +91,21 @@ class AppUrl {
 
   // AI — user memory (progress, activity, preferences)
   static String aiMemory(String userId) => '$baseUrl/ai/memory/$userId';
+
+  // Wallet
+  static const String walletBalance = '$baseUrl/wallet';
+
+  // Payments — server quotes and Stripe intents (the app never computes money)
+  static const String paymentsQuote = '$baseUrl/payments/quote';
+  static const String paymentsCreateIntent = '$baseUrl/payments/create-intent';
+
+  // Subscriptions — plans, prices and premium state are all server-owned.
+  static const String subscriptions = '$baseUrl/subscriptions';
+  static const String subscriptionPlans = '$baseUrl/subscriptions/plans';
+  static const String subscriptionMe = '$baseUrl/subscriptions/me';
+  static const String subscriptionCancel = '$baseUrl/subscriptions/cancel';
+
+  // Student search (mentor 1-on-1 session scheduling)
+  static String studentSearch(String query) =>
+      '$baseUrl/students/search?q=${Uri.encodeQueryComponent(query)}';
 }

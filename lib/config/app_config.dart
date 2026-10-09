@@ -1,29 +1,46 @@
-// ⚠️  SECURITY RULE
-// - agoraAppCertificate  → SERVER ONLY  (never ship in the app binary)
-// - stripePublishableKey → Flutter app  (safe to expose)
-// - stripeSecretKey      → Lambda env var ONLY (never in Flutter)
-// - geminiApiKey         → Flutter app or Lambda (treat as semi-sensitive)
+// ── Compile-time config (injected via --dart-define at build time) ──────────
+//
+// Production builds MUST supply all three via --dart-define.
+// Dev builds use the defaults from tool/run_dev.ps1 which loads .env.local.
+//
+// Security constraints:
+//   - GEMINI_API_KEY   → also required by Lambda; treat as semi-sensitive
+//   - AGORA_APP_ID     → public by design (Agora App Certificate is server-only)
+//   - STRIPE_PK        → publishable key, safe to embed; secret key is Lambda-only
+//
+// OWNER: revoke the old hardcoded Gemini key (it was in git history).
+//        Generate a new key at aistudio.google.com and put it in Lambda env +
+//        pass it here via --dart-define=GEMINI_API_KEY=<newkey>.
 
 class AppConfig {
   // ── Agora (Live Video/Audio) ─────────────────────────
-  static const String agoraAppId = '82cc37a56aad47eea0cb717dc33b9ccd';
-
-  // App Certificate stays on the server — used only by Lambda when
-  // generating short-lived RTC tokens for each session.
-  // DO NOT call this from Flutter UI code.
-  // ignore: unused_field
-  static const String _agoraAppCertificate = 'd60f8e3cb2ff4ad1ad379b8d8f08ceac';
+  static const String agoraAppId = String.fromEnvironment(
+    'AGORA_APP_ID',
+    defaultValue: '',
+  );
 
   // ── Gemini / Google AI ───────────────────────────────
-  static const String geminiApiKey =
-      'AQ.Ab8RN6IssmO0dUGsc9mzTFYoXA3cJA4YyZSExhuLRQjwiXHTDQ';
+  // AiTutorViewmodel routes through the Lambda proxy (ai-chat) and does NOT
+  // use this key.  GeminiService (session summaries, AI twins) still reads it
+  // directly — supply it via --dart-define for those features to work.
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
 
   // ── Stripe Payments ──────────────────────────────────
-  // publishableKey: safe to embed in the Flutter app.
-  static const String stripePublishableKey =
-      'pk_live_51Tk9KTDmusg9yOi4wpo9nGm2xvqUHJOReOx4bEgpDusnKVJzRsztS0QbX7dZitjttnuz87vVlYAnlXKwmLjWvP5Q00KGZppckt';
+  // Publishable key: safe to embed in the Flutter app.
+  // Secret key is NEVER stored here — Lambda env var STRIPE_SECRET_KEY only.
+  static const String stripePublishableKey = String.fromEnvironment(
+    'STRIPE_PK',
+    defaultValue: '',
+  );
 
-  // Secret key is NEVER stored here. It lives in Lambda as the
-  // environment variable STRIPE_SECRET_KEY.
-  // Account ID: acct_1Tk9kTDmusg9y0i4
+  // ── Support contact ─────────────────────────────────
+  // Shown on Help & Support. There is no ticket backend; until the client provides the
+  // address (--dart-define=SUPPORT_EMAIL=...), the screen says support is not available yet.
+  static const String supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: '',
+  );
 }

@@ -1,0 +1,692 @@
+import 'dart:async';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:toriino_todd/repository/session_repo.dart';
+import 'package:toriino_todd/services/analytics_service.dart';
+import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/services/agora_service.dart';
+import 'package:toriino_todd/services/session_intelligence_service.dart';
+import 'package:toriino_todd/view/live_session/session_summary_screen.dart';
+
+class LiveSessionScreen extends StatefulWidget {
+  final String sessionId;
+  final bool isMentor;
+  final String subjectArea;
+
+  const LiveSessionScreen({
+    required this.sessionId,
+    this.isMentor = true,
+    this.subjectArea = 'general',
+    super.key,
+  });
+
+  @override
+  State<LiveSessionScreen> createState() => _LiveSessionScreenState();
+}
+
+class _LiveSessionScreenState extends State<LiveSessionScreen> {
+  final _repo = SessionRepo();
+  late final SessionIntelligenceService _intelligence;
+
+  bool _joined = false;
+  bool _loading = true;
+  String? _error;
+
+  int? _remoteUid;
+  bool _micMuted = false;
+  bool _camOff = false;
+  bool _recordingEnabled = false;
+  bool _recordingActive = false;
+
+  int _elapsedSeconds = 0;
+  Timer? _timer;
+  String? _agoraToken;
+
+  // In-call chat / notes (Agora data stream). Every line sent or received
+  // is recorded as a transcript segment for the AI session summary.
+  final List<_ChatLine> _chat = [];
+  final TextEditingController _chatCtrl = TextEditingController();
+  final ScrollController _chatScroll = ScrollController();
+  bool _chatOpen = false;
+  int _unreadChat = 0;
+
+  String get _localName => widget.isMentor ? 'Mentor' : 'Student';
+  String get _remoteName => widget.isMentor ? 'Student' : 'Mentor';
+
+  @override
+  void initState() {
+    super.initState();
+    _intelligence = SessionIntelligenceService(
+      sessionId: widget.sessionId,
+      subjectArea: widget.subjectArea,
+    );
+    if (widget.isMentor) {
+      // showDialog needs a mounted context with inherited widgets, which initState does not
+      // have yet: calling it here threw, so the host's session never started (UAT H6).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showConsentDialog();
+      });
+    } else {
+      _start();
+    }
+  }
+
+  Future<void> _showConsentDialog() async {
+    final consent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Session Recording', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600)),
+        content: Text(
+          'Would you like to enable AI-powered session recording?\n\n'
+          'This records the session, generates a transcript, and creates an AI summary with action items and key insights.\n\n'
+          'Participants will be notified that recording is active.',
+          style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Skip', style: GoogleFonts.dmSans(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColor.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Enable Recording', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _recordingEnabled = consent ?? false);
+    _start();
+  }
+
+  /// True when the error overlay should offer "Open Settings" (permission permanently denied).
+  bool _needsSettings = false;
+
+  /// One permission flow at a time, even if _start() were triggered twice.
+  static Future<String?>? _permissionFlow;
+  static int _permissionRounds = 0;
+
+  /// Camera and microphone are runtime permissions on Android 6+; without them Agora cannot
+  /// open the devices. Returns a user-facing reason when they are not granted, else null.
+  Future<String?> _ensureMediaPermissions() {
+    return _permissionFlow ??= _requestMediaPermissions().whenComplete(() => _permissionFlow = null);
+  }
+
+  Future<String?> _requestMediaPermissions() async {
+    // Ask one permission at a time and stop at the first refusal, so a denial never leads to
+    // a second round of prompts (UAT Round 5 R5-L1).
+    for (final permission in [Permission.camera, Permission.microphone]) {
+      var status = await permission.status;
+      if (status.isGranted) continue;
+      _permissionRounds++;
+      debugPrint('[Permissions] request #$_permissionRounds: $permission (was $status)');
+      status = await permission.request();
+      debugPrint('[Permissions] $permission -> $status');
+      if (status.isGranted) continue;
+      // Android stops showing the dialog after repeated denials; the plugin may still report
+      // plain "denied". No rationale after a refusal means the system will not ask again.
+      final blocked = status.isPermanentlyDenied ||
+          status.isRestricted ||
+          !(await permission.shouldShowRequestRationale);
+      final what = permission == Permission.camera ? 'Camera' : 'Microphone';
+      if (blocked) {
+        _needsSettings = true;
+        return '$what access is turned off for Torino. Turn on Camera and Microphone in '
+            'Settings › Apps › Torino › Permissions, then join again.';
+      }
+      return 'Torino needs camera and microphone access for live sessions. '
+          'Allow both when asked, then join again.';
+    }
+    return null;
+  }
+
+  /// Agora errors that end the call, as a message with the code; null for non-fatal ones.
+  static String? _fatalAgoraError(ErrorCodeType code, String msg) {
+    final detail = msg.isEmpty ? '' : ' ($msg)';
+    switch (code) {
+      case ErrorCodeType.errInvalidToken:
+        return 'Could not join: the session token was rejected (Agora error 110)$detail.';
+      case ErrorCodeType.errTokenExpired:
+        return 'Could not join: the session token has expired (Agora error 109). Please rejoin.';
+      case ErrorCodeType.errInvalidAppId:
+        return 'Video calls are not configured correctly (Agora error 101: invalid App ID).';
+      case ErrorCodeType.errInvalidChannelName:
+        return 'Could not join: invalid session channel (Agora error 102).';
+      case ErrorCodeType.errJoinChannelRejected:
+        return 'Could not join the session (Agora error 17: join rejected).';
+      default:
+        debugPrint('[Agora] non-fatal error ${code.value()}: $msg');
+        return null;
+    }
+  }
+
+  Future<void> _start() async {
+    try {
+      final denied = await _ensureMediaPermissions();
+      if (denied != null) {
+        if (mounted) setState(() { _loading = false; _error = denied; });
+        return;
+      }
+
+      // A session is a two-way call: both sides publish camera and microphone.
+      final data = await _repo.fetchAgoraToken(
+        widget.sessionId,
+        role: 'publisher',
+      );
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) {
+        throw Exception('Agora token missing from server response');
+      }
+      _agoraToken = token;
+
+      // Handlers can only be registered on an initialized engine.
+      await AgoraService.initialize();
+      AgoraService.registerEventHandlers(
+        onUserJoined: (conn, uid, elapsed) {
+          if (mounted) setState(() => _remoteUid = uid);
+        },
+        onUserOffline: (conn, uid, reason) {
+          if (mounted) setState(() => _remoteUid = null);
+        },
+        onError: (code, msg) {
+          final fatal = _fatalAgoraError(code, msg);
+          if (fatal != null && mounted) setState(() { _loading = false; _error = fatal; });
+        },
+        onChatMessage: _onRemoteChat,
+      );
+
+      await AgoraService.joinChannel(
+        token: token,
+        channelName: widget.sessionId,
+        uid: 0,
+        isBroadcaster: true,
+      );
+
+      if (mounted) {
+        setState(() {
+          _joined = true;
+          _loading = false;
+        });
+        AnalyticsService.logSessionJoin(
+          sessionId: widget.sessionId,
+          isMentor: widget.isMentor,
+        );
+        _intelligence.onSessionStart();
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) setState(() => _elapsedSeconds++);
+        });
+        if (_recordingEnabled && widget.isMentor) {
+          _startCloudRecording();
+        }
+      }
+    } catch (e) {
+      final reason = e.toString().replaceFirst(RegExp(r'^Exception: '), '');
+      if (mounted) setState(() { _loading = false; _error = 'Could not start the session: $reason'; });
+    }
+  }
+
+  void _onRemoteChat(int remoteUid, String text) {
+    if (!mounted || text.trim().isEmpty) return;
+    _intelligence.addSegment(
+      speakerId: 'uid:$remoteUid',
+      speakerName: _remoteName,
+      text: text,
+    );
+    setState(() {
+      _chat.add(_ChatLine(speaker: _remoteName, text: text.trim(), mine: false));
+      if (!_chatOpen) _unreadChat++;
+    });
+    _scrollChatToEnd();
+  }
+
+  Future<void> _sendChat() async {
+    final text = _chatCtrl.text.trim();
+    if (text.isEmpty || !_joined) return;
+    _chatCtrl.clear();
+    final line = _ChatLine(speaker: _localName, text: text, mine: true);
+    setState(() => _chat.add(line));
+    _intelligence.addSegment(
+      speakerId: widget.isMentor ? 'mentor' : 'student',
+      speakerName: _localName,
+      text: text,
+    );
+    _scrollChatToEnd();
+    final delivered = await AgoraService.sendChatMessage(text);
+    if (!delivered && mounted) setState(() => line.delivered = false);
+  }
+
+  void _scrollChatToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScroll.hasClients) {
+        _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
+      }
+    });
+  }
+
+  Future<void> _startCloudRecording() async {
+    try {
+      await _repo.startRecording(widget.sessionId, agoraToken: _agoraToken ?? '');
+      if (mounted) setState(() => _recordingActive = true);
+    } catch (_) { /* recording is best-effort */ }
+  }
+
+  Future<void> _endCall() async {
+    _timer?.cancel();
+    final transcript = _intelligence.onSessionEnd();
+
+    if (_recordingActive) {
+      try { await _repo.stopRecording(widget.sessionId); } catch (_) {}
+      setState(() => _recordingActive = false);
+    }
+
+    await AgoraService.leaveChannel();
+
+    if (!mounted) return;
+
+    // If mentor recorded, navigate to summary screen; otherwise just pop
+    if (widget.isMentor && _intelligence.hasTranscript) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => SessionSummaryScreen(
+            sessionId: widget.sessionId,
+            transcript: transcript,
+            subjectArea: widget.subjectArea,
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  String get _timeLabel {
+    final m = (_elapsedSeconds ~/ 60).toString().padLeft(2, '0');
+    final s = (_elapsedSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _chatCtrl.dispose();
+    _chatScroll.dispose();
+    AgoraService.leaveChannel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Remote video (full screen)
+          if (_joined && _remoteUid != null && AgoraService.engine != null)
+            AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: AgoraService.engine!,
+                canvas: VideoCanvas(uid: _remoteUid),
+                connection: RtcConnection(channelId: widget.sessionId),
+              ),
+            )
+          else
+            _waitingPlaceholder(),
+
+          // Local video (picture-in-picture, top-right)
+          if (_joined && !_camOff && AgoraService.engine != null)
+            Positioned(
+              top: 52,
+              right: 16,
+              width: 110,
+              height: 160,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: AgoraVideoView(
+                  controller: VideoViewController(
+                    rtcEngine: AgoraService.engine!,
+                    canvas: const VideoCanvas(uid: 0),
+                  ),
+                ),
+              ),
+            ),
+
+          // Timer badge + recording indicator (top-left)
+          if (_joined)
+            Positioned(
+              top: 52,
+              left: 16,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _timeLabel,
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (_recordingActive) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.circle, color: Colors.white, size: 8),
+                          const SizedBox(width: 4),
+                          Text('REC', style: GoogleFonts.dmSans(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // Loading overlay
+          if (_loading)
+            Container(
+              color: Colors.black87,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Connecting...',
+                      style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Error overlay
+          if (_error != null)
+            Container(
+              color: Colors.black87,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 20),
+                      if (_needsSettings)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColor.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () => openAppSettings(),
+                          child: Text('Open Settings', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                        ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text('Go Back', style: GoogleFonts.dmSans(color: AppColor.red)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Chat / notes panel
+          if (_joined && _chatOpen) _chatPanel(),
+
+          // Control bar (bottom)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _controlBtn(
+                  icon: _micMuted ? Icons.mic_off : Icons.mic,
+                  label: _micMuted ? 'Unmute' : 'Mute',
+                  onTap: () {
+                    setState(() => _micMuted = !_micMuted);
+                    AgoraService.muteLocalAudio(_micMuted);
+                  },
+                ),
+                const SizedBox(width: 20),
+                // End call button (larger, red)
+                GestureDetector(
+                  onTap: _endCall,
+                  child: Container(
+                    width: 68,
+                    height: 68,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.call_end, color: Colors.white, size: 30),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                _controlBtn(
+                  icon: _camOff ? Icons.videocam_off : Icons.videocam,
+                  label: _camOff ? 'Cam On' : 'Cam Off',
+                  onTap: () {
+                    setState(() => _camOff = !_camOff);
+                    AgoraService.muteLocalVideo(_camOff);
+                  },
+                ),
+                const SizedBox(width: 20),
+                _controlBtn(
+                  icon: Icons.chat_bubble_outline,
+                  label: _unreadChat > 0 ? 'Chat ($_unreadChat)' : 'Chat',
+                  onTap: () => setState(() {
+                    _chatOpen = !_chatOpen;
+                    if (_chatOpen) _unreadChat = 0;
+                  }),
+                ),
+              ],
+            ),
+          ),
+
+          // Switch camera (top-right below PiP)
+          if (_joined && !_camOff)
+            Positioned(
+              top: 224,
+              right: 16,
+              child: GestureDetector(
+                onTap: AgoraService.switchCamera,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chatPanel() {
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 140,
+      height: 260,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.isMentor
+                          ? 'Chat & notes (used for the AI summary)'
+                          : 'Chat',
+                      style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                    onPressed: () => setState(() => _chatOpen = false),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: _chatScroll,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _chat.length,
+                itemBuilder: (_, i) {
+                  final c = _chat[i];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: '${c.speaker}: ',
+                          style: GoogleFonts.dmSans(
+                            color: c.mine ? AppColor.red : Colors.lightBlueAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text: c.text,
+                          style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13),
+                        ),
+                        if (!c.delivered)
+                          TextSpan(
+                            text: '  (not delivered, kept as a note)',
+                            style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 11),
+                          ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _chatCtrl,
+                      maxLength: 300,
+                      style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendChat(),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        isDense: true,
+                        hintText: 'Type a message or note...',
+                        hintStyle: GoogleFonts.dmSans(color: Colors.white38, fontSize: 13),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendChat,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _waitingPlaceholder() {
+    return Container(
+      color: const Color(0xFF1A1A2E),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 48,
+              backgroundColor: Color(0xFF2A2A4E),
+              child: Icon(Icons.person, color: Colors.white54, size: 48),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _loading ? 'Connecting...' : 'Waiting for participant to join...',
+              style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _controlBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatLine {
+  final String speaker;
+  final String text;
+  final bool mine;
+  bool delivered = true;
+
+  _ChatLine({required this.speaker, required this.text, required this.mine});
+}

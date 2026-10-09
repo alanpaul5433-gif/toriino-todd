@@ -11,6 +11,8 @@ class MentorModel {
   final int? totalStudents;
   final String? introVideoUrl;
   final String? createdAt;
+  final String? experience;
+  final String? language;
 
   MentorModel({
     this.userId,
@@ -25,17 +27,23 @@ class MentorModel {
     this.totalStudents,
     this.introVideoUrl,
     this.createdAt,
+    this.experience,
+    this.language,
   });
 
   factory MentorModel.fromJson(Map<String, dynamic> json) {
     return MentorModel(
-      userId: json['userId'],
+      // GET /mentors returns the mentor's Cognito sub as `mentorId` (the mentors table key);
+      // older payloads used `userId`. Reading only `userId` left it null, so booking and the
+      // profile links failed (UAT Round 4b H2).
+      userId: (json['userId'] ?? json['mentorId'])?.toString(),
       name: json['name'],
       email: json['email'],
       avatarUrl: json['avatarUrl'],
       bio: json['bio'],
-      expertise: json['expertise'] != null
-          ? List<String>.from(json['expertise'])
+      // The mentors table stores these as `specialties`.
+      expertise: (json['expertise'] ?? json['specialties']) != null
+          ? List<String>.from(json['expertise'] ?? json['specialties'])
           : null,
       hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
       rating: (json['rating'] as num?)?.toDouble(),
@@ -43,6 +51,8 @@ class MentorModel {
       totalStudents: json['totalStudents'],
       introVideoUrl: json['introVideoUrl'],
       createdAt: json['createdAt'],
+      experience: json['experience'],
+      language: json['language'],
     );
   }
 
@@ -53,6 +63,8 @@ class MentorModel {
     if (expertise != null) data['expertise'] = expertise;
     if (hourlyRate != null) data['hourlyRate'] = hourlyRate;
     if (introVideoUrl != null) data['introVideoUrl'] = introVideoUrl;
+    if (experience != null) data['experience'] = experience;
+    if (language != null) data['language'] = language;
     return data;
   }
 }
@@ -65,7 +77,7 @@ class MentorListResponse {
 
   factory MentorListResponse.fromJson(Map<String, dynamic> json) {
     return MentorListResponse(
-      mentors: (json['mentors'] as List)
+      mentors: (json['mentors'] as List? ?? [])
           .map((e) => MentorModel.fromJson(e))
           .toList(),
       count: json['count'] ?? 0,

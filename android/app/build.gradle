@@ -2,6 +2,7 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
 }
 
 def keystoreProperties = new Properties()
@@ -29,7 +30,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "torino.torino"
+    namespace "com.torino.todd"
     compileSdk 36
     ndkVersion "28.2.13676358"
 
@@ -47,7 +48,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "torino.torino"
+        applicationId "com.torino.todd"
         minSdkVersion 24
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()

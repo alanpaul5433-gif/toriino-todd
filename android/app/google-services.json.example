@@ -1,0 +1,6 @@
+{
+  "_comment": "OWNER: Replace with your real google-services.json from Firebase console (Project settings → Your apps → Android app → google-services.json). Add android/app/google-services.json to .gitignore.",
+  "project_info": { "project_number": "YOUR_PROJECT_NUMBER", "project_id": "YOUR_PROJECT_ID", "storage_bucket": "YOUR_PROJECT_ID.appspot.com" },
+  "client": [{ "client_info": { "android_client_info": { "package_name": "torino.torino" } }, "api_key": [{ "current_key": "YOUR_API_KEY" }] }],
+  "configuration_version": "1"
+}

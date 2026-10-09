@@ -3,8 +3,11 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:toriino_todd/getx_controllers/advanceddrawercontroller.dart';
 import 'package:toriino_todd/resources/colors/app_colors.dart';
+import 'package:toriino_todd/utils/money.dart';
 import 'package:toriino_todd/utils/responsive.dart';
 import 'package:toriino_todd/view/users/student_view/notification_view.dart';
+import 'package:toriino_todd/viewmodel/controller/teacher/teacher_earnings_viewmodel.dart';
+import 'package:toriino_todd/view/widgets/withdraw_sheet.dart';
 import 'package:toriino_todd/widgets/components/drop_down_text.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -15,6 +18,7 @@ class TeacherEarinigView extends StatelessWidget {
   Widget build(BuildContext context) {
     final CustomDrawerController customDrawerController =
         Get.find<CustomDrawerController>();
+    final TeacherEarningsViewmodel earningsVm = Get.put(TeacherEarningsViewmodel());
     Responsive.init(context);
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
@@ -110,30 +114,42 @@ class TeacherEarinigView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     // Align to right if needed
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColor.red,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Padding(
-                          padding: Responsive.padding(
-                            left: 1.5,
-                            right: 1.5,
-                            top: 0.5,
-                            bottom: 0.5,
+                      // Not inside Obx: rebuilding the button while earnings load could drop a tap, so it
+                      // sometimes needed a second tap (UAT L10). The balance is read when tapped.
+                      Builder(builder: (_) {
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showWithdrawSheet(
+                            context,
+                            availableBalance: earningsVm.rxSummary.value.data?.availableBalance,
                           ),
-                          child: Text(
-                            'Withdraw',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: Responsive.sp(10),
-                              // fontSize: Responsive.textScaleFactor * 12,
-                              fontWeight: FontWeight.w700,
-                              height: 1.80,
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 40),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColor.red,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Padding(
+                              padding: Responsive.padding(
+                                left: 1.5,
+                                right: 1.5,
+                                top: 0.5,
+                                bottom: 0.5,
+                              ),
+                              child: Text(
+                                'Withdraw',
+                                style: GoogleFonts.dmSans(
+                                  color: Colors.white,
+                                  fontSize: Responsive.sp(10),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.80,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                       SortByDropdown(),
                     ],
                   ),
@@ -169,15 +185,20 @@ class TeacherEarinigView extends StatelessWidget {
                                     letterSpacing: -0.20,
                                   ),
                                 ),
-                                Text(
-                                  '\$320.00',
-                                  style: GoogleFonts.rethinkSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 25,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
+                                Obx(() {
+                                  final summary = earningsVm.rxSummary.value.data;
+                                  final amount = summary?.currentMonth.amount;
+                                  if (amount == null) return const SizedBox.shrink();
+                                  return Text(
+                                    formatMoney(amount),
+                                    style: GoogleFonts.rethinkSans(
+                                      color: Colors.white,
+                                      fontSize: Responsive.textScaleFactor * 25,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.30,
+                                    ),
+                                  );
+                                }),
                               ],
                             ),
                           ),
@@ -211,15 +232,19 @@ class TeacherEarinigView extends StatelessWidget {
                                     letterSpacing: -0.20,
                                   ),
                                 ),
-                                Text(
-                                  '\$-120.00',
-                                  style: GoogleFonts.rethinkSans(
-                                    color: Colors.white,
-                                    fontSize: Responsive.textScaleFactor * 25,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.30,
-                                  ),
-                                ),
+                                Obx(() {
+                                  final summary = earningsVm.rxSummary.value.data;
+                                  if (summary == null) return const SizedBox.shrink();
+                                  return Text(
+                                    formatMoney(summary.totalWithdrawn),
+                                    style: GoogleFonts.rethinkSans(
+                                      color: Colors.white,
+                                      fontSize: Responsive.textScaleFactor * 25,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.30,
+                                    ),
+                                  );
+                                }),
                               ],
                             ),
                           ),
@@ -249,7 +274,7 @@ class TeacherEarinigView extends StatelessWidget {
                                 Column(
                                   children: [
                                     Text(
-                                      'Remaining Balance',
+                                      'Available Balance',
                                       style: GoogleFonts.dmSans(
                                         color: Colors.white,
                                         fontSize:
@@ -258,16 +283,20 @@ class TeacherEarinigView extends StatelessWidget {
                                         letterSpacing: -0.20,
                                       ),
                                     ),
-                                    Text(
-                                      '\$540.00',
-                                      style: GoogleFonts.rethinkSans(
-                                        color: Colors.white,
-                                        fontSize:
-                                            Responsive.textScaleFactor * 25,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: -0.30,
-                                      ),
-                                    ),
+                                    Obx(() {
+                                      final summary = earningsVm.rxSummary.value.data;
+                                      final available = summary?.availableBalance;
+                                      if (available == null) return const SizedBox.shrink();
+                                      return Text(
+                                        formatMoney(available),
+                                        style: GoogleFonts.rethinkSans(
+                                          color: Colors.white,
+                                          fontSize: Responsive.textScaleFactor * 25,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: -0.30,
+                                        ),
+                                      );
+                                    }),
                                   ],
                                 ),
                               ],
@@ -290,11 +319,23 @@ class TeacherEarinigView extends StatelessWidget {
                   ),
                   SizedBox(height: Responsive.h(1)),
 
-                  ListView.builder(
+                  Obx(() {
+                    final history = earningsVm.rxHistory.value.data ?? [];
+                    if (history.isEmpty) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(vertical: Responsive.h(2)),
+                        child: Text(
+                          'No earnings history yet.',
+                          style: GoogleFonts.dmSans(color: Colors.white70, fontSize: Responsive.sp(12)),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
-                    itemCount: 10,
+                    itemCount: history.length,
                     itemBuilder: ((context, index) {
+                      final entry = history[index];
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: Row(
@@ -335,7 +376,7 @@ class TeacherEarinigView extends StatelessWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'Session with Jamie Dunn ',
+                                                entry.periodKey ?? '',
                                                 style: GoogleFonts.dmSans(
                                                   color: Colors.white,
                                                   fontSize:
@@ -346,7 +387,7 @@ class TeacherEarinigView extends StatelessWidget {
                                                 ),
                                               ),
                                               Text(
-                                                '1hr',
+                                                '${entry.sessions ?? 0} sessions',
                                                 style: GoogleFonts.dmSans(
                                                   color: Colors.white,
                                                   fontSize:
@@ -361,8 +402,9 @@ class TeacherEarinigView extends StatelessWidget {
                                           ),
                                         ],
                                       ),
+                                      if (entry.amount != null)
                                       Text(
-                                        '-\$130',
+                                        formatMoney(entry.amount!),
                                         textAlign: TextAlign.right,
                                         style: GoogleFonts.rethinkSans(
                                           color: Colors.white,
@@ -381,7 +423,8 @@ class TeacherEarinigView extends StatelessWidget {
                         ),
                       );
                     }),
-                  ),
+                  );
+                  }),
                 ],
               ),
             ],
