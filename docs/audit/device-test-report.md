@@ -914,3 +914,17 @@ Result: **exit 0, 20 WORKS · 0 BROKEN · 8 BLOCKED**. One run showed #28 BROKEN
 - **Open:**
   - M6 data clean-up (needs owner approval)
   - R5-L3 to confirm on the device the next time a course is published
+
+---
+
+## Internal beta 0.9.0 — smoke test (2026-10-09)
+
+**Build:** `0.9.0+1` (commit `87310a1`): release, arm64, signed with the local release key, 247,984,393 bytes. SHA-256 `09e740de0918330c0a03930c5524934c984998a6eecc42b82f1fc0e5104c738e`. Kept outside the repo as `torino-internal-beta-0.9.0.apk`. GATE-01 secret scan clean (564 files).
+**Device:** Samsung SM-A075F (R8VL2015Y6J), Android 16. The debug build was uninstalled; the beta (not debuggable) was installed and left installed.
+
+| Check | Result | Evidence |
+|---|---|---|
+| App opens → login screen, no crash-buffer entries | PASS | [01](evidence/beta/01_login_screen.png) |
+| Sign-up screen (name, email, phone, password, Terms, Sign Up) | PASS | [02](evidence/beta/02_signup_screen.png) |
+| Forgot Password sheet sits above the navigation bar (L4) | PASS | [03](evidence/beta/03_l4_reset_sheet.png) |
+| Role screen (Student / Mentor / Teacher) | Skipped by the owner. Shown after email verification; covered by the Round 6 mentor sign-up | — |
